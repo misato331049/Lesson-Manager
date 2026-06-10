@@ -318,6 +318,61 @@ function closeModal(){
   if(overlay) overlay.style.display = 'none'
 }
 
+
+/* ===== 生徒編集モーダル ===== */
+function updateEditTimeOptions(){
+  const day=document.getElementById('edit-day').value
+  const slots=day==='日'?SUN_SLOTS.filter(x=>!x.isBreak).map(x=>x.slot):day==='金'?FRI_SLOTS:THU_SAT_SLOTS
+  const curTime=document.getElementById('edit-time').value
+  document.getElementById('edit-time').innerHTML=slots.map(s=>`<option ${s===curTime?'selected':''}>${s}</option>`).join('')
+  const opts=getCourseOptions(day)
+  const curCourse=document.getElementById('edit-course').value
+  document.getElementById('edit-course').innerHTML=opts.map(o=>`<option value="${o.v}" ${String(o.v)===curCourse?'selected':''}>${o.l}</option>`).join('')
+}
+
+function openEditModal(id){
+  const s=students.find(x=>x.id===id)
+  if(!s) return
+  document.getElementById('edit-student-id').value=s.id
+  document.getElementById('edit-name').value=s.name
+  document.getElementById('edit-kana').value=s.kana||''
+  document.getElementById('edit-day').value=s.day
+  document.getElementById('edit-tel').value=s.tel||''
+  updateEditTimeOptions()
+  document.getElementById('edit-time').value=s.time
+  document.getElementById('edit-course').value=String(s.course)
+  const modal=document.getElementById('edit-student-modal')
+  modal.style.display='flex'
+}
+
+function closeEditModal(){
+  document.getElementById('edit-student-modal').style.display='none'
+}
+
+async function saveEditStudent(){
+  const id=document.getElementById('edit-student-id').value
+  const name=document.getElementById('edit-name').value.trim()
+  const kana=document.getElementById('edit-kana').value.trim()
+  const day=document.getElementById('edit-day').value
+  const time=document.getElementById('edit-time').value
+  const course=parseInt(document.getElementById('edit-course').value)
+  const tel=document.getElementById('edit-tel').value.trim()
+  if(!name){toast('氏名を入力してください',true);return}
+  const s=students.find(x=>x.id===id)
+  if(!s) return
+  // ローカル更新
+  s.name=name;s.kana=kana;s.day=day;s.time=time;s.course=course;s.tel=tel
+  // 月3回や金・日なら選択日程を自動更新
+  if(course===3||day==='金'||day==='日') s.selected=[...lessonDates[day]||[]]
+  // Supabase更新
+  if(sb){
+    await sb.from('students').update({name,kana,day,time,course,tel}).eq('id',id)
+  }
+  closeEditModal()
+  renderStudentList()
+  toast(name+'さんの情報を更新しました')
+}
+
 /* ===== CALENDAR ===== */
 .cal-wrap{margin-bottom:14px}
 .cal-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
@@ -439,11 +494,11 @@ function closeModal(){
      ====================================================== -->
 <script>
 // 1. Supabaseダッシュボード → Project Settings → API から取得
-const SUPABASE_URL = 'https://gdsrcbqmzcakzldizsrv.supabase.co'        // 例: https://xxxx.supabase.co
-const SUPABASE_ANON_KEY = 'sb_publishable_1kvfIoWeos6iH0N1N3W15g_gqf-Z8Aj'  // 例: eyJhbGc...
+const SUPABASE_URL = 'YOUR_SUPABASE_URL'        // 例: https://xxxx.supabase.co
+const SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY'  // 例: eyJhbGc...
 
 // 2. 講師用パスワード（生徒には教えないでください）
-const TEACHER_PASSWORD = 'LessonManager3310419'
+const TEACHER_PASSWORD = 'teacher1234'
 </script>
 <!-- ====================================================== -->
 
@@ -560,7 +615,16 @@ const TEACHER_PASSWORD = 'LessonManager3310419'
     <div id="s-course-note" style="font-size:11px;color:var(--text2);margin-bottom:10px"></div>
     <button class="btn btn-primary" onclick="addStudent()"><i class="ti ti-plus"></i> 登録する</button>
   </div>
-  <div class="card"><div class="card-title">登録済み生徒</div><div id="student-list"><div class="loading"><div class="spinner"></div>読み込み中...</div></div></div>
+  <div class="card">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+      <div class="card-title" style="margin-bottom:0">登録済み生徒</div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <input id="student-search" placeholder="名前で検索..." oninput="filterStudents()" style="width:180px;padding:5px 10px;font-size:12px">
+        <span id="student-count" style="font-size:11px;color:var(--text2)"></span>
+      </div>
+    </div>
+    <div id="student-list"><div class="loading"><div class="spinner"></div>読み込み中...</div></div>
+  </div>
 </div>
 
 <!-- TRANSFER -->
@@ -1204,18 +1268,37 @@ function updateCourseOptions(){
 }
 function renderStudentList(){
   const el=document.getElementById('student-list')
-  if(!students.length){el.innerHTML='<div style="color:var(--text3);font-size:12px;padding:8px 0">まだ登録されていません</div>';return}
-  el.innerHTML=students.map((s,i)=>{
-    const[bg,fg]=AVATAR_COLORS[i%AVATAR_COLORS.length]
+  const searchEl=document.getElementById('student-search')
+  const countEl=document.getElementById('student-count')
+  const query=searchEl?searchEl.value.trim().toLowerCase():''
+  const DAY_ORDER={木:0,金:1,土:2,日:3}
+  let sorted=[...students].sort((a,b)=>{
+    if(DAY_ORDER[a.day]!==DAY_ORDER[b.day]) return DAY_ORDER[a.day]-DAY_ORDER[b.day]
+    return a.time.localeCompare(b.time)
+  })
+  if(query) sorted=sorted.filter(s=>s.name.toLowerCase().includes(query)||(s.kana&&s.kana.toLowerCase().includes(query)))
+  if(countEl) countEl.textContent=sorted.length+'名'
+  if(!sorted.length){
+    el.innerHTML=query
+      ?`<div style="color:var(--text3);font-size:12px;padding:8px 0">「${query}」に一致する生徒が見つかりません</div>`
+      :'<div style="color:var(--text3);font-size:12px;padding:8px 0">まだ登録されていません</div>'
+    return
+  }
+  const avatarColors=['#E6F1FB:#0C447C','#EAF3DE:#27500A','#FAEEDA:#633806','#EEEDFE:#3C3489','#FCEBEB:#791F1F']
+  el.innerHTML=sorted.map((s,i)=>{
+    const[bg,fg]=avatarColors[i%avatarColors.length].split(':')
     return`<div class="srow">
       <div class="avatar" style="background:${bg};color:${fg}">${initials(s.name)}</div>
       <div style="flex:1"><div style="font-weight:600">${s.name} <span style="font-size:11px;color:var(--text2);font-weight:400">${s.kana||''}</span></div>
       <div style="font-size:11px;color:var(--text2)">${s.day}曜 ${s.time} / 月${s.course}回 / ${s.tel||''}</div></div>
       <span class="badge ${s.course===3?'b-green':'b-blue'}">月${s.course}回</span>
-      <button class="btn btn-sm" style="color:var(--red);border-color:#F7C1C1;margin-left:6px" onclick="deleteStudent('${s.id}')"><i class="ti ti-trash"></i></button>
+      <button class="btn btn-sm" style="margin-left:6px" onclick="openEditModal('${s.id}')"><i class="ti ti-edit"></i></button>
+      <button class="btn btn-sm" style="color:var(--red);border-color:#F7C1C1;margin-left:4px" onclick="deleteStudent('${s.id}')"><i class="ti ti-trash"></i></button>
     </div>`
   }).join('')
 }
+function filterStudents(){ renderStudentList() }
+async function addStudent
 async function addStudent(){
   const name=document.getElementById('s-name').value.trim()
   if(!name){toast('氏名を入力してください',true);return}
@@ -1593,6 +1676,61 @@ function closeModal(){
   if(overlay) overlay.style.display = 'none'
 }
 
+
+/* ===== 生徒編集モーダル ===== */
+function updateEditTimeOptions(){
+  const day=document.getElementById('edit-day').value
+  const slots=day==='日'?SUN_SLOTS.filter(x=>!x.isBreak).map(x=>x.slot):day==='金'?FRI_SLOTS:THU_SAT_SLOTS
+  const curTime=document.getElementById('edit-time').value
+  document.getElementById('edit-time').innerHTML=slots.map(s=>`<option ${s===curTime?'selected':''}>${s}</option>`).join('')
+  const opts=getCourseOptions(day)
+  const curCourse=document.getElementById('edit-course').value
+  document.getElementById('edit-course').innerHTML=opts.map(o=>`<option value="${o.v}" ${String(o.v)===curCourse?'selected':''}>${o.l}</option>`).join('')
+}
+
+function openEditModal(id){
+  const s=students.find(x=>x.id===id)
+  if(!s) return
+  document.getElementById('edit-student-id').value=s.id
+  document.getElementById('edit-name').value=s.name
+  document.getElementById('edit-kana').value=s.kana||''
+  document.getElementById('edit-day').value=s.day
+  document.getElementById('edit-tel').value=s.tel||''
+  updateEditTimeOptions()
+  document.getElementById('edit-time').value=s.time
+  document.getElementById('edit-course').value=String(s.course)
+  const modal=document.getElementById('edit-student-modal')
+  modal.style.display='flex'
+}
+
+function closeEditModal(){
+  document.getElementById('edit-student-modal').style.display='none'
+}
+
+async function saveEditStudent(){
+  const id=document.getElementById('edit-student-id').value
+  const name=document.getElementById('edit-name').value.trim()
+  const kana=document.getElementById('edit-kana').value.trim()
+  const day=document.getElementById('edit-day').value
+  const time=document.getElementById('edit-time').value
+  const course=parseInt(document.getElementById('edit-course').value)
+  const tel=document.getElementById('edit-tel').value.trim()
+  if(!name){toast('氏名を入力してください',true);return}
+  const s=students.find(x=>x.id===id)
+  if(!s) return
+  // ローカル更新
+  s.name=name;s.kana=kana;s.day=day;s.time=time;s.course=course;s.tel=tel
+  // 月3回や金・日なら選択日程を自動更新
+  if(course===3||day==='金'||day==='日') s.selected=[...lessonDates[day]||[]]
+  // Supabase更新
+  if(sb){
+    await sb.from('students').update({name,kana,day,time,course,tel}).eq('id',id)
+  }
+  closeEditModal()
+  renderStudentList()
+  toast(name+'さんの情報を更新しました')
+}
+
 /* ===== CALENDAR ===== */
 function renderStudentCalendar(studentId){
   const s = students.find(x=>x.id===studentId)
@@ -1733,6 +1871,35 @@ if(isStudentMode){
       <span id="popup-time"></span>
     </div>
     <button class="lesson-popup-close" onclick="closeLessonPopup()">閉じる</button>
+  </div>
+</div>
+
+<!-- 生徒編集モーダル -->
+<div id="edit-student-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:2000;display:none;align-items:center;justify-content:center">
+  <div style="background:var(--surface);border-radius:var(--radius);padding:22px 24px;width:360px;box-shadow:0 8px 32px rgba(0,0,0,.2)">
+    <div style="font-size:15px;font-weight:600;margin-bottom:14px;display:flex;align-items:center;gap:8px"><i class="ti ti-edit" style="color:var(--blue)"></i> 生徒情報を編集</div>
+    <input type="hidden" id="edit-student-id">
+    <div class="form-row" style="margin-bottom:10px">
+      <div class="form-group"><div class="lbl">氏名</div><input id="edit-name" placeholder="山田 花子"></div>
+      <div class="form-group"><div class="lbl">ふりがな</div><input id="edit-kana" placeholder="やまだ はなこ"></div>
+    </div>
+    <div class="form-row" style="margin-bottom:10px">
+      <div class="form-group"><div class="lbl">曜日</div>
+        <select id="edit-day" onchange="updateEditTimeOptions()">
+          <option value="木">木曜日</option><option value="金">金曜日</option>
+          <option value="土">土曜日</option><option value="日">日曜日</option>
+        </select>
+      </div>
+      <div class="form-group"><div class="lbl">時間</div><select id="edit-time"></select></div>
+    </div>
+    <div class="form-row" style="margin-bottom:10px">
+      <div class="form-group"><div class="lbl">コース</div><select id="edit-course"></select></div>
+      <div class="form-group"><div class="lbl">連絡先</div><input id="edit-tel" placeholder="090-0000-0000"></div>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:14px">
+      <button class="btn btn-primary" style="flex:1" onclick="saveEditStudent()"><i class="ti ti-device-floppy"></i> 保存する</button>
+      <button class="btn" onclick="closeEditModal()">キャンセル</button>
+    </div>
   </div>
 </div>
 </body>
