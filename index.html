@@ -144,6 +144,7 @@ input:disabled,select:disabled,textarea:disabled{opacity:.5;cursor:not-allowed;b
 .loading{display:flex;align-items:center;justify-content:center;padding:40px;color:var(--text3);font-size:13px;gap:8px}
 .spinner{width:16px;height:16px;border:2px solid var(--border);border-top-color:var(--blue);border-radius:50%;animation:spin .6s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
+.ti-refresh{display:inline-block}
 
 /* ===== SUPABASE設定バナー ===== */
 .setup-banner{background:var(--amber-light);border:1px solid #FAC775;border-radius:var(--radius);padding:16px 20px;margin-bottom:20px}
@@ -470,6 +471,24 @@ async function cancelRequest(studentId, requestId, p){
   renderPortalAbsent(s,p)
   renderDashboard()
   toast('申請を取り消しました')
+}
+
+
+/* ===== ページ更新 ===== */
+async function reloadPage(){
+  const btn = document.querySelector('.ti-refresh')
+  if(btn) btn.style.animation='spin .6s linear infinite'
+  await loadLessonDates()
+  await loadStudents()
+  const activeNav = document.querySelector('.nav-item.active')
+  const pageId = activeNav?.id?.replace('n-','')
+  if(pageId==='schedule-thu-sat') renderScheduleByPage('schedule-thu-sat')
+  else if(pageId==='schedule-fri') renderScheduleByPage('schedule-fri')
+  else if(pageId==='schedule-sun') renderScheduleByPage('schedule-sun')
+  else if(pageId==='dashboard') renderDashboard()
+  else if(pageId==='transfer-admin') renderTransferRequests()
+  if(btn) btn.style.animation=''
+  toast('更新しました')
 }
 
 /* ===== CALENDAR ===== */
@@ -1085,6 +1104,8 @@ function setTopbar(id){
     acts.innerHTML=`<select id="month-sel" onchange="changeMonth(this.value)" style="font-size:12px;padding:5px 8px;width:auto">${buildMonthSelect()}</select>`
   } else if(id==='student-portal'){
     acts.innerHTML=`<select id="sp-month-sel" onchange="changeStudentMonth(this.value)" style="font-size:12px;padding:5px 8px;width:auto">${buildMonthSelect()}</select>`
+  } else if(id==='dashboard'||id==='transfer-admin'||id==='schedule-thu-sat'||id==='schedule-fri'||id==='schedule-sun'){
+    acts.innerHTML=`<button class="btn btn-sm" onclick="reloadPage()"><i class="ti ti-refresh"></i> 更新</button>`
   } else {
     acts.innerHTML=''
   }
@@ -2080,6 +2101,24 @@ async function cancelRequest(studentId, requestId, p){
   renderPortalAbsent(s,p)
   renderDashboard()
   toast('申請を取り消しました')
+}
+
+
+/* ===== ページ更新 ===== */
+async function reloadPage(){
+  const btn = document.querySelector('.ti-refresh')
+  if(btn) btn.style.animation='spin .6s linear infinite'
+  await loadLessonDates()
+  await loadStudents()
+  const activeNav = document.querySelector('.nav-item.active')
+  const pageId = activeNav?.id?.replace('n-','')
+  if(pageId==='schedule-thu-sat') renderScheduleByPage('schedule-thu-sat')
+  else if(pageId==='schedule-fri') renderScheduleByPage('schedule-fri')
+  else if(pageId==='schedule-sun') renderScheduleByPage('schedule-sun')
+  else if(pageId==='dashboard') renderDashboard()
+  else if(pageId==='transfer-admin') renderTransferRequests()
+  if(btn) btn.style.animation=''
+  toast('更新しました')
 }
 
 /* ===== CALENDAR ===== */
