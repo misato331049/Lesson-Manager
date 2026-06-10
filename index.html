@@ -152,6 +152,70 @@ input:disabled,select:disabled,textarea:disabled{opacity:.5;cursor:not-allowed;b
 .setup-banner code{background:#fff;border:1px solid #FAC775;border-radius:4px;padding:1px 6px;font-family:monospace;font-size:11px}
 
 
+
+/* ===== 生徒情報ポップアップ（スケジュール表から） ===== */
+function showStudentInfo(e, studentId){
+  e.stopPropagation()
+  if(!studentId) return
+  const s = students.find(x=>x.id===studentId)
+  if(!s) return
+
+  const requests = s.requests || []
+  const absInfo = approvedAbsences.filter(a=>a.studentId===studentId&&a.month===selectedMonth)
+
+  let reqHtml = ''
+  if(requests.length){
+    reqHtml += `<div style="margin-bottom:8px"><div style="font-size:11px;font-weight:600;color:var(--amber);margin-bottom:4px">📋 振替・欠席申請</div>`
+    requests.forEach(r=>{
+      reqHtml += `<div style="background:var(--amber-light);border-radius:4px;padding:6px 8px;margin-bottom:4px;font-size:11px">
+        <div style="font-weight:500">${r.date}</div>
+        <div style="color:var(--amber)">種別：${r.type}</div>
+        <div style="margin-top:2px">${r.note}</div>
+      </div>`
+    })
+    reqHtml += `</div>`
+  }
+
+  let absHtml = ''
+  if(absInfo.length){
+    absHtml += `<div style="margin-bottom:8px"><div style="font-size:11px;font-weight:600;color:var(--text2);margin-bottom:4px">✅ 承認済み欠席（${selectedMonth}月）</div>`
+    absInfo.forEach(a=>{
+      absHtml += `<div style="background:var(--bg);border-radius:4px;padding:6px 8px;margin-bottom:4px;font-size:11px">
+        <div style="font-weight:500">${a.date}（${a.day}）${a.time}</div>
+        <div style="color:var(--text2)">${a.type}</div>
+        ${a.note?`<div style="margin-top:2px">${a.note}</div>`:''}
+        <button onclick="cancelAbsence('${a.id}')" style="margin-top:4px;font-size:10px;padding:1px 6px;border:1px solid var(--border2);border-radius:3px;background:none;cursor:pointer;color:var(--red)">取り消し</button>
+      </div>`
+    })
+    absHtml += `</div>`
+  }
+
+  if(!requests.length && !absInfo.length){
+    reqHtml = '<div style="font-size:12px;color:var(--text3);padding:4px 0">申請・欠席情報はありません</div>'
+  }
+
+  showModal('student-info-modal',`
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+      <div style="width:36px;height:36px;border-radius:50%;background:var(--blue-light);color:var(--blue);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;flex-shrink:0">${initials(s.name)}</div>
+      <div>
+        <div style="font-size:15px;font-weight:600">${s.name}</div>
+        <div style="font-size:12px;color:var(--text2)">${s.day}曜 ${s.time} / 月${s.course}回</div>
+      </div>
+    </div>
+    ${reqHtml}${absHtml}
+    <button class="btn" style="width:100%;justify-content:center;margin-top:4px" onclick="closeModal()">閉じる</button>
+  `)
+}
+
+function cancelAbsence(id){
+  approvedAbsences = approvedAbsences.filter(a=>a.id!==id)
+  closeModal()
+  renderScheduleByPage('schedule-thu-sat')
+  renderScheduleByPage('schedule-fri')
+  renderScheduleByPage('schedule-sun')
+  toast('欠席を取り消しました')
+}
+
 /* ===== DRAG & DROP ===== */
 function onDragStart(e, studentId, name, fromDay, fromDate, fromSlot){
   dragData={studentId, name, fromDay, fromDate, fromSlot}
@@ -496,7 +560,7 @@ async function saveEditStudent(){
      ====================================================== -->
 <script>
 // 1. Supabaseダッシュボード → Project Settings → API から取得
-const SUPABASE_URL = 'https://gdsrcbqmzcakzldizsrv.supabase.co '        // 例: https://xxxx.supabase.co
+const SUPABASE_URL = 'https://gdsrcbqmzcakzldizsrv.supabase.co'        // 例: https://xxxx.supabase.co
 const SUPABASE_ANON_KEY = 'sb_publishable_1kvfIoWeos6iH0N1N3W15g_gqf-Z8Aj'  // 例: eyJhbGc...
 
 // 2. 講師用パスワード（生徒には教えないでください）
@@ -783,6 +847,7 @@ function getCurrentMonth(){return new Date().getMonth()+1}
    ===================================================== */
 let students=[]
 let manualTransfers=[]  // [{id, studentName, fromDate, fromTime, fromDay, toDate, toTime, toDay, month}]
+let approvedAbsences=[] // [{id, studentId, studentName, date, time, day, note, month}] 承認済み欠席
 let trialLessons=[]     // [{id, date, time, day, memo, month}]
 let dragData=null       // ドラッグ中のデータ
 let lessonDates={木:[],金:[],土:[],日:[]}
@@ -891,10 +956,28 @@ async function submitRequest(studentId,date,type,note){
 }
 
 async function resolveRequest(requestId,action,studentId){
-  if(!sb)return
-  await sb.from('requests').update({status:action==='承認'?'approved':'dismissed'}).eq('id',requestId)
+  if(sb) await sb.from('requests').update({status:action==='承認'?'approved':'dismissed'}).eq('id',requestId)
   const s=students.find(x=>x.id===studentId)
-  if(s)s.requests=s.requests.filter(r=>r.id!==requestId)
+  if(s){
+    const req=s.requests.find(r=>r.id===requestId)
+    // 欠席承認の場合はapprovedAbsencesに追加してスケジュール表から除外
+    if(action==='承認' && req){
+      // 日付文字列から日だけ取得（例："6/5（木）12:30〜13:00" → "6/5"）
+      const datePart = req.date.split('（')[0].trim()
+      approvedAbsences.push({
+        id:'abs_'+Date.now(),
+        studentId:s.id,
+        studentName:s.name,
+        date:datePart,
+        time:s.time,
+        day:s.day,
+        note:req.note||'',
+        type:req.type||'欠席',
+        month:selectedMonth
+      })
+    }
+    s.requests=s.requests.filter(r=>r.id!==requestId)
+  }
 }
 
 /* =====================================================
@@ -1027,7 +1110,11 @@ async function initApp(){
 function getEntries(day,date,slotKey){
   const normal = students.filter(s=>s.day===day&&s.time===slotKey).map(s=>{
     const ds=canSelectDates(s)?s.selected:(lessonDates[day]||[])
-    return ds.includes(date)?{name:s.name,type:s.course===3?'fixed':'selected',studentId:s.id}:null
+    if(!ds.includes(date)) return null
+    // 承認済み欠席の場合は表示しない（空きコマに）
+    const isAbsent = approvedAbsences.some(a=>a.studentId===s.id&&a.date===date&&a.day===day&&a.month===selectedMonth)
+    if(isAbsent) return null
+    return {name:s.name,type:s.course===3?'fixed':'selected',studentId:s.id}
   }).filter(Boolean)
   // 振替（手動移動）
   const transfers = manualTransfers
@@ -1094,7 +1181,14 @@ function renderScheduleByPage(pageId){
             cellHtml += `</span>`
           } else {
             if(isTeacher){
-              cellHtml += `<span class="cell-name cell-${e.type} draggable" draggable="true" ondragstart="onDragStart(event,'${e.studentId||''}','${e.name}','${day}','${d}','${slot}')">${e.name}</span>`
+              // 振替申請があれば名前クリックで詳細表示
+              const hasRequest = students.find(x=>x.id===e.studentId)?.requests?.length > 0
+              cellHtml += `<span class="cell-name cell-${e.type} draggable" draggable="true"
+                ondragstart="onDragStart(event,'${e.studentId||''}','${e.name}','${day}','${d}','${slot}')"
+                onclick="showStudentInfo(event,'${e.studentId||''}')"
+                style="cursor:pointer"
+                title="${hasRequest?'クリックして詳細を見る':''}"
+              >${e.name}${hasRequest?'<span style=\"font-size:8px;vertical-align:super;color:#A32D2D\">●</span>':''}</span>`
             } else {
               cellHtml += `<span class="cell-name cell-${e.type}">${e.name}</span>`
             }
@@ -1342,7 +1436,12 @@ function renderTransferRequests(){
 }
 async function handleResolve(requestId,action,studentId){
   await resolveRequest(requestId,action,studentId)
-  renderTransferRequests();renderDashboard();toast('「'+action+'」にしました')
+  renderTransferRequests();renderDashboard()
+  // スケジュール表も更新
+  renderScheduleByPage('schedule-thu-sat')
+  renderScheduleByPage('schedule-fri')
+  renderScheduleByPage('schedule-sun')
+  toast('「'+action+'」にしました')
 }
 
 /* =====================================================
@@ -1510,6 +1609,70 @@ async function handleSubmitAbsent(sid,p){
 }
 
 
+
+
+/* ===== 生徒情報ポップアップ（スケジュール表から） ===== */
+function showStudentInfo(e, studentId){
+  e.stopPropagation()
+  if(!studentId) return
+  const s = students.find(x=>x.id===studentId)
+  if(!s) return
+
+  const requests = s.requests || []
+  const absInfo = approvedAbsences.filter(a=>a.studentId===studentId&&a.month===selectedMonth)
+
+  let reqHtml = ''
+  if(requests.length){
+    reqHtml += `<div style="margin-bottom:8px"><div style="font-size:11px;font-weight:600;color:var(--amber);margin-bottom:4px">📋 振替・欠席申請</div>`
+    requests.forEach(r=>{
+      reqHtml += `<div style="background:var(--amber-light);border-radius:4px;padding:6px 8px;margin-bottom:4px;font-size:11px">
+        <div style="font-weight:500">${r.date}</div>
+        <div style="color:var(--amber)">種別：${r.type}</div>
+        <div style="margin-top:2px">${r.note}</div>
+      </div>`
+    })
+    reqHtml += `</div>`
+  }
+
+  let absHtml = ''
+  if(absInfo.length){
+    absHtml += `<div style="margin-bottom:8px"><div style="font-size:11px;font-weight:600;color:var(--text2);margin-bottom:4px">✅ 承認済み欠席（${selectedMonth}月）</div>`
+    absInfo.forEach(a=>{
+      absHtml += `<div style="background:var(--bg);border-radius:4px;padding:6px 8px;margin-bottom:4px;font-size:11px">
+        <div style="font-weight:500">${a.date}（${a.day}）${a.time}</div>
+        <div style="color:var(--text2)">${a.type}</div>
+        ${a.note?`<div style="margin-top:2px">${a.note}</div>`:''}
+        <button onclick="cancelAbsence('${a.id}')" style="margin-top:4px;font-size:10px;padding:1px 6px;border:1px solid var(--border2);border-radius:3px;background:none;cursor:pointer;color:var(--red)">取り消し</button>
+      </div>`
+    })
+    absHtml += `</div>`
+  }
+
+  if(!requests.length && !absInfo.length){
+    reqHtml = '<div style="font-size:12px;color:var(--text3);padding:4px 0">申請・欠席情報はありません</div>'
+  }
+
+  showModal('student-info-modal',`
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+      <div style="width:36px;height:36px;border-radius:50%;background:var(--blue-light);color:var(--blue);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;flex-shrink:0">${initials(s.name)}</div>
+      <div>
+        <div style="font-size:15px;font-weight:600">${s.name}</div>
+        <div style="font-size:12px;color:var(--text2)">${s.day}曜 ${s.time} / 月${s.course}回</div>
+      </div>
+    </div>
+    ${reqHtml}${absHtml}
+    <button class="btn" style="width:100%;justify-content:center;margin-top:4px" onclick="closeModal()">閉じる</button>
+  `)
+}
+
+function cancelAbsence(id){
+  approvedAbsences = approvedAbsences.filter(a=>a.id!==id)
+  closeModal()
+  renderScheduleByPage('schedule-thu-sat')
+  renderScheduleByPage('schedule-fri')
+  renderScheduleByPage('schedule-sun')
+  toast('欠席を取り消しました')
+}
 
 /* ===== DRAG & DROP ===== */
 function onDragStart(e, studentId, name, fromDay, fromDate, fromSlot){
