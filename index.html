@@ -483,6 +483,8 @@ async function saveEditStudent(){
   .break-slot { display: flex !important; align-items: center !important; justify-content: center !important; font-size: 10px !important; }
   .print-title { display: block !important; font-size: 15px !important; font-weight: 700 !important; margin-bottom: 3mm !important; flex-shrink: 0 !important; }
   @page { size: A4 landscape; margin: 6mm; }
+  /* 振替・体験の削除ボタンを印刷時に非表示 */
+  .cell-transfer span, .cell-trial span, .cell-name span { display: none !important; }
 }
 .print-title { display: none; }
 </style>
@@ -494,11 +496,11 @@ async function saveEditStudent(){
      ====================================================== -->
 <script>
 // 1. Supabaseダッシュボード → Project Settings → API から取得
-const SUPABASE_URL = 'https://gdsrcbqmzcakzldizsrv.supabase.co'        // 例: https://xxxx.supabase.co
-const SUPABASE_ANON_KEY = 'sb_publishable_1kvfIoWeos6iH0N1N3W15g_gqf-Z8Aj '  // 例: eyJhbGc...
+const SUPABASE_URL = 'YOUR_SUPABASE_URL'        // 例: https://xxxx.supabase.co
+const SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY'  // 例: eyJhbGc...
 
 // 2. 講師用パスワード（生徒には教えないでください）
-const TEACHER_PASSWORD = 'LessonManager3310419'
+const TEACHER_PASSWORD = 'teacher1234'
 </script>
 <!-- ====================================================== -->
 
