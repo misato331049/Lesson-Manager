@@ -1,0 +1,1739 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>レッスン管理システム</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.44.0/tabler-icons.min.css">
+<style>
+/* ===== RESET & BASE ===== */
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#f8f7f4;--surface:#ffffff;--border:#e8e6e0;--border2:#d4d0c8;
+  --text:#1a1917;--text2:#6b6860;--text3:#9b9890;
+  --blue:#185FA5;--blue-light:#E6F1FB;--blue-dark:#0C447C;
+  --green:#3B6D11;--green-light:#EAF3DE;
+  --amber:#854F0B;--amber-light:#FAEEDA;
+  --red:#791F1F;--red-light:#FCEBEB;
+  --purple:#3C3489;--purple-light:#EEEDFE;
+  --radius:10px;--radius-sm:6px;--font:'Hiragino Kaku Gothic ProN','Hiragino Sans',Meiryo,sans-serif;
+}
+html,body{height:100%;font-family:var(--font);color:var(--text);font-size:13px;background:var(--bg)}
+.shell{display:flex;height:100vh;overflow:hidden}
+
+/* ===== SIDEBAR ===== */
+.sidebar{width:216px;flex-shrink:0;background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow-y:auto}
+.logo{display:flex;align-items:center;gap:10px;padding:18px 16px 14px;border-bottom:1px solid var(--border)}
+.logo-icon{width:34px;height:34px;border-radius:8px;background:var(--blue);display:flex;align-items:center;justify-content:center;color:#fff;font-size:17px}
+.logo-text{font-size:15px;font-weight:600;letter-spacing:-.2px}
+.mode-toggle{display:flex;margin:10px 12px 4px;background:var(--bg);border-radius:var(--radius-sm);padding:3px;border:1px solid var(--border)}
+.mode-btn{flex:1;padding:5px 0;font-size:12px;text-align:center;cursor:pointer;border-radius:4px;color:var(--text2);font-weight:500;border:none;background:none;font-family:var(--font);transition:all .15s}
+.mode-btn.active{background:var(--surface);color:var(--text);box-shadow:0 1px 3px rgba(0,0,0,.08)}
+.nav-section{padding:12px 16px 4px;font-size:10px;color:var(--text3);letter-spacing:.08em;text-transform:uppercase;font-weight:600}
+.nav-item{display:flex;align-items:center;gap:9px;padding:7px 10px;margin:1px 8px;font-size:13px;color:var(--text2);cursor:pointer;border-radius:var(--radius-sm);transition:all .12s}
+.nav-item.active{background:var(--blue-light);color:var(--blue);font-weight:600}
+.nav-item:hover:not(.active){background:var(--bg)}
+.nav-item i{font-size:16px;flex-shrink:0}
+
+/* ===== MAIN ===== */
+.main{flex:1;display:flex;flex-direction:column;min-width:0;overflow:hidden}
+.topbar{display:flex;align-items:center;gap:12px;padding:12px 20px;background:var(--surface);border-bottom:1px solid var(--border);flex-shrink:0}
+.topbar-title{font-size:16px;font-weight:600;flex:1;letter-spacing:-.2px}
+.topbar-actions{display:flex;align-items:center;gap:8px}
+.content{flex:1;overflow-y:auto;padding:20px}
+.page{display:none}.page.active{display:block}
+
+/* ===== BUTTONS ===== */
+.btn{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:var(--radius-sm);font-size:12px;cursor:pointer;font-family:var(--font);font-weight:500;border:1px solid var(--border2);background:var(--surface);color:var(--text);transition:all .12s}
+.btn:hover{background:var(--bg)}
+.btn-primary{background:var(--blue);color:#fff;border-color:var(--blue)}.btn-primary:hover{background:var(--blue-dark)}
+.btn-success{background:var(--green);color:#fff;border-color:var(--green)}.btn-success:hover{background:#27500A}
+.btn-sm{padding:5px 10px;font-size:11px}
+.btn:disabled{opacity:.4;cursor:not-allowed;pointer-events:none}
+
+/* ===== CARDS ===== */
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px;margin-bottom:14px}
+.card-title{font-size:10px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:12px}
+
+/* ===== BADGES ===== */
+.badge{display:inline-flex;align-items:center;font-size:11px;padding:2px 8px;border-radius:99px;font-weight:500}
+.b-blue{background:var(--blue-light);color:var(--blue-dark)}
+.b-green{background:var(--green-light);color:var(--green)}
+.b-amber{background:var(--amber-light);color:var(--amber)}
+.b-gray{background:#F1EFE8;color:#5F5E5A}
+.b-purple{background:var(--purple-light);color:var(--purple)}
+.b-red{background:var(--red-light);color:var(--red)}
+
+/* ===== STATS ===== */
+.stat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px}
+.stat{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:12px 14px}
+.stat-label{font-size:11px;color:var(--text2);margin-bottom:6px;display:flex;align-items:center;gap:5px}
+.stat-val{font-size:24px;font-weight:600;letter-spacing:-.5px}
+
+/* ===== LIST ROWS ===== */
+.srow{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--border)}
+.srow:last-child{border-bottom:none}
+.avatar{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;flex-shrink:0}
+
+/* ===== FORMS ===== */
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px}
+.form-group{display:flex;flex-direction:column;gap:4px}
+.lbl{font-size:11px;color:var(--text2);font-weight:600}
+input,select,textarea{font-family:var(--font);font-size:13px;border:1px solid var(--border2);border-radius:var(--radius-sm);padding:7px 10px;background:var(--surface);color:var(--text);outline:none;transition:border .12s;width:100%}
+input:focus,select:focus,textarea:focus{border-color:var(--blue)}
+textarea{resize:vertical;min-height:60px}
+input:disabled,select:disabled,textarea:disabled{opacity:.5;cursor:not-allowed;background:var(--bg)}
+
+/* ===== TABS ===== */
+.tab-bar{display:flex;border-bottom:1px solid var(--border);margin-bottom:14px}
+.tab{padding:7px 14px;cursor:pointer;color:var(--text2);border-bottom:2px solid transparent;margin-bottom:-1px;font-size:13px;transition:all .12s}
+.tab.active{color:var(--blue);border-bottom-color:var(--blue);font-weight:600}
+.tab:hover:not(.active){color:var(--text)}
+
+/* ===== UTILITY ===== */
+.check-item{display:flex;align-items:center;gap:9px;padding:7px 0;border-bottom:1px solid var(--border);cursor:pointer}
+.check-item:last-child{border-bottom:none}
+.info-box{background:var(--bg);border-radius:var(--radius-sm);padding:10px 13px;margin-bottom:12px;font-size:12px;line-height:1.7;border-left:3px solid var(--blue)}
+.lock-banner{background:var(--amber-light);border:1px solid #FAC775;border-radius:var(--radius);padding:12px 16px;margin-bottom:14px;display:flex;align-items:flex-start;gap:12px}
+.demo-bar{background:var(--bg);border:1px dashed var(--border2);border-radius:var(--radius-sm);padding:8px 12px;margin-bottom:14px;font-size:11px;color:var(--text2);display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.toast{position:fixed;bottom:20px;right:20px;color:#fff;padding:10px 16px;border-radius:var(--radius);font-size:12px;opacity:0;transition:opacity .3s;pointer-events:none;z-index:9999;display:flex;align-items:center;gap:8px;font-weight:500;box-shadow:0 4px 16px rgba(0,0,0,.2)}
+.date-tag{display:inline-flex;align-items:center;gap:5px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);padding:3px 8px;margin:2px;font-size:12px}
+.date-tag .rm{cursor:pointer;color:var(--text3)}.date-tag .rm:hover{color:var(--red)}
+.add-date-row{display:flex;gap:6px;margin-top:8px;align-items:center}
+.day-block{border:1px solid var(--border);border-radius:var(--radius);padding:12px 14px;margin-bottom:10px;background:var(--surface)}
+.teacher-note{background:var(--blue-light);border:1px solid #B5D4F4;border-radius:var(--radius-sm);padding:8px 12px;font-size:12px;color:var(--blue-dark);margin-bottom:14px;display:flex;align-items:center;gap:8px}
+
+/* ===== SCHEDULE TABLE ===== */
+.sched-outer{overflow-x:auto;padding-bottom:4px}
+.sched-days-row{display:flex;min-width:max-content;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;background:var(--surface)}
+.day-col{display:flex;flex-direction:column;border-right:2px solid var(--border2)}
+.day-col:last-child{border-right:none}
+.day-col-header{padding:8px 12px;font-size:12px;font-weight:600;text-align:center;white-space:nowrap;border-bottom:1px solid var(--border2)}
+.thu-col .day-col-header{background:#FFF3E0;color:#633806}
+.fri-col .day-col-header{background:var(--green-light);color:var(--green)}
+.sat-col .day-col-header{background:var(--blue-light);color:var(--blue-dark)}
+.sun-col .day-col-header{background:var(--purple-light);color:var(--purple)}
+.day-dates-row{display:flex;border-bottom:1px solid var(--border)}
+.date-th{padding:5px 8px;font-size:11px;font-weight:600;text-align:center;border-right:1px solid var(--border);min-width:88px}
+.date-th:last-child{border-right:none}
+.thu-col .date-th{background:#FFF9F3;color:#854F0B}
+.fri-col .date-th{background:#F5FAF0;color:var(--green)}
+.sat-col .date-th{background:#F0F7FD;color:var(--blue)}
+.sun-col .date-th{background:#F8F4FF;color:var(--purple)}
+.time-row{display:flex;border-bottom:1px solid var(--border)}
+.time-row:last-child{border-bottom:none}
+.time-label{font-size:10px;color:var(--text2);padding:4px 8px;white-space:nowrap;min-width:86px;display:flex;align-items:center;flex-direction:column;justify-content:center;border-right:1px solid var(--border);background:var(--bg);gap:1px}
+.time-label.break-label{background:#F5F3ED;justify-content:center;font-size:9px;font-style:italic}
+.time-row-note{font-size:9px;color:var(--purple)}
+.cell-slot{min-width:88px;padding:3px 5px;border-right:1px solid var(--border);min-height:28px;display:flex;align-items:center;flex-wrap:wrap;gap:2px}
+.cell-slot:last-child{border-right:none}
+.cell-slot.break-slot{background:#F5F3ED;justify-content:center;font-size:9px;color:var(--text3);font-style:italic}
+.cell-name{font-size:10px;padding:2px 6px;border-radius:4px;white-space:nowrap;font-weight:600}
+.cell-fixed{background:var(--green-light);color:var(--green)}
+.cell-selected{background:var(--blue-light);color:var(--blue-dark)}
+.legend{display:flex;gap:12px;margin-bottom:12px;font-size:11px;align-items:center;flex-wrap:wrap}
+
+/* ===== LOGIN ===== */
+.login-outer{display:flex;align-items:center;justify-content:center;min-height:calc(100vh - 60px)}
+.login-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:32px 28px;width:320px;box-shadow:0 4px 24px rgba(0,0,0,.06)}
+.login-icon{width:52px;height:52px;border-radius:14px;background:var(--blue-light);display:flex;align-items:center;justify-content:center;margin:0 auto 16px;color:var(--blue);font-size:26px}
+
+/* ===== LOADING ===== */
+.loading{display:flex;align-items:center;justify-content:center;padding:40px;color:var(--text3);font-size:13px;gap:8px}
+.spinner{width:16px;height:16px;border:2px solid var(--border);border-top-color:var(--blue);border-radius:50%;animation:spin .6s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* ===== SUPABASE設定バナー ===== */
+.setup-banner{background:var(--amber-light);border:1px solid #FAC775;border-radius:var(--radius);padding:16px 20px;margin-bottom:20px}
+.setup-banner h3{font-size:14px;font-weight:600;color:var(--amber);margin-bottom:8px;display:flex;align-items:center;gap:8px}
+.setup-banner p{font-size:12px;color:var(--amber);line-height:1.7;margin-bottom:10px}
+.setup-banner code{background:#fff;border:1px solid #FAC775;border-radius:4px;padding:1px 6px;font-family:monospace;font-size:11px}
+
+
+/* ===== DRAG & DROP ===== */
+function onDragStart(e, studentId, name, fromDay, fromDate, fromSlot){
+  dragData={studentId, name, fromDay, fromDate, fromSlot}
+  e.dataTransfer.effectAllowed='move'
+  setTimeout(()=>{
+    const el=e.target; if(el) el.classList.add('dragging-source')
+  },0)
+}
+function onDragOver(e, day, date, slot){
+  e.preventDefault()
+  e.dataTransfer.dropEffect='move'
+  const cellId=`cell-${day}-${date}-${slot}`
+  document.getElementById(cellId)?.classList.add('drag-over')
+}
+function onDragLeave(e){
+  e.currentTarget.classList.remove('drag-over')
+}
+async function onDrop(e, toDay, toDate, toSlot){
+  e.preventDefault()
+  e.currentTarget.classList.remove('drag-over')
+  if(!dragData) return
+  const {studentId, name, fromDay, fromDate, fromSlot} = dragData
+  dragData = null
+  if(fromDay===toDay && fromDate===toDate && fromSlot===toSlot) return
+
+  // 元のコマから削除（student_selectionsから削除）
+  const s = students.find(x=>x.id===studentId)
+  if(s){
+    s.selected = s.selected.filter(d=>d!==fromDate)
+    if(sb) await sb.from('student_selections')
+      .delete().eq('student_id',studentId).eq('date',fromDate).eq('month',selectedMonth)
+  }
+
+  // 振替として新しいコマに追加
+  const transfer = {
+    id: 'tr_'+Date.now(),
+    studentName: name.replace('（振替）',''),
+    fromDate, fromTime: fromSlot, fromDay,
+    toDate, toTime: toSlot, toDay,
+    month: selectedMonth
+  }
+  manualTransfers.push(transfer)
+  renderScheduleTable()
+  toast(name+'を'+toDate+'（'+toDay+'）'+toSlot+'に移動しました')
+}
+
+
+/* ===== SLOT CLICK MENU ===== */
+let slotMenuEl = null
+function openSlotMenu(e, day, date, slot){
+  e.stopPropagation()
+  closeSlotMenu()
+  const menu = document.createElement('div')
+  menu.className = 'slot-menu'
+  menu.id = 'slot-menu'
+  menu.innerHTML = `
+    <div class="slot-menu-item" onclick="closeSlotMenu();openTransferModal('${day}','${date}','${slot}')">
+      <i class="ti ti-switch-horizontal" style="color:#6B7280"></i> 振替を設定
+    </div>
+    <div class="slot-menu-item" onclick="closeSlotMenu();openTrialModal('${day}','${date}','${slot}')">
+      <i class="ti ti-user-plus" style="color:#0284C7"></i> 体験レッスン
+    </div>
+  `
+  const rect = e.currentTarget.getBoundingClientRect()
+  document.body.appendChild(menu)
+  const menuW = 140, menuH = 80
+  let left = rect.left + window.scrollX
+  let top = rect.bottom + window.scrollY + 2
+  if(left + menuW > window.innerWidth) left = window.innerWidth - menuW - 8
+  if(top + menuH > window.innerHeight + window.scrollY) top = rect.top + window.scrollY - menuH - 2
+  menu.style.left = left + 'px'
+  menu.style.top = top + 'px'
+  slotMenuEl = menu
+  setTimeout(()=>document.addEventListener('click', closeSlotMenu), 0)
+}
+function closeSlotMenu(){
+  if(slotMenuEl){ slotMenuEl.remove(); slotMenuEl=null }
+  document.removeEventListener('click', closeSlotMenu)
+}
+
+/* ===== TRANSFER MODAL ===== */
+function openTransferModal(day, date, slot){
+  const studentOpts = students.map(s=>`<option value="${s.name}">${s.name}（${s.day}曜）</option>`).join('')
+  showModal('transfer-modal',`
+    <div class="modal-title" style="color:var(--text)"><i class="ti ti-switch-horizontal" style="color:#6B7280"></i> 振替設定</div>
+    <div style="font-size:12px;color:var(--text2);margin-bottom:12px">${date}（${day}）${slot}</div>
+    <div class="form-group" style="margin-bottom:10px">
+      <div class="lbl">生徒名</div>
+      <select id="tr-modal-student">${studentOpts}</select>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-primary" style="flex:1" onclick="confirmTransferModal('${day}','${date}','${slot}')"><i class="ti ti-check"></i> 設定する</button>
+      <button class="btn" onclick="closeModal()">キャンセル</button>
+    </div>
+  `)
+}
+function confirmTransferModal(day, date, slot){
+  const name = document.getElementById('tr-modal-student')?.value
+  if(!name) return
+  const transfer = {
+    id: 'tr_'+Date.now(),
+    studentName: name,
+    fromDate:'', fromTime:'', fromDay:'',
+    toDate: date, toTime: slot, toDay: day,
+    month: selectedMonth
+  }
+  manualTransfers.push(transfer)
+  closeModal()
+  renderScheduleTable()
+  toast(name+'の振替を'+date+'（'+day+'）'+slot+'に設定しました')
+}
+function removeTransfer(id){
+  manualTransfers = manualTransfers.filter(t=>t.id!==id)
+  renderScheduleTable()
+}
+
+/* ===== TRIAL MODAL ===== */
+function openTrialModal(day, date, slot){
+  showModal('trial-modal',`
+    <div class="modal-title" style="color:#0C4A6E"><i class="ti ti-user-plus" style="color:#7DD3FC"></i> 体験レッスン設定</div>
+    <div style="font-size:12px;color:var(--text2);margin-bottom:12px">${date}（${day}）${slot}</div>
+    <div class="form-group" style="margin-bottom:10px">
+      <div class="lbl">メモ（お名前・ご要望など）</div>
+      <textarea id="trial-memo" placeholder="例）佐藤様 ピアノ希望&#10;例）体験者：20代女性" style="min-height:70px"></textarea>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-primary" style="flex:1;background:#0284C7;border-color:#0284C7" onclick="confirmTrialModal('${day}','${date}','${slot}')"><i class="ti ti-check"></i> 登録する</button>
+      <button class="btn" onclick="closeModal()">キャンセル</button>
+    </div>
+  `)
+}
+function confirmTrialModal(day, date, slot){
+  const memo = document.getElementById('trial-memo')?.value.trim()||''
+  const trial = {
+    id: 'trial_'+Date.now(),
+    date, time: slot, day, memo,
+    month: selectedMonth
+  }
+  trialLessons.push(trial)
+  closeModal()
+  renderScheduleTable()
+  toast('体験レッスンを'+date+'（'+day+'）'+slot+'に登録しました')
+}
+function removeTrial(id){
+  trialLessons = trialLessons.filter(t=>t.id!==id)
+  renderScheduleTable()
+}
+
+/* ===== MODAL HELPER ===== */
+function showModal(id, html){
+  let overlay = document.getElementById('global-modal-overlay')
+  if(!overlay){
+    overlay = document.createElement('div')
+    overlay.id = 'global-modal-overlay'
+    overlay.className = 'modal-overlay'
+    overlay.onclick = (e)=>{ if(e.target===overlay) closeModal() }
+    document.body.appendChild(overlay)
+  }
+  overlay.innerHTML = `<div class="modal-box">${html}</div>`
+  overlay.style.display = 'flex'
+}
+function closeModal(){
+  const overlay = document.getElementById('global-modal-overlay')
+  if(overlay) overlay.style.display = 'none'
+}
+
+/* ===== CALENDAR ===== */
+.cal-wrap{margin-bottom:14px}
+.cal-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.cal-title{font-size:14px;font-weight:600;color:var(--text)}
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px}
+.cal-dow{text-align:center;font-size:10px;font-weight:600;color:var(--text2);padding:4px 0}
+.cal-dow.sun{color:#A32D2D}.cal-dow.sat{color:#185FA5}
+.cal-day{min-height:52px;border:1px solid var(--border);border-radius:6px;padding:3px 4px;background:var(--surface);position:relative;font-size:11px}
+.cal-day.empty{background:var(--bg);border-color:transparent}
+.cal-day.today{border-color:var(--blue);background:var(--blue-light)}
+.cal-day.has-lesson{cursor:pointer}
+.cal-day.has-lesson:hover{background:var(--light-green, #EAF3DE)}
+.cal-date{font-size:11px;font-weight:500;color:var(--text2);margin-bottom:2px}
+.cal-date.sun{color:#A32D2D}.cal-date.sat{color:#185FA5}
+.cal-date.today-num{color:var(--blue);font-weight:700}
+.cal-lesson-tag{background:var(--green);color:#fff;border-radius:4px;padding:2px 4px;font-size:9px;font-weight:600;margin-top:2px;display:block;text-align:center;cursor:pointer;transition:opacity .15s}
+.cal-lesson-tag:hover{opacity:.85}
+
+/* ===== LESSON POPUP ===== */
+.lesson-popup-overlay{position:fixed;inset:0;background:rgba(0,0,0,.3);z-index:1000;display:flex;align-items:center;justify-content:center}
+.lesson-popup{background:var(--surface);border-radius:var(--radius);padding:20px 22px;width:280px;box-shadow:0 8px 32px rgba(0,0,0,.18)}
+.lesson-popup-title{font-size:15px;font-weight:600;margin-bottom:4px}
+.lesson-popup-date{font-size:12px;color:var(--text2);margin-bottom:14px}
+.lesson-popup-time{display:flex;align-items:center;gap:8px;background:var(--green-light);border-radius:var(--radius-sm);padding:10px 12px;font-size:14px;font-weight:600;color:var(--green);margin-bottom:14px}
+.lesson-popup-close{width:100%;padding:8px;border-radius:var(--radius-sm);border:1px solid var(--border2);background:var(--bg);font-family:var(--font);font-size:13px;cursor:pointer;font-weight:500}
+.lesson-popup-close:hover{background:var(--border)}
+
+/* ===== SCHEDULE EDIT (drag/transfer/trial) ===== */
+.cell-transfer{background:#D1D5DB;color:#374151;font-size:10px;padding:2px 6px;border-radius:4px;white-space:nowrap;font-weight:500;cursor:grab}
+.cell-trial{background:#7DD3FC;color:#0C4A6E;font-size:10px;padding:2px 6px;border-radius:4px;white-space:nowrap;font-weight:500}
+.cell-name{display:inline-block;font-size:10px;padding:2px 6px;border-radius:4px;white-space:nowrap;font-weight:500}
+.cell-fixed{background:#EAF3DE;color:#27500A}
+.cell-selected{background:#E6F1FB;color:#0C447C}
+.cell-slot.drag-over{background:#FEF9C3;outline:2px dashed #EAB308}
+.cell-slot.dragging-source{opacity:.4}
+.cell-name.draggable{cursor:grab}
+.cell-name.draggable:active{cursor:grabbing}
+.sched-add-btn{font-size:9px;padding:1px 5px;border-radius:3px;border:1px dashed #9CA3AF;background:none;cursor:pointer;color:#6B7280;white-space:nowrap;margin:1px;font-family:var(--font)}
+.sched-add-btn:hover{background:#F3F4F6;color:#374151}
+.sched-add-btn.trial-btn{border-color:#7DD3FC;color:#0369A1}
+.sched-add-btn.trial-btn:hover{background:#E0F2FE}
+
+/* MODAL */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:2000;display:flex;align-items:center;justify-content:center}
+.modal-box{background:var(--surface);border-radius:var(--radius);padding:22px 24px;width:320px;box-shadow:0 8px 32px rgba(0,0,0,.2)}
+.modal-title{font-size:15px;font-weight:600;margin-bottom:14px;display:flex;align-items:center;gap:8px}
+.modal-actions{display:flex;gap:8px;margin-top:16px}
+
+.cell-empty-click{display:block;width:100%;height:100%;min-height:24px;cursor:pointer}
+.cell-empty-click:hover::after{content:'＋';font-size:12px;color:#9CA3AF;display:flex;align-items:center;justify-content:center;height:100%}
+.slot-menu{position:fixed;z-index:3000;background:var(--surface);border:1px solid var(--border2);border-radius:var(--radius-sm);box-shadow:0 4px 16px rgba(0,0,0,.15);padding:4px 0;min-width:120px}
+.slot-menu-item{display:flex;align-items:center;gap:8px;padding:8px 14px;font-size:12px;cursor:pointer;color:var(--text);font-family:var(--font)}
+.slot-menu-item:hover{background:var(--bg)}
+.slot-menu-item i{font-size:15px}
+
+/* ===== 印刷・PDF用CSS ===== */
+@media print {
+  * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+  body { background: #fff !important; margin: 0; padding: 0; }
+  .sidebar, .topbar, .demo-bar, #lesson-popup-overlay, #global-modal-overlay, #slot-menu { display: none !important; }
+  .shell { display: block !important; width: 100% !important; }
+  .main { display: block !important; width: 100% !important; overflow: visible !important; }
+  .content { padding: 3mm !important; overflow: visible !important; width: 100% !important; }
+  .page { display: none !important; }
+  .page.active { display: block !important; width: 100% !important; height: calc(100vh - 10mm) !important; }
+  .sched-outer { overflow: visible !important; width: 100% !important; height: 100% !important; }
+  .sched-days-row {
+    min-width: unset !important; width: 100% !important; height: 100% !important;
+    display: flex !important; align-items: stretch !important;
+  }
+  .day-col {
+    flex: 1 !important; border-right: 1px solid #ccc !important;
+    display: flex !important; flex-direction: column !important;
+  }
+  .day-col:last-child { border-right: none !important; }
+  .day-col-header { padding: 5px 4px !important; font-size: 13px !important; font-weight: 700 !important; text-align: center !important; flex-shrink: 0 !important; }
+  .day-dates-row { display: flex !important; flex-shrink: 0 !important; }
+  /* 日付ヘッダーの時間列ダミーも同じ幅に */
+  .day-dates-row > div:first-child { min-width: 76px !important; width: 76px !important; flex-shrink: 0 !important; }
+  .date-th { flex: 1 !important; min-width: unset !important; padding: 5px 2px !important; font-size: 12px !important; font-weight: 600 !important; text-align: center !important; }
+  .day-col > div:last-child { flex: 1 !important; display: flex !important; flex-direction: column !important; }
+  .time-row { display: flex !important; flex: 1 !important; }
+  .time-label {
+    min-width: 76px !important; width: 76px !important;
+    font-size: 10px !important; font-weight: 500 !important;
+    padding: 2px 4px !important; flex-shrink: 0 !important;
+    display: flex !important; align-items: center !important;
+    white-space: nowrap !important; overflow: visible !important;
+    flex-direction: column !important; justify-content: center !important; line-height: 1.3 !important;
+  }
+  .time-label.break-label { font-size: 9px !important; }
+  .time-row-note { font-size: 8px !important; }
+  .cell-slot {
+    flex: 1 !important; min-width: unset !important; padding: 1px !important;
+    min-height: unset !important; display: flex !important;
+    align-items: stretch !important; justify-content: stretch !important;
+  }
+  .cell-name {
+    flex: 1 !important; width: 100% !important; display: flex !important;
+    align-items: center !important; justify-content: center !important;
+    font-size: 12px !important; font-weight: 600 !important;
+    padding: 2px !important; border-radius: 3px !important;
+    text-align: center !important; white-space: normal !important; word-break: break-all !important;
+  }
+  .cell-transfer { flex: 1 !important; width: 100% !important; display: flex !important; align-items: center !important; justify-content: center !important; font-size: 12px !important; font-weight: 600 !important; }
+  .cell-trial { flex: 1 !important; width: 100% !important; display: flex !important; align-items: center !important; justify-content: center !important; font-size: 12px !important; font-weight: 600 !important; }
+  .cell-empty-click { display: none !important; }
+  .break-slot { display: flex !important; align-items: center !important; justify-content: center !important; font-size: 10px !important; }
+  .print-title { display: block !important; font-size: 15px !important; font-weight: 700 !important; margin-bottom: 3mm !important; flex-shrink: 0 !important; }
+  @page { size: A4 landscape; margin: 6mm; }
+}
+.print-title { display: none; }
+</style>
+</head>
+<body>
+
+<!-- ======================================================
+     ⚠️  ここにSupabaseの設定を入力してください
+     ====================================================== -->
+<script>
+// 1. Supabaseダッシュボード → Project Settings → API から取得
+const SUPABASE_URL = 'https://gdsrcbqmzcakzldizsrv.supabase.co'        // 例: https://xxxx.supabase.co
+const SUPABASE_ANON_KEY = 'sb_publishable_1kvfIoWeos6iH0N1N3W15g_gqf-Z8Aj'  // 例: eyJhbGc...
+
+// 2. 講師用パスワード（生徒には教えないでください）
+const TEACHER_PASSWORD = 'LessonManager3310419'
+</script>
+<!-- ====================================================== -->
+
+<div id="toast" class="toast"></div>
+
+<div class="shell">
+<!-- SIDEBAR -->
+<div class="sidebar">
+  <div class="logo">
+    <div class="logo-icon"><i class="ti ti-music"></i></div>
+    <div class="logo-text">レッスン管理</div>
+  </div>
+  <div class="mode-toggle" id="mode-toggle-bar">
+    <button class="mode-btn active" id="mode-teacher-btn" onclick="switchMode('teacher')"><i class="ti ti-shield"></i> 講師</button>
+    <button class="mode-btn" id="mode-student-btn" onclick="switchMode('student')"><i class="ti ti-user"></i> 生徒</button>
+  </div>
+  <div id="teacher-nav">
+    <div class="nav-section">講師メニュー</div>
+    <div class="nav-item active" onclick="nav('schedule-thu-sat')" id="n-schedule-thu-sat"><i class="ti ti-layout-grid"></i> レッスン表（木・土）</div>
+    <div class="nav-item" onclick="nav('schedule-fri')" id="n-schedule-fri"><i class="ti ti-layout-grid"></i> レッスン表（金）</div>
+    <div class="nav-item" onclick="nav('schedule-sun')" id="n-schedule-sun"><i class="ti ti-layout-grid"></i> レッスン表（日）</div>
+    <div class="nav-item" onclick="nav('dashboard')" id="n-dashboard"><i class="ti ti-layout-dashboard"></i> ダッシュボード</div>
+    <div class="nav-item" onclick="nav('lesson-dates')" id="n-lesson-dates"><i class="ti ti-calendar"></i> 日程設定</div>
+    <div class="nav-item" onclick="nav('students')" id="n-students"><i class="ti ti-users"></i> 生徒管理</div>
+    <div class="nav-item" onclick="nav('transfer-admin')" id="n-transfer-admin"><i class="ti ti-switch-horizontal"></i> 振替相談</div>
+    <div class="nav-section" style="margin-top:8px">生徒ページ（講師）</div>
+    <div class="nav-item" onclick="nav('teacher-student-view')" id="n-teacher-student-view"><i class="ti ti-eye"></i> 生徒ページを見る</div>
+  </div>
+  <div id="student-nav" style="display:none">
+    <div class="nav-section">生徒メニュー</div>
+    <div class="nav-item" id="n-student-login" onclick="nav('student-login')"><i class="ti ti-login"></i> ログイン</div>
+  </div>
+</div>
+
+<!-- MAIN -->
+<div class="main">
+  <div class="topbar">
+    <div class="topbar-title" id="topbar-title">レッスン表</div>
+    <div class="topbar-actions" id="topbar-actions"></div>
+  </div>
+  <div class="content">
+
+<!-- TEACHER LOGIN (initial) -->
+<div class="page active" id="page-teacher-login">
+  <div class="login-outer">
+    <div class="login-card">
+      <div class="login-icon"><i class="ti ti-shield-check"></i></div>
+      <div style="text-align:center;margin-bottom:20px">
+        <div style="font-size:17px;font-weight:600;margin-bottom:4px">講師ログイン</div>
+        <div style="font-size:12px;color:var(--text2)">パスワードを入力してください</div>
+      </div>
+      <div class="form-group" style="margin-bottom:12px">
+        <div class="lbl">パスワード</div>
+        <input type="password" id="teacher-pw" placeholder="••••••••" onkeydown="if(event.key==='Enter')doTeacherLogin()">
+      </div>
+      <button class="btn btn-primary" style="width:100%;justify-content:center" onclick="doTeacherLogin()"><i class="ti ti-login"></i> ログイン</button>
+      <div id="teacher-login-error" style="margin-top:10px;font-size:12px;color:var(--red);text-align:center;display:none"><i class="ti ti-alert-circle"></i> パスワードが違います</div>
+      <div style="margin-top:16px;text-align:center">
+        <button class="btn btn-sm" onclick="switchMode('student')" style="font-size:11px;color:var(--text2)">生徒の方はこちら →</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- SCHEDULE TABLE -->
+<div class="page active" id="page-schedule-thu-sat">
+  <div class="print-title" id="print-title-thu-sat"></div>
+  <div class="sched-outer"><div id="sched-days-row-thu-sat" class="sched-days-row"></div></div>
+</div>
+
+<div class="page" id="page-schedule-fri">
+  <div class="print-title" id="print-title-fri"></div>
+  <div class="sched-outer"><div id="sched-days-row-fri" class="sched-days-row"></div></div>
+</div>
+
+<div class="page" id="page-schedule-sun">
+  <div class="print-title" id="print-title-sun"></div>
+  <div class="sched-outer"><div id="sched-days-row-sun" class="sched-days-row"></div></div>
+</div>
+
+<!-- DASHBOARD -->
+<div class="page" id="page-dashboard">
+  <div class="stat-grid">
+    <div class="stat"><div class="stat-label"><i class="ti ti-users"></i> 生徒数</div><div class="stat-val" id="d-total">—</div></div>
+    <div class="stat"><div class="stat-label"><i class="ti ti-calendar-repeat"></i> 月3回</div><div class="stat-val" id="d-3x">—</div></div>
+    <div class="stat"><div class="stat-label"><i class="ti ti-calendar"></i> 月2回</div><div class="stat-val" id="d-2x">—</div></div>
+    <div class="stat"><div class="stat-label"><i class="ti ti-bell"></i> 振替相談</div><div class="stat-val" id="d-req" style="color:var(--red)">—</div></div>
+  </div>
+  <div class="card"><div class="card-title">生徒状況</div><div id="dash-list"><div class="loading"><div class="spinner"></div>読み込み中...</div></div></div>
+</div>
+
+<!-- LESSON DATES -->
+<div class="page" id="page-lesson-dates">
+  <div id="day-blocks"></div>
+  <button class="btn btn-primary" onclick="saveLessonDates()"><i class="ti ti-device-floppy"></i> 保存・生徒へ反映する</button>
+</div>
+
+<!-- STUDENTS -->
+<div class="page" id="page-students">
+  <div class="card">
+    <div class="card-title">新規生徒を登録</div>
+    <div class="form-row">
+      <div class="form-group"><div class="lbl">氏名</div><input id="s-name" placeholder="山田 花子"></div>
+      <div class="form-group"><div class="lbl">ふりがな</div><input id="s-kana" placeholder="やまだ はなこ"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><div class="lbl">曜日</div><select id="s-day" onchange="updateCourseOptions()"><option value="木">木曜日</option><option value="金">金曜日</option><option value="土">土曜日</option><option value="日">日曜日</option></select></div>
+      <div class="form-group"><div class="lbl">時間</div><select id="s-time"></select></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><div class="lbl">コース</div><select id="s-course"></select></div>
+      <div class="form-group"><div class="lbl">連絡先</div><input id="s-tel" placeholder="090-0000-0000"></div>
+    </div>
+    <div id="s-course-note" style="font-size:11px;color:var(--text2);margin-bottom:10px"></div>
+    <button class="btn btn-primary" onclick="addStudent()"><i class="ti ti-plus"></i> 登録する</button>
+  </div>
+  <div class="card"><div class="card-title">登録済み生徒</div><div id="student-list"><div class="loading"><div class="spinner"></div>読み込み中...</div></div></div>
+</div>
+
+<!-- TRANSFER -->
+<div class="page" id="page-transfer-admin">
+  <div class="info-box"><strong>振替ポリシー</strong>　振替は原則なし。前月以内の相談のみ受付可能。確実な振替をお約束するものではありません。</div>
+  <div class="card"><div class="card-title">振替相談一覧</div><div id="transfer-requests"><div class="loading"><div class="spinner"></div>読み込み中...</div></div></div>
+</div>
+
+<!-- TEACHER STUDENT VIEW -->
+<div class="page" id="page-teacher-student-view">
+  <div class="teacher-note"><i class="ti ti-shield-check"></i> 講師モード — 全生徒のページにアクセスできます</div>
+  <div class="form-group" style="margin-bottom:14px;max-width:280px">
+    <div class="lbl">閲覧する生徒</div>
+    <select id="tsv-select" onchange="loadTeacherStudentView()"><option value="">— 選択してください —</option></select>
+  </div>
+  <div id="tsv-content" style="display:none">
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
+      <div class="avatar" id="tsv-avatar" style="width:40px;height:40px;font-size:13px"></div>
+      <div><div style="font-size:15px;font-weight:600" id="tsv-name"></div><div style="font-size:12px;color:var(--text2)" id="tsv-info"></div></div>
+    </div>
+    <div class="tab-bar">
+      <div class="tab active" onclick="tsvTab('schedule')" id="tsvt-schedule">日程</div>
+      <div class="tab" onclick="tsvTab('absent')" id="tsvt-absent">欠席・相談</div>
+    </div>
+    <div id="tsvp-schedule"></div>
+    <div id="tsvp-absent" style="display:none"></div>
+  </div>
+</div>
+
+<!-- STUDENT LOGIN -->
+<div class="page" id="page-student-login">
+  <div class="login-outer">
+    <div class="login-card">
+      <div class="login-icon"><i class="ti ti-user"></i></div>
+      <div style="text-align:center;margin-bottom:20px">
+        <div style="font-size:17px;font-weight:600;margin-bottom:4px">生徒ページ</div>
+        <div style="font-size:12px;color:var(--text2)">お名前を入力してログインしてください</div>
+      </div>
+      <div class="form-group" style="margin-bottom:12px">
+        <div class="lbl">氏名（登録名と完全一致）</div>
+        <input id="login-name" placeholder="例：山田 花子" onkeydown="if(event.key==='Enter')doLogin()">
+      </div>
+      <button class="btn btn-primary" style="width:100%;justify-content:center" onclick="doLogin()"><i class="ti ti-login"></i> ログイン</button>
+      <div id="login-error" style="margin-top:10px;font-size:12px;color:var(--red);text-align:center;display:none"><i class="ti ti-alert-circle"></i> 名前が見つかりません</div>
+    </div>
+  </div>
+</div>
+
+<!-- STUDENT PORTAL -->
+<div class="page" id="page-student-portal">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+    <div style="display:flex;align-items:center;gap:12px">
+      <div class="avatar" id="sp-avatar" style="width:42px;height:42px;font-size:14px"></div>
+      <div><div style="font-size:15px;font-weight:600" id="sp-name"></div><div style="font-size:12px;color:var(--text2)" id="sp-info"></div></div>
+    </div>
+    <button class="btn btn-sm" onclick="doLogout()"><i class="ti ti-logout"></i> ログアウト</button>
+  </div>
+  <div id="sp-lock-banner" style="display:none"></div>
+  <div class="tab-bar">
+    <div class="tab active" onclick="spTab('schedule')" id="spt-schedule">日程</div>
+    <div class="tab" onclick="spTab('absent')" id="spt-absent">欠席・相談</div>
+  </div>
+  <div id="spp-schedule">
+    <!-- 日程リスト（renderPortalScheduleが書き換える） -->
+    <div id="spp-schedule-list"></div>
+    <!-- カレンダー（独立して描画） -->
+    <div class="card cal-wrap" id="sp-calendar-card">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+        <div style="font-size:13px;font-weight:600" id="sp-cal-title"></div>
+      </div>
+      <div class="cal-grid" style="margin-bottom:4px">
+        <div class="cal-dow sun">日</div>
+        <div class="cal-dow">月</div>
+        <div class="cal-dow">火</div>
+        <div class="cal-dow">水</div>
+        <div class="cal-dow">木</div>
+        <div class="cal-dow">金</div>
+        <div class="cal-dow sat">土</div>
+      </div>
+      <div class="cal-grid" id="sp-cal-body"></div>
+    </div>
+  </div>
+  <div id="spp-absent" style="display:none"></div>
+</div>
+
+  </div><!-- /content -->
+</div><!-- /main -->
+</div><!-- /shell -->
+
+<script>
+/* =====================================================
+   SUPABASE 初期化
+   ===================================================== */
+const isConfigured = SUPABASE_URL !== 'YOUR_SUPABASE_URL'
+const sb = isConfigured
+  ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+  : null
+
+/* =====================================================
+   時間割定義
+   ===================================================== */
+function pad(n){return String(n).padStart(2,'0')}
+function genThuSat(){
+  const s=[];let h=12,m=30;
+  while(h<20||(h===20&&m===0)){
+    const eh=m+30>=60?h+1:h,em=(m+30)%60;
+    s.push(`${pad(h)}:${pad(m)}〜${pad(eh)}:${pad(em)}`);
+    m+=30;if(m>=60){m-=60;h++;}
+  }
+  return s;
+}
+function genFri(){
+  const s=[];let h=12,m=30;
+  while(true){const tot=h*60+m+45;if(tot>20*60)break;
+    const eh=Math.floor(tot/60),em=tot%60;
+    s.push(`${pad(h)}:${pad(m)}〜${pad(eh)}:${pad(em)}`);
+    m+=45;if(m>=60){m-=60;h++;}
+  }
+  return s;
+}
+const SUN_SLOTS=[
+  {slot:'12:30〜13:30',label:'12:30〜13:30',note:'グループ1h'},
+  {slot:'13:30〜14:15',label:'13:30〜14:15'},
+  {slot:'14:15〜15:00',label:'14:15〜15:00'},
+  {slot:'BREAK',label:'15:00〜15:30',note:'休憩',isBreak:true},
+  {slot:'15:30〜16:15',label:'15:30〜16:15'},
+  {slot:'16:15〜17:00',label:'16:15〜17:00'},
+  {slot:'17:00〜17:45',label:'17:00〜17:45'},
+  {slot:'17:45〜18:30',label:'17:45〜18:30'},
+  {slot:'18:30〜19:15',label:'18:30〜19:15'},
+  {slot:'19:15〜20:00',label:'19:15〜20:00'},
+]
+const THU_SAT_SLOTS=genThuSat()
+const FRI_SLOTS=genFri()
+const DAY_LIST=['木','金','土','日']
+const DAY_LABEL={木:'木曜日',金:'金曜日',土:'土曜日',日:'日曜日'}
+const DAY_CLS={木:'thu-col',金:'fri-col',土:'sat-col',日:'sun-col'}
+const AVATAR_COLORS=[
+  ['#E6F1FB','#0C447C'],['#EAF3DE','#27500A'],
+  ['#FAEEDA','#633806'],['#EEEDFE','#3C3489'],['#FCEBEB','#791F1F']
+]
+
+function getCourseOptions(day){
+  if(day==='木'||day==='土')return[{v:3,l:'月3回（固定）'},{v:2,l:'月2回（3回から選択）'}]
+  return[{v:2,l:'月2回（固定）'}]
+}
+function canSelectDates(s){return(s.day==='木'||s.day==='土')&&s.course===2}
+function sortDates(arr){return[...arr].sort((a,b)=>{const pa=a.split('/').map(Number),pb=b.split('/').map(Number);return pa[0]!==pb[0]?pa[0]-pb[0]:pa[1]-pb[1]})}
+function initials(n){return n.replace(/\s/g,'').substring(0,2)}
+function getCurrentMonth(){return new Date().getMonth()+1}
+
+/* =====================================================
+   状態管理
+   ===================================================== */
+let students=[]
+let manualTransfers=[]  // [{id, studentName, fromDate, fromTime, fromDay, toDate, toTime, toDay, month}]
+let trialLessons=[]     // [{id, date, time, day, memo, month}]
+let dragData=null       // ドラッグ中のデータ
+let lessonDates={木:[],金:[],土:[],日:[]}
+let tempDates={木:[],金:[],土:[],日:[]}
+let loggedInStudent=null
+let teacherLoggedIn=false
+let currentMode='teacher'
+let selectedMonth=getCurrentMonth()
+
+/* =====================================================
+   Supabase データ操作
+   ===================================================== */
+async function loadStudents(){
+  if(!sb)return
+  const{data,error}=await sb.from('students').select('*').order('created_at')
+  if(!error&&data){
+    // 各生徒の選択日程を取得
+    for(const s of data){
+      const{data:sel}=await sb.from('student_selections')
+        .select('date').eq('student_id',s.id).eq('month',selectedMonth)
+      s.selected=sel?sel.map(x=>x.date):[]
+      const{data:req}=await sb.from('requests')
+        .select('*').eq('student_id',s.id).eq('status','pending')
+      s.requests=req||[]
+    }
+    students=data
+  }
+}
+
+async function loadLessonDates(){
+  if(!sb)return
+  const{data,error}=await sb.from('lesson_dates').select('*').eq('month',selectedMonth)
+  if(!error&&data){
+    lessonDates={木:[],金:[],土:[],日:[]}
+    data.forEach(r=>{if(lessonDates[r.day])lessonDates[r.day].push(r.date)})
+    DAY_LIST.forEach(d=>{lessonDates[d]=sortDates(lessonDates[d])})
+  }
+  tempDates={木:[...lessonDates['木']],金:[...lessonDates['金']],土:[...lessonDates['土']],日:[...lessonDates['日']]}
+}
+
+async function saveLessonDates(){
+  if(!sb){toast('Supabaseが未設定です',true);return}
+  // 既存削除
+  await sb.from('lesson_dates').delete().eq('month',selectedMonth)
+  // 新規挿入
+  const rows=[]
+  DAY_LIST.forEach(day=>{
+    tempDates[day].forEach(date=>rows.push({day,date,month:selectedMonth}))
+  })
+  if(rows.length){await sb.from('lesson_dates').insert(rows)}
+  // 月3回・金・日の生徒は自動で選択を更新
+  for(const s of students){
+    if(s.course===3||s.day==='金'||s.day==='日'){
+      await sb.from('student_selections').delete().eq('student_id',s.id).eq('month',selectedMonth)
+      const newSel=(tempDates[s.day]||[]).map(date=>({student_id:s.id,date,month:selectedMonth}))
+      if(newSel.length)await sb.from('student_selections').insert(newSel)
+      s.selected=tempDates[s.day]||[]
+    }
+  }
+  DAY_LIST.forEach(day=>{lessonDates[day]=[...tempDates[day]]})
+  toast('日程を保存しました。生徒ページに反映されました。')
+  renderScheduleTable()
+}
+
+async function addStudentToDB(s){
+  if(!sb){toast('Supabaseが未設定です',true);return false}
+  const{data,error}=await sb.from('students').insert([{
+    name:s.name,kana:s.kana,day:s.day,time:s.time,course:s.course,tel:s.tel
+  }]).select().single()
+  if(error){toast('登録に失敗しました',true);console.error(error);return false}
+  // 月3回・金・日は全日程を自動登録
+  if(s.course===3||s.day==='金'||s.day==='日'){
+    const sel=(lessonDates[s.day]||[]).map(date=>({student_id:data.id,date,month:selectedMonth}))
+    if(sel.length)await sb.from('student_selections').insert(sel)
+    data.selected=lessonDates[s.day]||[]
+  } else {
+    data.selected=[]
+  }
+  data.requests=[]
+  students.push(data)
+  return true
+}
+
+async function deleteStudentFromDB(id){
+  if(!sb)return
+  await sb.from('students').delete().eq('id',id)
+  students=students.filter(s=>s.id!==id)
+}
+
+async function saveStudentSelection(studentId,dates){
+  if(!sb)return
+  await sb.from('student_selections').delete().eq('student_id',studentId).eq('month',selectedMonth)
+  if(dates.length){
+    await sb.from('student_selections').insert(dates.map(date=>({student_id:studentId,date,month:selectedMonth})))
+  }
+}
+
+async function submitRequest(studentId,date,type,note){
+  if(!sb){toast('Supabaseが未設定です',true);return false}
+  const{error}=await sb.from('requests').insert([{student_id:studentId,date,type,note,status:'pending'}])
+  if(error){toast('送信に失敗しました',true);return false}
+  // ローカルにも追加
+  const s=students.find(x=>x.id===studentId)
+  if(s)s.requests.push({date,type,note,status:'pending'})
+  return true
+}
+
+async function resolveRequest(requestId,action,studentId){
+  if(!sb)return
+  await sb.from('requests').update({status:action==='承認'?'approved':'dismissed'}).eq('id',requestId)
+  const s=students.find(x=>x.id===studentId)
+  if(s)s.requests=s.requests.filter(r=>r.id!==requestId)
+}
+
+/* =====================================================
+   UI Helpers
+   ===================================================== */
+const PAGE_TITLES={
+  'teacher-login':'講師ログイン',
+  'schedule-table':'レッスン表',
+  'schedule-thu-sat':'レッスン表（木曜・土曜）',
+  'schedule-fri':'レッスン表（金曜）',
+  'schedule-sun':'レッスン表（日曜）',
+  'dashboard':'ダッシュボード',
+  'lesson-dates':'日程設定','students':'生徒管理','transfer-admin':'振替相談',
+  'teacher-student-view':'生徒ページを見る','student-login':'生徒ページ','student-portal':'マイページ'
+}
+
+function toast(msg,isErr){
+  const t=document.getElementById('toast')
+  t.style.background=isErr?'#791F1F':'#185FA5'
+  t.innerHTML=`<i class="ti ${isErr?'ti-alert-circle':'ti-check'}"></i>${msg}`
+  t.style.opacity='1'
+  setTimeout(()=>t.style.opacity='0',2800)
+}
+
+function buildMonthSelect(id, onChange){
+  return [1,2,3,4,5,6,7,8,9,10,11,12].map(m=>
+    `<option value="${m}" ${selectedMonth==m?'selected':''}>${m}月</option>`
+  ).join('')
+}
+
+function setTopbar(id){
+  document.getElementById('topbar-title').textContent=PAGE_TITLES[id]||''
+  const acts=document.getElementById('topbar-actions')
+  if(id==='schedule-thu-sat'||id==='schedule-fri'||id==='schedule-sun'){
+    acts.innerHTML=`<select id="month-sel" onchange="changeMonth(this.value)" style="font-size:12px;padding:5px 8px;width:auto">${buildMonthSelect()}</select>`
+  } else if(id==='student-portal'){
+    acts.innerHTML=`<select id="sp-month-sel" onchange="changeStudentMonth(this.value)" style="font-size:12px;padding:5px 8px;width:auto">${buildMonthSelect()}</select>`
+  } else {
+    acts.innerHTML=''
+  }
+}
+
+async function changeMonth(m){
+  selectedMonth=parseInt(m)
+  await loadLessonDates()
+  await loadStudents()
+  renderScheduleTable()
+}
+
+async function changeStudentMonth(m){
+  selectedMonth=parseInt(m)
+  await loadLessonDates()
+  await loadStudents()
+  if(loggedInStudent){
+    // ログイン中の生徒情報を最新に更新
+    const updated = students.find(x=>x.id===loggedInStudent.id)
+    if(updated) loggedInStudent = updated
+    refreshPortal(loggedInStudent.id,'sp')
+  }
+}
+
+function setupWarning(containerId){
+  if(isConfigured)return
+  const el=document.getElementById(containerId)
+  if(el)el.innerHTML=`<div class="setup-banner">
+    <h3><i class="ti ti-settings"></i> Supabase設定が必要です</h3>
+    <p>このファイルの先頭にある <code>SUPABASE_URL</code> と <code>SUPABASE_ANON_KEY</code> を<br>実際の値に書き換えてください。</p>
+    <p>設定方法はSupabaseダッシュボード → Project Settings → API で確認できます。</p>
+  </div>`
+}
+
+/* =====================================================
+   モード切替・ナビ
+   ===================================================== */
+function switchMode(mode){
+  // 生徒用URLでは講師モードへの切替を禁止
+  if(isStudentMode && mode==='teacher') return
+  currentMode=mode
+  document.getElementById('mode-teacher-btn').classList.toggle('active',mode==='teacher')
+  document.getElementById('mode-student-btn').classList.toggle('active',mode==='student')
+  document.getElementById('teacher-nav').style.display=mode==='teacher'?'block':'none'
+  document.getElementById('student-nav').style.display=mode==='student'?'block':'none'
+  if(mode==='teacher'){
+    if(!teacherLoggedIn){nav('teacher-login')}
+    else nav('schedule-thu-sat')
+  } else {
+    loggedInStudent?showStudentPortal(loggedInStudent):nav('student-login')
+  }
+}
+
+function nav(id){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'))
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'))
+  const pg=document.getElementById('page-'+id),nv=document.getElementById('n-'+id)
+  if(pg)pg.classList.add('active')
+  if(nv)nv.classList.add('active')
+  setTopbar(id)
+  if(id==='schedule-thu-sat'||id==='schedule-fri'||id==='schedule-sun'){setupWarning('setup-warning-sched');renderScheduleTable()}
+  if(id==='dashboard')renderDashboard()
+  if(id==='lesson-dates')renderDayBlocks()
+  if(id==='students'){renderStudentList();updateCourseOptions()}
+  if(id==='transfer-admin')renderTransferRequests()
+  if(id==='teacher-student-view')renderTeacherStudentViewSelects()
+  if(id==='student-login'){document.getElementById('login-name').value='';document.getElementById('login-error').style.display='none'}
+}
+
+/* =====================================================
+   講師ログイン
+   ===================================================== */
+function doTeacherLogin(){
+  const pw=document.getElementById('teacher-pw').value
+  if(pw===TEACHER_PASSWORD){
+    teacherLoggedIn=true
+    document.getElementById('teacher-login-error').style.display='none'
+    initApp()
+  } else {
+    document.getElementById('teacher-login-error').style.display='block'
+  }
+}
+
+async function initApp(){
+  await loadLessonDates()
+  await loadStudents()
+  nav('schedule-thu-sat')
+}
+
+/* =====================================================
+   スケジュール表
+   ===================================================== */
+function getEntries(day,date,slotKey){
+  const normal = students.filter(s=>s.day===day&&s.time===slotKey).map(s=>{
+    const ds=canSelectDates(s)?s.selected:(lessonDates[day]||[])
+    return ds.includes(date)?{name:s.name,type:s.course===3?'fixed':'selected',studentId:s.id}:null
+  }).filter(Boolean)
+  // 振替（手動移動）
+  const transfers = manualTransfers
+    .filter(t=>t.toDay===day&&t.toDate===date&&t.toTime===slotKey&&t.month===selectedMonth)
+    .map(t=>({name:t.studentName+'（振替）',type:'transfer',transferId:t.id}))
+  // 体験レッスン
+  const trials = trialLessons
+    .filter(t=>t.day===day&&t.date===date&&t.time===slotKey&&t.month===selectedMonth)
+    .map(t=>({name:'体験'+(t.memo?'：'+t.memo.substring(0,6):''),type:'trial',trialId:t.id}))
+  return [...normal,...transfers,...trials]
+}
+
+function renderScheduleByPage(pageId){
+  const dayMap = {
+    'schedule-thu-sat': ['木','土'],
+    'schedule-fri':     ['金'],
+    'schedule-sun':     ['日'],
+  }
+  const rowId = {
+    'schedule-thu-sat': 'sched-days-row-thu-sat',
+    'schedule-fri':     'sched-days-row-fri',
+    'schedule-sun':     'sched-days-row-sun',
+  }
+  const titleId = {
+    'schedule-thu-sat': 'print-title-thu-sat',
+    'schedule-fri':     'print-title-fri',
+    'schedule-sun':     'print-title-sun',
+  }
+  const days = dayMap[pageId] || []
+  const row = document.getElementById(rowId[pageId])
+  if(!row) return
+  const titleEl = document.getElementById(titleId[pageId])
+  if(titleEl) titleEl.textContent = selectedMonth + '月 ' + PAGE_TITLES[pageId]
+
+  const isTeacher = teacherLoggedIn
+  let html = ''
+  days.forEach(day=>{
+    const dates = sortDates(lessonDates[day]||[])
+    if(!dates.length) return
+    const cls = DAY_CLS[day]
+    const slots = day==='日' ? SUN_SLOTS : day==='金' ? FRI_SLOTS.map(s=>({slot:s,label:s})) : THU_SAT_SLOTS.map(s=>({slot:s,label:s}))
+    html += `<div class="day-col ${cls}"><div class="day-col-header">${DAY_LABEL[day]} <span style="font-size:10px;opacity:.6;font-weight:400">${dates.length}日間</span></div>`
+    html += `<div class="day-dates-row"><div style="min-width:86px;background:var(--bg);border-right:1px solid var(--border)"></div>`
+    dates.forEach(d=>{html += `<div class="date-th">${d}</div>`}); html += `</div><div>`
+    slots.forEach(({slot,label,note,isBreak})=>{
+      html += `<div class="time-row"><div class="time-label${isBreak?' break-label':''}">${label}${note&&!isBreak?`<span class="time-row-note">（${note}）</span>`:''}</div>`
+      dates.forEach(d=>{
+        if(isBreak){html += `<div class="cell-slot break-slot">— 休憩 —</div>`;return}
+        const entries = getEntries(day,d,slot)
+        const cellId = `cell-${day}-${d}-${slot}`
+        let cellHtml = `<div class="cell-slot" id="${cellId}"`
+        if(isTeacher){
+          cellHtml += ` ondragover="onDragOver(event,'${day}','${d}','${slot}')" ondrop="onDrop(event,'${day}','${d}','${slot}')" ondragleave="onDragLeave(event)"`
+        }
+        cellHtml += `>`
+        entries.forEach(e=>{
+          if(e.type==='transfer'){
+            cellHtml += `<span class="cell-name cell-transfer">${e.name}`
+            if(isTeacher) cellHtml += ` <span style="cursor:pointer;margin-left:2px" onclick="removeTransfer('${e.transferId}')">×</span>`
+            cellHtml += `</span>`
+          } else if(e.type==='trial'){
+            cellHtml += `<span class="cell-name cell-trial">${e.name}`
+            if(isTeacher) cellHtml += ` <span style="cursor:pointer;margin-left:2px" onclick="removeTrial('${e.trialId}')">×</span>`
+            cellHtml += `</span>`
+          } else {
+            if(isTeacher){
+              cellHtml += `<span class="cell-name cell-${e.type} draggable" draggable="true" ondragstart="onDragStart(event,'${e.studentId||''}','${e.name}','${day}','${d}','${slot}')">${e.name}</span>`
+            } else {
+              cellHtml += `<span class="cell-name cell-${e.type}">${e.name}</span>`
+            }
+          }
+        })
+        if(isTeacher && entries.length===0){
+          cellHtml += `<span class="cell-empty-click" onclick="openSlotMenu(event,'${day}','${d}','${slot}')"></span>`
+        }
+        cellHtml += `</div>`
+        html += cellHtml
+      })
+      html += `</div>`
+    })
+    html += `</div></div>`
+  })
+  row.innerHTML = html || '<div style="padding:24px;color:var(--text3);font-size:12px">日程が設定されていません。「日程設定」から登録してください。</div>'
+}
+
+// 後方互換用（他の場所から呼ばれる場合）
+function renderScheduleTable(){
+  renderScheduleByPage('schedule-thu-sat')
+  renderScheduleByPage('schedule-fri')
+  renderScheduleByPage('schedule-sun')
+}
+
+function renderScheduleTable_orig(){
+  const row=document.getElementById('sched-days-row');let html=''
+  const isTeacher=teacherLoggedIn
+  DAY_LIST.forEach(day=>{
+    const dates=sortDates(lessonDates[day]||[]);if(!dates.length)return
+    const cls=DAY_CLS[day]
+    const slots=day==='日'?SUN_SLOTS:day==='金'?FRI_SLOTS.map(s=>({slot:s,label:s})):THU_SAT_SLOTS.map(s=>({slot:s,label:s}))
+    html+=`<div class="day-col ${cls}"><div class="day-col-header">${DAY_LABEL[day]} <span style="font-size:10px;opacity:.6;font-weight:400">${dates.length}日間</span></div>`
+    html+=`<div class="day-dates-row"><div style="min-width:86px;background:var(--bg);border-right:1px solid var(--border)"></div>`
+    dates.forEach(d=>{html+=`<div class="date-th">${d}</div>`});html+=`</div><div>`
+    slots.forEach(({slot,label,note,isBreak})=>{
+      html+=`<div class="time-row"><div class="time-label${isBreak?' break-label':''}">${label}${note&&!isBreak?`<span class="time-row-note">（${note}）</span>`:''}</div>`
+      dates.forEach(d=>{
+        if(isBreak){html+=`<div class="cell-slot break-slot">— 休憩 —</div>`;return}
+        const entries=getEntries(day,d,slot)
+        const cellId=`cell-${day}-${d}-${slot}`
+        let cellHtml=`<div class="cell-slot" id="${cellId}"`
+        if(isTeacher){
+          cellHtml+=` ondragover="onDragOver(event,'${day}','${d}','${slot}')" ondrop="onDrop(event,'${day}','${d}','${slot}')" ondragleave="onDragLeave(event)"`
+        }
+        cellHtml+=`>`
+        entries.forEach(e=>{
+          if(e.type==='transfer'){
+            cellHtml+=`<span class="cell-name cell-transfer" title="振替">${e.name}`
+            if(isTeacher) cellHtml+=` <span style="cursor:pointer;margin-left:2px" onclick="removeTransfer('${e.transferId}')">×</span>`
+            cellHtml+=`</span>`
+          } else if(e.type==='trial'){
+            cellHtml+=`<span class="cell-name cell-trial" title="体験">${e.name}`
+            if(isTeacher) cellHtml+=` <span style="cursor:pointer;margin-left:2px" onclick="removeTrial('${e.trialId}')">×</span>`
+            cellHtml+=`</span>`
+          } else {
+            if(isTeacher){
+              cellHtml+=`<span class="cell-name cell-${e.type} draggable" draggable="true" ondragstart="onDragStart(event,'${e.studentId||''}','${e.name}','${day}','${d}','${slot}')">${e.name}</span>`
+            } else {
+              cellHtml+=`<span class="cell-name cell-${e.type}">${e.name}</span>`
+            }
+          }
+        })
+        // 空きコマは講師がクリックでメニュー表示
+        if(isTeacher && entries.length===0){
+          cellHtml+=`<span class="cell-empty-click" onclick="openSlotMenu(event,'${day}','${d}','${slot}')"></span>`
+        }
+        cellHtml+=`</div>`
+        html+=cellHtml
+      })
+      html+=`</div>`
+    })
+    html+=`</div></div>`
+  })
+  row.innerHTML=html||'<div style="padding:24px;color:var(--text3);font-size:12px">日程が設定されていません。「日程設定」から登録してください。</div>'
+}
+
+/* =====================================================
+   Excel ダウンロード
+   ===================================================== */
+function downloadExcel(){
+  const wb=XLSX.utils.book_new()
+  DAY_LIST.forEach(day=>{
+    const dates=sortDates(lessonDates[day]||[]);if(!dates.length)return
+    const slots=day==='日'?SUN_SLOTS:day==='金'?FRI_SLOTS.map(s=>({slot:s,label:s})):THU_SAT_SLOTS.map(s=>({slot:s,label:s}))
+    const rows=[[`${DAY_LABEL[day]} 時間`,...dates]]
+    slots.forEach(({slot,label,note,isBreak})=>{
+      if(isBreak){rows.push([`${label}（休憩）`,...dates.map(()=>'')]);return}
+      rows.push([(note?`${label}（${note}）`:label),...dates.map(d=>getEntries(day,d,slot).map(e=>e.name+(e.type==='fixed'?'[固]':'[選]')).join('・')||'')])
+    })
+    const ws=XLSX.utils.aoa_to_sheet(rows);ws['!cols']=[{wch:22},...dates.map(()=>({wch:16}))]
+    XLSX.utils.book_append_sheet(wb,ws,DAY_LABEL[day])
+  })
+  XLSX.writeFile(wb,`レッスン表_${selectedMonth}月.xlsx`)
+  toast('Excelをダウンロードしました')
+}
+
+/* =====================================================
+   ダッシュボード
+   ===================================================== */
+function renderDashboard(){
+  document.getElementById('d-total').textContent=students.length
+  document.getElementById('d-3x').textContent=students.filter(s=>s.course===3).length
+  document.getElementById('d-2x').textContent=students.filter(s=>s.course===2).length
+  document.getElementById('d-req').textContent=students.reduce((a,s)=>a+s.requests.length,0)
+  const el=document.getElementById('dash-list')
+  if(!students.length){el.innerHTML='<div style="color:var(--text3);font-size:12px;padding:8px 0">生徒が登録されていません</div>';return}
+  el.innerHTML=students.map((s,i)=>{
+    const[bg,fg]=AVATAR_COLORS[i%AVATAR_COLORS.length]
+    const sel=canSelectDates(s)
+    const status=s.course===3?'<span class="badge b-green">全日固定</span>'
+      :!sel?'<span class="badge b-purple">月2回固定</span>'
+      :!(lessonDates[s.day]||[]).length?'<span class="badge b-gray">日程未設定</span>'
+      :s.selected.length>=2?'<span class="badge b-blue">日程確定</span>'
+      :'<span class="badge b-amber">未選択</span>'
+    return`<div class="srow">
+      <div class="avatar" style="background:${bg};color:${fg}">${initials(s.name)}</div>
+      <div style="flex:1"><div style="font-weight:600">${s.name}</div>
+      <div style="font-size:11px;color:var(--text2)">${s.day}曜 ${s.time} 月${s.course}回</div></div>
+      ${status}
+      <button class="btn btn-sm" style="margin-left:6px" onclick="quickView('${s.id}')"><i class="ti ti-eye"></i></button>
+    </div>`
+  }).join('')
+}
+function quickView(id){nav('teacher-student-view');document.getElementById('tsv-select').value=id;loadTeacherStudentView()}
+
+/* =====================================================
+   日程設定
+   ===================================================== */
+function renderDayBlocks(){
+  DAY_LIST.forEach(day=>{tempDates[day]=[...lessonDates[day]]})
+  document.getElementById('day-blocks').innerHTML=DAY_LIST.map(day=>`
+    <div class="day-block">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+        <div style="font-size:13px;font-weight:600">${DAY_LABEL[day]}</div>
+        <span class="badge b-blue" id="cnt-${day}">${lessonDates[day].length}日設定済</span>
+      </div>
+      <div id="tags-${day}">${renderTags(day)}</div>
+      <div class="add-date-row">
+        <input id="inp-${day}" placeholder="例：6/5" style="width:90px;padding:6px 10px;font-size:12px">
+        <button class="btn btn-sm" onclick="addTempDate('${day}')"><i class="ti ti-plus"></i> 追加</button>
+      </div>
+    </div>`).join('')
+}
+function renderTags(day){
+  return(tempDates[day]||[]).map((d,i)=>`<span class="date-tag">${d}（${day}）<span class="rm" onclick="removeTempDate('${day}',${i})">×</span></span>`).join('')
+    ||'<span style="font-size:12px;color:var(--text3)">未設定</span>'
+}
+function addTempDate(day){
+  const inp=document.getElementById('inp-'+day),val=inp.value.trim();if(!val)return
+  if(tempDates[day].includes(val)){toast('すでに追加済みです',true);return}
+  tempDates[day].push(val);inp.value=''
+  document.getElementById('tags-'+day).innerHTML=renderTags(day)
+  document.getElementById('cnt-'+day).textContent=tempDates[day].length+'日設定済'
+}
+function removeTempDate(day,i){
+  tempDates[day].splice(i,1)
+  document.getElementById('tags-'+day).innerHTML=renderTags(day)
+  document.getElementById('cnt-'+day).textContent=tempDates[day].length+'日設定済'
+}
+
+/* =====================================================
+   生徒管理
+   ===================================================== */
+function updateCourseOptions(){
+  const day=document.getElementById('s-day').value
+  const slots=day==='日'?SUN_SLOTS.filter(x=>!x.isBreak).map(x=>x.slot):day==='金'?FRI_SLOTS:THU_SAT_SLOTS
+  document.getElementById('s-time').innerHTML=slots.map(s=>`<option>${s}</option>`).join('')
+  document.getElementById('s-course').innerHTML=getCourseOptions(day).map(o=>`<option value="${o.v}">${o.l}</option>`).join('')
+  document.getElementById('s-course-note').textContent=(day==='金'||day==='日')
+    ?'※ 金・日は月2回固定です。日程選択・振替はありません。'
+    :'※ 木・土の月3回は全日程固定。月2回は3回の候補から2日を選択できます。'
+}
+function renderStudentList(){
+  const el=document.getElementById('student-list')
+  if(!students.length){el.innerHTML='<div style="color:var(--text3);font-size:12px;padding:8px 0">まだ登録されていません</div>';return}
+  el.innerHTML=students.map((s,i)=>{
+    const[bg,fg]=AVATAR_COLORS[i%AVATAR_COLORS.length]
+    return`<div class="srow">
+      <div class="avatar" style="background:${bg};color:${fg}">${initials(s.name)}</div>
+      <div style="flex:1"><div style="font-weight:600">${s.name} <span style="font-size:11px;color:var(--text2);font-weight:400">${s.kana||''}</span></div>
+      <div style="font-size:11px;color:var(--text2)">${s.day}曜 ${s.time} / 月${s.course}回 / ${s.tel||''}</div></div>
+      <span class="badge ${s.course===3?'b-green':'b-blue'}">月${s.course}回</span>
+      <button class="btn btn-sm" style="color:var(--red);border-color:#F7C1C1;margin-left:6px" onclick="deleteStudent('${s.id}')"><i class="ti ti-trash"></i></button>
+    </div>`
+  }).join('')
+}
+async function addStudent(){
+  const name=document.getElementById('s-name').value.trim()
+  if(!name){toast('氏名を入力してください',true);return}
+  if(students.find(s=>s.name===name)){toast('同名の生徒が既に登録されています',true);return}
+  const kana=document.getElementById('s-kana').value.trim()
+  const day=document.getElementById('s-day').value
+  const time=document.getElementById('s-time').value
+  const course=parseInt(document.getElementById('s-course').value)
+  const tel=document.getElementById('s-tel').value.trim()
+  const ok=await addStudentToDB({name,kana,day,time,course,tel})
+  if(ok){
+    ;['s-name','s-kana','s-tel'].forEach(i=>document.getElementById(i).value='')
+    renderStudentList();toast(name+'さんを登録しました')
+  }
+}
+async function deleteStudent(id){
+  if(!confirm('この生徒を削除しますか？'))return
+  await deleteStudentFromDB(id)
+  renderStudentList();toast('削除しました')
+}
+
+/* =====================================================
+   振替相談
+   ===================================================== */
+function renderTransferRequests(){
+  const el=document.getElementById('transfer-requests')
+  const all=students.flatMap(s=>s.requests.map(r=>({...r,sname:s.name,sid:s.id})))
+  if(!all.length){el.innerHTML='<div style="color:var(--text3);font-size:12px;padding:8px 0">相談はまだありません</div>';return}
+  el.innerHTML=all.map(r=>`
+    <div style="border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px;margin-bottom:8px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+        <span style="font-weight:600">${r.sname} — ${r.date}</span><span class="badge b-amber">${r.type}</span>
+      </div>
+      <div style="font-size:12px;color:var(--text2);margin-bottom:8px">「${r.note}」</div>
+      <div style="display:flex;gap:6px">
+        <button class="btn btn-primary btn-sm" onclick="handleResolve('${r.id}','承認','${r.sid}')"><i class="ti ti-check"></i> 承認する</button>
+        <button class="btn btn-sm" style="color:var(--amber);border-color:#E8C98A" onclick="handleResolve('${r.id}','今回は見送り','${r.sid}')"><i class="ti ti-clock"></i> 今回は見送り</button>
+      </div>
+    </div>`).join('')
+}
+async function handleResolve(requestId,action,studentId){
+  await resolveRequest(requestId,action,studentId)
+  renderTransferRequests();renderDashboard();toast('「'+action+'」にしました')
+}
+
+/* =====================================================
+   講師→生徒ページ閲覧
+   ===================================================== */
+function renderTeacherStudentViewSelects(){
+  const sel=document.getElementById('tsv-select'),cur=sel.value
+  sel.innerHTML='<option value="">— 選択してください —</option>'+
+    students.map(s=>`<option value="${s.id}">${s.name}（${s.day}曜 月${s.course}回）</option>`).join('')
+  if(cur){sel.value=cur;loadTeacherStudentView()}
+}
+function loadTeacherStudentView(){
+  const id=document.getElementById('tsv-select').value,c=document.getElementById('tsv-content')
+  if(!id){c.style.display='none';return}
+  c.style.display='block';refreshPortal(id,'tsv');tsvTab('schedule')
+}
+function tsvTab(name){
+  ['schedule','absent'].forEach(t=>{
+    document.getElementById('tsvp-'+t).style.display=t===name?'block':'none'
+    document.getElementById('tsvt-'+t).classList.toggle('active',t===name)
+  })
+}
+
+/* =====================================================
+   生徒ログイン / ポータル
+   ===================================================== */
+async function doLogin(){
+  const name=document.getElementById('login-name').value.trim()
+  if(!name) return
+  if(!sb){
+    toast('Supabaseが未設定のためデモモードで表示します',true)
+    return
+  }
+  // ローカルに既にデータがあれば使う、なければSupabaseから直接取得
+  let s = students.find(x=>x.name===name)
+  if(!s){
+    // Supabaseから直接名前で検索
+    const {data,error} = await sb.from('students').select('*').eq('name',name).single()
+    if(error || !data){
+      document.getElementById('login-error').style.display='block'
+      return
+    }
+    // 選択日程・申請も取得
+    const {data:sel} = await sb.from('student_selections')
+      .select('date').eq('student_id',data.id).eq('month',selectedMonth)
+    data.selected = sel ? sel.map(x=>x.date) : []
+    const {data:req} = await sb.from('requests')
+      .select('*').eq('student_id',data.id).eq('status','pending')
+    data.requests = req || []
+    // ローカルにも追加
+    students.push(data)
+    s = data
+  }
+  document.getElementById('login-error').style.display='none'
+  loggedInStudent = s
+  // レッスン日程もロード
+  await loadLessonDates()
+  showStudentPortal(s)
+}
+function showStudentPortal(s){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'))
+  document.getElementById('page-student-portal').classList.add('active')
+  document.getElementById('n-student-login').classList.add('active')
+  setTopbar('student-portal')
+  refreshPortal(s.id,'sp')
+  spTab('schedule')
+}
+function doLogout(){loggedInStudent=null;nav('student-login')}
+
+function isScheduleLocked(){
+  // 当月1日以降はロック（翌月のレッスン分は前月末まで）
+  const now=new Date()
+  const nowMonth=now.getMonth()+1
+  return nowMonth>=selectedMonth&&now.getDate()>=1&&nowMonth===selectedMonth
+  // より厳密には: 当月1日0時以降ロック
+}
+
+function refreshPortal(id,p){
+  const s=students.find(x=>x.id===id);if(!s)return
+  const si=students.indexOf(s)
+  const[bg,fg]=AVATAR_COLORS[si%AVATAR_COLORS.length]
+  const av=document.getElementById(p+'-avatar')
+  if(av){av.textContent=initials(s.name);av.style.background=bg;av.style.color=fg}
+  const nm=document.getElementById(p+'-name');if(nm)nm.textContent=s.name
+  const inf=document.getElementById(p+'-info');if(inf)inf.textContent=`${s.day}曜日 ${s.time} / 月${s.course}回コース`
+  if(p==='sp'){
+    const locked=isScheduleLocked()
+    const banner=document.getElementById('sp-lock-banner')
+    banner.style.display=locked?'block':'none'
+    banner.innerHTML=locked?`<div class="lock-banner"><div style="font-size:20px;color:var(--amber);flex-shrink:0"><i class="ti ti-lock"></i></div><div><div style="font-weight:600;font-size:13px;color:var(--amber);margin-bottom:2px">日程の変更期間が終了しました</div><div style="font-size:12px;color:var(--amber);line-height:1.6">${selectedMonth}月分の日程受付は締め切りました。変更が必要な場合は講師へ直接ご連絡ください。</div></div></div>`:''
+  }
+  renderPortalSchedule(s,p);renderPortalAbsent(s,p)
+  if(p==='sp') renderStudentCalendar(s.id)
+}
+
+function renderPortalSchedule(s,p){
+  const locked=p==='sp'&&isScheduleLocked()
+  const dates=lessonDates[s.day]||[]
+  // sp の場合はカレンダーと分離した専用divに描画
+  const el=p==='sp'
+    ? document.getElementById('spp-schedule-list')
+    : document.getElementById(p+'p-schedule')
+  if(!el) return
+  const selectable=canSelectDates(s)
+  if(!dates.length){el.innerHTML='<div class="card"><div class="card-title">今月の日程</div><div style="font-size:12px;color:var(--text3)">講師がまだ日程を設定していません</div></div>';return}
+  let html='<div class="card">'
+  if(!selectable){
+    html+=`<div class="card-title">${s.day}曜日（${s.course===3?'全'+dates.length+'回・固定':'月2回・固定'}）</div>`
+    html+=dates.map(d=>`<div style="display:flex;align-items:center;gap:9px;padding:7px 0;border-bottom:1px solid var(--border)"><i class="ti ti-calendar-check" style="color:var(--green);font-size:16px"></i><span>${d}（${s.day}）${s.time}</span><span class="badge b-green" style="margin-left:auto">固定</span></div>`).join('')
+    html+=`<div style="margin-top:9px;font-size:11px;color:var(--text3)">日程の選択・変更はありません</div>`
+  } else {
+    html+=`<div class="card-title">${s.day}曜日（${dates.length}回から2回を選択）</div>`
+    html+=dates.map(d=>`<label class="check-item" style="cursor:${locked?'not-allowed':'pointer'}">
+      <input type="checkbox" ${s.selected.includes(d)?'checked':''} ${locked?'disabled':''} style="width:14px;height:14px" onchange="toggleDate('${s.id}','${d}',this,'${p}')">
+      <span>${d}（${s.day}）${s.time}</span>
+      ${s.selected.includes(d)?'<span class="badge b-blue" style="margin-left:auto">選択中</span>':''}
+    </label>`).join('')
+    html+=`<div style="margin-top:10px;font-size:12px;color:var(--text2)">選択数: <strong id="${p}-sel-count">${s.selected.length}</strong> / 2</div>`
+    html+=`<div style="margin-top:10px"><button class="btn btn-primary" onclick="confirmDates('${s.id}','${p}')" ${locked?'disabled':''}><i class="ti ti-check"></i> 日程を確定する</button></div>`
+  }
+  el.innerHTML=html+'</div>'
+}
+
+async function toggleDate(sid,date,el,p){
+  const locked=p==='sp'&&isScheduleLocked()
+  if(locked){el.checked=!el.checked;toast('締め切り済みのため変更できません',true);return}
+  const s=students.find(x=>x.id===sid)
+  if(el.checked){if(s.selected.length>=2){el.checked=false;toast('2回まで選択できます',true);return};s.selected.push(date)}
+  else s.selected=s.selected.filter(d=>d!==date)
+  const cnt=document.getElementById(p+'-sel-count');if(cnt)cnt.textContent=s.selected.length
+  renderScheduleTable()
+}
+
+async function confirmDates(sid,p){
+  if(p==='sp'&&isScheduleLocked()){toast('締め切り済みのため変更できません',true);return}
+  const s=students.find(x=>x.id===sid)
+  if(s.selected.length<2){toast('2回選択してください',true);return}
+  await saveStudentSelection(sid,s.selected)
+  toast('日程を確定しました：'+s.selected.join('・'))
+  renderScheduleTable()
+}
+
+function renderPortalAbsent(s,p){
+  const locked=p==='sp'&&isScheduleLocked()
+  const dates=canSelectDates(s)?s.selected:(lessonDates[s.day]||[])
+  const opts=dates.length?dates.map(d=>`<option>${d}（${s.day}）${s.time}</option>`).join(''):'<option>確定している日程がありません</option>'
+  document.getElementById(p+'p-absent').innerHTML=`<div class="card">
+    <div class="card-title">欠席・振替相談</div>
+    <div class="info-box"><strong>欠席</strong>：来校できない日程をご連絡ください。<br><strong>振替相談</strong>：振替は原則なしですが、前月以内の相談のみ受け付けます。確実な振替をお約束するものではありません。</div>
+    <div class="form-group" style="margin-bottom:10px"><div class="lbl">該当する日程</div><select id="${p}-absent-date" ${locked?'disabled':''}>${opts}</select></div>
+    <div class="form-group" style="margin-bottom:10px"><div class="lbl">種別</div><select id="${p}-absent-type" ${locked?'disabled':''}><option>欠席（振替なし）</option><option>振替相談希望</option></select></div>
+    <div class="form-group" style="margin-bottom:12px"><div class="lbl">理由・ご希望</div><textarea id="${p}-absent-note" ${locked?'disabled':''} placeholder="${locked?'締め切り済みのため受付を終了しました':'例）急な用事のため。振替：6月中可能な日があれば教えてください。'}"></textarea></div>
+    <button class="btn btn-primary" onclick="handleSubmitAbsent('${s.id}','${p}')" ${locked?'disabled':''}><i class="ti ti-send"></i> 送信する</button>
+  </div>`
+}
+
+async function handleSubmitAbsent(sid,p){
+  if(p==='sp'&&isScheduleLocked()){toast('締め切り済みのため送信できません',true);return}
+  const date=document.getElementById(p+'-absent-date').value
+  const type=document.getElementById(p+'-absent-type').value
+  const note=document.getElementById(p+'-absent-note').value.trim()
+  if(!note){toast('内容を入力してください',true);return}
+  const ok=await submitRequest(sid,date,type,note)
+  if(ok){document.getElementById(p+'-absent-note').value='';toast('送信しました');renderDashboard()}
+}
+
+
+
+/* ===== DRAG & DROP ===== */
+function onDragStart(e, studentId, name, fromDay, fromDate, fromSlot){
+  dragData={studentId, name, fromDay, fromDate, fromSlot}
+  e.dataTransfer.effectAllowed='move'
+  setTimeout(()=>{
+    const el=e.target; if(el) el.classList.add('dragging-source')
+  },0)
+}
+function onDragOver(e, day, date, slot){
+  e.preventDefault()
+  e.dataTransfer.dropEffect='move'
+  const cellId=`cell-${day}-${date}-${slot}`
+  document.getElementById(cellId)?.classList.add('drag-over')
+}
+function onDragLeave(e){
+  e.currentTarget.classList.remove('drag-over')
+}
+async function onDrop(e, toDay, toDate, toSlot){
+  e.preventDefault()
+  e.currentTarget.classList.remove('drag-over')
+  if(!dragData) return
+  const {studentId, name, fromDay, fromDate, fromSlot} = dragData
+  dragData = null
+  if(fromDay===toDay && fromDate===toDate && fromSlot===toSlot) return
+
+  // 元のコマから削除（student_selectionsから削除）
+  const s = students.find(x=>x.id===studentId)
+  if(s){
+    s.selected = s.selected.filter(d=>d!==fromDate)
+    if(sb) await sb.from('student_selections')
+      .delete().eq('student_id',studentId).eq('date',fromDate).eq('month',selectedMonth)
+  }
+
+  // 振替として新しいコマに追加
+  const transfer = {
+    id: 'tr_'+Date.now(),
+    studentName: name.replace('（振替）',''),
+    fromDate, fromTime: fromSlot, fromDay,
+    toDate, toTime: toSlot, toDay,
+    month: selectedMonth
+  }
+  manualTransfers.push(transfer)
+  renderScheduleTable()
+  toast(name+'を'+toDate+'（'+toDay+'）'+toSlot+'に移動しました')
+}
+
+
+/* ===== SLOT CLICK MENU ===== */
+let slotMenuEl = null
+function openSlotMenu(e, day, date, slot){
+  e.stopPropagation()
+  closeSlotMenu()
+  const menu = document.createElement('div')
+  menu.className = 'slot-menu'
+  menu.id = 'slot-menu'
+  menu.innerHTML = `
+    <div class="slot-menu-item" onclick="closeSlotMenu();openTransferModal('${day}','${date}','${slot}')">
+      <i class="ti ti-switch-horizontal" style="color:#6B7280"></i> 振替を設定
+    </div>
+    <div class="slot-menu-item" onclick="closeSlotMenu();openTrialModal('${day}','${date}','${slot}')">
+      <i class="ti ti-user-plus" style="color:#0284C7"></i> 体験レッスン
+    </div>
+  `
+  const rect = e.currentTarget.getBoundingClientRect()
+  document.body.appendChild(menu)
+  const menuW = 140, menuH = 80
+  let left = rect.left + window.scrollX
+  let top = rect.bottom + window.scrollY + 2
+  if(left + menuW > window.innerWidth) left = window.innerWidth - menuW - 8
+  if(top + menuH > window.innerHeight + window.scrollY) top = rect.top + window.scrollY - menuH - 2
+  menu.style.left = left + 'px'
+  menu.style.top = top + 'px'
+  slotMenuEl = menu
+  setTimeout(()=>document.addEventListener('click', closeSlotMenu), 0)
+}
+function closeSlotMenu(){
+  if(slotMenuEl){ slotMenuEl.remove(); slotMenuEl=null }
+  document.removeEventListener('click', closeSlotMenu)
+}
+
+/* ===== TRANSFER MODAL ===== */
+function openTransferModal(day, date, slot){
+  const studentOpts = students.map(s=>`<option value="${s.name}">${s.name}（${s.day}曜）</option>`).join('')
+  showModal('transfer-modal',`
+    <div class="modal-title" style="color:var(--text)"><i class="ti ti-switch-horizontal" style="color:#6B7280"></i> 振替設定</div>
+    <div style="font-size:12px;color:var(--text2);margin-bottom:12px">${date}（${day}）${slot}</div>
+    <div class="form-group" style="margin-bottom:10px">
+      <div class="lbl">生徒名</div>
+      <select id="tr-modal-student">${studentOpts}</select>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-primary" style="flex:1" onclick="confirmTransferModal('${day}','${date}','${slot}')"><i class="ti ti-check"></i> 設定する</button>
+      <button class="btn" onclick="closeModal()">キャンセル</button>
+    </div>
+  `)
+}
+function confirmTransferModal(day, date, slot){
+  const name = document.getElementById('tr-modal-student')?.value
+  if(!name) return
+  const transfer = {
+    id: 'tr_'+Date.now(),
+    studentName: name,
+    fromDate:'', fromTime:'', fromDay:'',
+    toDate: date, toTime: slot, toDay: day,
+    month: selectedMonth
+  }
+  manualTransfers.push(transfer)
+  closeModal()
+  renderScheduleTable()
+  toast(name+'の振替を'+date+'（'+day+'）'+slot+'に設定しました')
+}
+function removeTransfer(id){
+  manualTransfers = manualTransfers.filter(t=>t.id!==id)
+  renderScheduleTable()
+}
+
+/* ===== TRIAL MODAL ===== */
+function openTrialModal(day, date, slot){
+  showModal('trial-modal',`
+    <div class="modal-title" style="color:#0C4A6E"><i class="ti ti-user-plus" style="color:#7DD3FC"></i> 体験レッスン設定</div>
+    <div style="font-size:12px;color:var(--text2);margin-bottom:12px">${date}（${day}）${slot}</div>
+    <div class="form-group" style="margin-bottom:10px">
+      <div class="lbl">メモ（お名前・ご要望など）</div>
+      <textarea id="trial-memo" placeholder="例）佐藤様 ピアノ希望&#10;例）体験者：20代女性" style="min-height:70px"></textarea>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-primary" style="flex:1;background:#0284C7;border-color:#0284C7" onclick="confirmTrialModal('${day}','${date}','${slot}')"><i class="ti ti-check"></i> 登録する</button>
+      <button class="btn" onclick="closeModal()">キャンセル</button>
+    </div>
+  `)
+}
+function confirmTrialModal(day, date, slot){
+  const memo = document.getElementById('trial-memo')?.value.trim()||''
+  const trial = {
+    id: 'trial_'+Date.now(),
+    date, time: slot, day, memo,
+    month: selectedMonth
+  }
+  trialLessons.push(trial)
+  closeModal()
+  renderScheduleTable()
+  toast('体験レッスンを'+date+'（'+day+'）'+slot+'に登録しました')
+}
+function removeTrial(id){
+  trialLessons = trialLessons.filter(t=>t.id!==id)
+  renderScheduleTable()
+}
+
+/* ===== MODAL HELPER ===== */
+function showModal(id, html){
+  let overlay = document.getElementById('global-modal-overlay')
+  if(!overlay){
+    overlay = document.createElement('div')
+    overlay.id = 'global-modal-overlay'
+    overlay.className = 'modal-overlay'
+    overlay.onclick = (e)=>{ if(e.target===overlay) closeModal() }
+    document.body.appendChild(overlay)
+  }
+  overlay.innerHTML = `<div class="modal-box">${html}</div>`
+  overlay.style.display = 'flex'
+}
+function closeModal(){
+  const overlay = document.getElementById('global-modal-overlay')
+  if(overlay) overlay.style.display = 'none'
+}
+
+/* ===== CALENDAR ===== */
+function renderStudentCalendar(studentId){
+  const s = students.find(x=>x.id===studentId)
+  if(!s) return
+
+  const year = 2026
+  const month = selectedMonth
+  const titleEl = document.getElementById('sp-cal-title')
+  const bodyEl  = document.getElementById('sp-cal-body')
+  if(!titleEl || !bodyEl) return
+
+  titleEl.textContent = year + '年 ' + month + '月'
+
+  // 確定済み日程を取得
+  const lessonDays = canSelectDates(s) ? s.selected : (lessonDates[s.day] || [])
+  // "6/5" → day番号のSetに変換
+  const lessonDaySet = {}
+  lessonDays.forEach(d => {
+    const parts = d.split('/')
+    if(parts.length === 2) {
+      const m = parseInt(parts[0])
+      const day = parseInt(parts[1])
+      if(m === month) lessonDaySet[day] = d
+    }
+  })
+
+  const firstDay = new Date(year, month-1, 1).getDay() // 0=日
+  const lastDate = new Date(year, month, 0).getDate()
+  const today = new Date()
+
+  let html = ''
+  // 空白マス
+  for(let i=0; i<firstDay; i++){
+    html += '<div class="cal-day empty"></div>'
+  }
+  for(let d=1; d<=lastDate; d++){
+    const dow = new Date(year, month-1, d).getDay()
+    const isToday = today.getFullYear()===year && today.getMonth()+1===month && today.getDate()===d
+    const hasLesson = lessonDaySet[d] !== undefined
+    const dowClass = dow===0?'sun':dow===6?'sat':''
+    let cls = 'cal-day'
+    if(isToday) cls += ' today'
+    if(hasLesson) cls += ' has-lesson'
+    const dateClass = 'cal-date' + (dowClass?' '+dowClass:'') + (isToday?' today-num':'')
+    const lessonTag = hasLesson
+      ? `<span class="cal-lesson-tag" onclick="showLessonPopup(${d},${month},'${s.time}','${s.day}')">レッスン</span>`
+      : ''
+    html += `<div class="${cls}">`
+      + `<div class="${dateClass}">${d}</div>`
+      + lessonTag
+      + '</div>'
+  }
+  bodyEl.innerHTML = html
+}
+
+function showLessonPopup(day, month, time, dow){
+  const DAY_NAMES = {木:'木曜日',金:'金曜日',土:'土曜日',日:'日曜日'}
+  document.getElementById('popup-title').textContent = 'レッスン'
+  document.getElementById('popup-date').textContent = '2026年' + month + '月' + day + '日（' + (DAY_NAMES[dow]||dow) + '）'
+  document.getElementById('popup-time').textContent = time
+  document.getElementById('lesson-popup-overlay').style.display = 'flex'
+}
+
+function closeLessonPopup(e){
+  if(!e || e.target === document.getElementById('lesson-popup-overlay')){
+    document.getElementById('lesson-popup-overlay').style.display = 'none'
+  }
+}
+
+function spTab(name){
+  ['schedule','absent'].forEach(t=>{
+    document.getElementById('spp-'+t).style.display=t===name?'block':'none'
+    document.getElementById('spt-'+t).classList.toggle('active',t===name)
+  })
+  if(name==='schedule' && loggedInStudent){
+    renderStudentCalendar(loggedInStudent.id)
+  }
+}
+
+/* =====================================================
+   初期化 - URLパラメータで講師/生徒を自動切り替え
+   ===================================================== */
+updateCourseOptions()
+
+// URLパラメータを確認して初期画面を決定
+const urlParams = new URLSearchParams(window.location.search)
+const isStudentMode = urlParams.has('student')
+
+function applyStudentMode(){
+  // モード切替ボタンを完全非表示
+  const modeToggleBar = document.getElementById('mode-toggle-bar')
+  if(modeToggleBar) modeToggleBar.style.display = 'none'
+  const modeToggle = document.querySelector('.mode-toggle')
+  if(modeToggle) modeToggle.style.display = 'none'
+  // 講師ボタン・生徒ボタン個別にも非表示
+  const teacherBtn = document.getElementById('mode-teacher-btn')
+  if(teacherBtn) teacherBtn.style.display = 'none'
+  const studentBtn = document.getElementById('mode-student-btn')
+  if(studentBtn) studentBtn.style.display = 'none'
+  // 講師ナビを非表示
+  const teacherNav = document.getElementById('teacher-nav')
+  if(teacherNav) teacherNav.style.display = 'none'
+  // 生徒ナビを表示
+  const studentNav = document.getElementById('student-nav')
+  if(studentNav) studentNav.style.display = 'block'
+  // nav-sectionの講師関連も非表示
+  document.querySelectorAll('.nav-section').forEach(el => {
+    if(el.textContent.includes('講師')) el.style.display = 'none'
+  })
+  currentMode = 'student'
+  // すべてのページを非表示にして生徒ログインだけ表示
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'))
+  const loginPage = document.getElementById('page-student-login')
+  if(loginPage) loginPage.classList.add('active')
+  setTopbar('student-login')
+}
+
+if(isStudentMode){
+  // DOMが読み込まれたあとに実行
+  if(document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', applyStudentMode)
+  } else {
+    applyStudentMode()
+  }
+} else {
+  // 講師用URL (デフォルト or ?teacher) → 講師ログイン画面へ
+  setTopbar('teacher-login')
+}
+</script>
+
+<!-- LESSON POPUP -->
+<div id="lesson-popup-overlay" class="lesson-popup-overlay" style="display:none" onclick="closeLessonPopup(event)">
+  <div class="lesson-popup">
+    <div class="lesson-popup-title" id="popup-title">レッスン</div>
+    <div class="lesson-popup-date" id="popup-date"></div>
+    <div class="lesson-popup-time">
+      <i class="ti ti-clock" style="font-size:18px"></i>
+      <span id="popup-time"></span>
+    </div>
+    <button class="lesson-popup-close" onclick="closeLessonPopup()">閉じる</button>
+  </div>
+</div>
+</body>
+</html>
