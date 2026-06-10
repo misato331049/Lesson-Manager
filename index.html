@@ -1298,7 +1298,6 @@ function renderStudentList(){
   }).join('')
 }
 function filterStudents(){ renderStudentList() }
-async function addStudent
 async function addStudent(){
   const name=document.getElementById('s-name').value.trim()
   if(!name){toast('氏名を入力してください',true);return}
