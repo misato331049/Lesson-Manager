@@ -255,16 +255,29 @@ async function onDrop(e, toDay, toDate, toSlot){
   }
 
   // 振替として新しいコマに追加
+  const cleanName = name.replace('（振替）','')
+  const transferRow = {
+    student_name: cleanName,
+    from_date: fromDate, from_time: fromSlot, from_day: fromDay,
+    to_date: toDate, to_time: toSlot, to_day: toDay,
+    month: selectedMonth
+  }
   const transfer = {
     id: 'tr_'+Date.now(),
-    studentName: name.replace('（振替）',''),
+    studentName: cleanName,
     fromDate, fromTime: fromSlot, fromDay,
     toDate, toTime: toSlot, toDay,
     month: selectedMonth
   }
+  if(sb){
+    const{data}=await sb.from('manual_transfers').insert([transferRow]).select().single()
+    if(data) transfer.id=data.id
+  }
   manualTransfers.push(transfer)
-  renderScheduleTable()
-  toast(name+'を'+toDate+'（'+toDay+'）'+toSlot+'に移動しました')
+  renderScheduleByPage('schedule-thu-sat')
+  renderScheduleByPage('schedule-fri')
+  renderScheduleByPage('schedule-sun')
+  toast(cleanName+'を'+toDate+'（'+toDay+'）'+toSlot+'に移動しました')
 }
 
 
@@ -321,17 +334,32 @@ async function confirmTransferModal(day, date, slot){
   const name = document.getElementById('tr-modal-student')?.value
   if(!name) return
   const transfer = {
-    studentName: name,
-    fromDate:'', fromTime:'', fromDay:'',
-    toDate: date, toTime: slot, toDay: day,
+    student_name: name,
+    from_date:'', from_time:'', from_day:'',
+    to_date: date, to_time: slot, to_day: day,
     month: selectedMonth
   }
   if(sb){
     const{data}=await sb.from('manual_transfers').insert([transfer]).select().single()
-    if(data) transfer.id=data.id
-    else transfer.id='tr_'+Date.now()
+    if(data){
+      transfer.id=data.id
+      transfer.studentName=name
+      transfer.toDate=date
+      transfer.toTime=slot
+      transfer.toDay=day
+    } else {
+      transfer.id='tr_'+Date.now()
+      transfer.studentName=name
+      transfer.toDate=date
+      transfer.toTime=slot
+      transfer.toDay=day
+    }
   } else {
     transfer.id='tr_'+Date.now()
+    transfer.studentName=name
+    transfer.toDate=date
+    transfer.toTime=slot
+    transfer.toDay=day
   }
   manualTransfers.push(transfer)
   closeModal()
@@ -956,11 +984,19 @@ async function loadStudents(){
     // 振替データを取得
     const{data:transfers}=await sb.from('manual_transfers')
       .select('*').eq('month',selectedMonth)
-    if(transfers) manualTransfers=transfers.map(t=>({...t,id:t.id}))
+    if(transfers) manualTransfers=transfers.map(t=>({
+      id:t.id,
+      studentName:t.student_name,
+      fromDate:t.from_date, fromTime:t.from_time, fromDay:t.from_day,
+      toDate:t.to_date, toTime:t.to_time, toDay:t.to_day,
+      month:t.month
+    }))
     // 体験レッスンを取得
     const{data:trials}=await sb.from('trial_lessons')
       .select('*').eq('month',selectedMonth)
-    if(trials) trialLessons=trials.map(t=>({...t,id:t.id}))
+    if(trials) trialLessons=trials.map(t=>({
+      id:t.id, date:t.date, time:t.time, day:t.day, memo:t.memo, month:t.month
+    }))
   }
 }
 
@@ -1885,16 +1921,29 @@ async function onDrop(e, toDay, toDate, toSlot){
   }
 
   // 振替として新しいコマに追加
+  const cleanName = name.replace('（振替）','')
+  const transferRow = {
+    student_name: cleanName,
+    from_date: fromDate, from_time: fromSlot, from_day: fromDay,
+    to_date: toDate, to_time: toSlot, to_day: toDay,
+    month: selectedMonth
+  }
   const transfer = {
     id: 'tr_'+Date.now(),
-    studentName: name.replace('（振替）',''),
+    studentName: cleanName,
     fromDate, fromTime: fromSlot, fromDay,
     toDate, toTime: toSlot, toDay,
     month: selectedMonth
   }
+  if(sb){
+    const{data}=await sb.from('manual_transfers').insert([transferRow]).select().single()
+    if(data) transfer.id=data.id
+  }
   manualTransfers.push(transfer)
-  renderScheduleTable()
-  toast(name+'を'+toDate+'（'+toDay+'）'+toSlot+'に移動しました')
+  renderScheduleByPage('schedule-thu-sat')
+  renderScheduleByPage('schedule-fri')
+  renderScheduleByPage('schedule-sun')
+  toast(cleanName+'を'+toDate+'（'+toDay+'）'+toSlot+'に移動しました')
 }
 
 
@@ -1951,17 +2000,32 @@ async function confirmTransferModal(day, date, slot){
   const name = document.getElementById('tr-modal-student')?.value
   if(!name) return
   const transfer = {
-    studentName: name,
-    fromDate:'', fromTime:'', fromDay:'',
-    toDate: date, toTime: slot, toDay: day,
+    student_name: name,
+    from_date:'', from_time:'', from_day:'',
+    to_date: date, to_time: slot, to_day: day,
     month: selectedMonth
   }
   if(sb){
     const{data}=await sb.from('manual_transfers').insert([transfer]).select().single()
-    if(data) transfer.id=data.id
-    else transfer.id='tr_'+Date.now()
+    if(data){
+      transfer.id=data.id
+      transfer.studentName=name
+      transfer.toDate=date
+      transfer.toTime=slot
+      transfer.toDay=day
+    } else {
+      transfer.id='tr_'+Date.now()
+      transfer.studentName=name
+      transfer.toDate=date
+      transfer.toTime=slot
+      transfer.toDay=day
+    }
   } else {
     transfer.id='tr_'+Date.now()
+    transfer.studentName=name
+    transfer.toDate=date
+    transfer.toTime=slot
+    transfer.toDay=day
   }
   manualTransfers.push(transfer)
   closeModal()
