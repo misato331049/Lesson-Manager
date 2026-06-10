@@ -207,13 +207,17 @@ function showStudentInfo(e, studentId){
   `)
 }
 
-function cancelAbsence(id){
+async function cancelAbsence(id){
   approvedAbsences = approvedAbsences.filter(a=>a.id!==id)
+  if(sb) await sb.from('requests').update({status:'pending'}).eq('id',id)
+  // 生徒のrequestsに戻す
+  await loadStudents()
   closeModal()
   renderScheduleByPage('schedule-thu-sat')
   renderScheduleByPage('schedule-fri')
   renderScheduleByPage('schedule-sun')
-  toast('欠席を取り消しました')
+  renderTransferRequests()
+  toast('欠席承認を取り消しました')
 }
 
 /* ===== DRAG & DROP ===== */
@@ -312,24 +316,35 @@ function openTransferModal(day, date, slot){
     </div>
   `)
 }
-function confirmTransferModal(day, date, slot){
+async function confirmTransferModal(day, date, slot){
   const name = document.getElementById('tr-modal-student')?.value
   if(!name) return
   const transfer = {
-    id: 'tr_'+Date.now(),
     studentName: name,
     fromDate:'', fromTime:'', fromDay:'',
     toDate: date, toTime: slot, toDay: day,
     month: selectedMonth
   }
+  if(sb){
+    const{data}=await sb.from('manual_transfers').insert([transfer]).select().single()
+    if(data) transfer.id=data.id
+    else transfer.id='tr_'+Date.now()
+  } else {
+    transfer.id='tr_'+Date.now()
+  }
   manualTransfers.push(transfer)
   closeModal()
-  renderScheduleTable()
+  renderScheduleByPage('schedule-thu-sat')
+  renderScheduleByPage('schedule-fri')
+  renderScheduleByPage('schedule-sun')
   toast(name+'の振替を'+date+'（'+day+'）'+slot+'に設定しました')
 }
-function removeTransfer(id){
+async function removeTransfer(id){
   manualTransfers = manualTransfers.filter(t=>t.id!==id)
-  renderScheduleTable()
+  if(sb) await sb.from('manual_transfers').delete().eq('id',id)
+  renderScheduleByPage('schedule-thu-sat')
+  renderScheduleByPage('schedule-fri')
+  renderScheduleByPage('schedule-sun')
 }
 
 /* ===== TRIAL MODAL ===== */
@@ -347,21 +362,29 @@ function openTrialModal(day, date, slot){
     </div>
   `)
 }
-function confirmTrialModal(day, date, slot){
+async function confirmTrialModal(day, date, slot){
   const memo = document.getElementById('trial-memo')?.value.trim()||''
-  const trial = {
-    id: 'trial_'+Date.now(),
-    date, time: slot, day, memo,
-    month: selectedMonth
+  const trial = { date, time: slot, day, memo, month: selectedMonth }
+  if(sb){
+    const{data}=await sb.from('trial_lessons').insert([trial]).select().single()
+    if(data) trial.id=data.id
+    else trial.id='trial_'+Date.now()
+  } else {
+    trial.id='trial_'+Date.now()
   }
   trialLessons.push(trial)
   closeModal()
-  renderScheduleTable()
+  renderScheduleByPage('schedule-thu-sat')
+  renderScheduleByPage('schedule-fri')
+  renderScheduleByPage('schedule-sun')
   toast('体験レッスンを'+date+'（'+day+'）'+slot+'に登録しました')
 }
-function removeTrial(id){
+async function removeTrial(id){
   trialLessons = trialLessons.filter(t=>t.id!==id)
-  renderScheduleTable()
+  if(sb) await sb.from('trial_lessons').delete().eq('id',id)
+  renderScheduleByPage('schedule-thu-sat')
+  renderScheduleByPage('schedule-fri')
+  renderScheduleByPage('schedule-sun')
 }
 
 /* ===== MODAL HELPER ===== */
@@ -665,7 +688,13 @@ const TEACHER_PASSWORD = 'LessonManager3310419'
     <div class="stat"><div class="stat-label"><i class="ti ti-calendar"></i> 月2回</div><div class="stat-val" id="d-2x">—</div></div>
     <div class="stat"><div class="stat-label"><i class="ti ti-bell"></i> 振替相談</div><div class="stat-val" id="d-req" style="color:var(--red)">—</div></div>
   </div>
-  <div class="card"><div class="card-title">生徒状況</div><div id="dash-list"><div class="loading"><div class="spinner"></div>読み込み中...</div></div></div>
+  <div class="card">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+      <div class="card-title" style="margin-bottom:0">生徒状況</div>
+      <input id="dash-search" placeholder="名前で検索..." oninput="renderDashboard()" style="width:180px;padding:5px 10px;font-size:12px">
+    </div>
+    <div id="dash-list"><div class="loading"><div class="spinner"></div>読み込み中...</div></div>
+  </div>
 </div>
 
 <!-- LESSON DATES -->
@@ -876,7 +905,6 @@ async function loadStudents(){
   if(!sb)return
   const{data,error}=await sb.from('students').select('*').order('created_at')
   if(!error&&data){
-    // 各生徒の選択日程を取得
     for(const s of data){
       const{data:sel}=await sb.from('student_selections')
         .select('date').eq('student_id',s.id).eq('month',selectedMonth)
@@ -886,6 +914,34 @@ async function loadStudents(){
       s.requests=req||[]
     }
     students=data
+  }
+  // 承認済み欠席を取得
+  if(sb){
+    const{data:approved}=await sb.from('requests')
+      .select('*,students(name,day,time)')
+      .eq('status','approved')
+      .eq('month',selectedMonth)
+    if(approved){
+      approvedAbsences=approved.map(r=>({
+        id:r.id,
+        studentId:r.student_id,
+        studentName:r.students?.name||'',
+        date:r.date.split('（')[0].trim(),
+        time:r.students?.time||'',
+        day:r.students?.day||'',
+        note:r.note||'',
+        type:r.type||'欠席',
+        month:selectedMonth
+      }))
+    }
+    // 振替データを取得
+    const{data:transfers}=await sb.from('manual_transfers')
+      .select('*').eq('month',selectedMonth)
+    if(transfers) manualTransfers=transfers.map(t=>({...t,id:t.id}))
+    // 体験レッスンを取得
+    const{data:trials}=await sb.from('trial_lessons')
+      .select('*').eq('month',selectedMonth)
+    if(trials) trialLessons=trials.map(t=>({...t,id:t.id}))
   }
 }
 
@@ -968,16 +1024,15 @@ async function submitRequest(studentId,date,type,note){
 }
 
 async function resolveRequest(requestId,action,studentId){
-  if(sb) await sb.from('requests').update({status:action==='承認'?'approved':'dismissed'}).eq('id',requestId)
+  const newStatus = action==='承認'?'approved':'dismissed'
+  if(sb) await sb.from('requests').update({status:newStatus,month:selectedMonth}).eq('id',requestId)
   const s=students.find(x=>x.id===studentId)
   if(s){
     const req=s.requests.find(r=>r.id===requestId)
-    // 欠席承認の場合はapprovedAbsencesに追加してスケジュール表から除外
     if(action==='承認' && req){
-      // 日付文字列から日だけ取得（例："6/5（木）12:30〜13:00" → "6/5"）
       const datePart = req.date.split('（')[0].trim()
-      approvedAbsences.push({
-        id:'abs_'+Date.now(),
+      const absEntry = {
+        id: requestId, // requestIdをそのまま使う
         studentId:s.id,
         studentName:s.name,
         date:datePart,
@@ -986,7 +1041,10 @@ async function resolveRequest(requestId,action,studentId){
         note:req.note||'',
         type:req.type||'欠席',
         month:selectedMonth
-      })
+      }
+      // 重複を避けて追加
+      approvedAbsences = approvedAbsences.filter(a=>a.id!==requestId)
+      approvedAbsences.push(absEntry)
     }
     s.requests=s.requests.filter(r=>r.id!==requestId)
   }
@@ -1307,8 +1365,16 @@ function renderDashboard(){
   document.getElementById('d-2x').textContent=students.filter(s=>s.course===2).length
   document.getElementById('d-req').textContent=students.reduce((a,s)=>a+s.requests.length,0)
   const el=document.getElementById('dash-list')
-  if(!students.length){el.innerHTML='<div style="color:var(--text3);font-size:12px;padding:8px 0">生徒が登録されていません</div>';return}
-  el.innerHTML=students.map((s,i)=>{
+  const dashSearchEl=document.getElementById('dash-search')
+  const dashQuery=dashSearchEl?dashSearchEl.value.trim().toLowerCase():''
+  const DAY_ORDER2={木:0,金:1,土:2,日:3}
+  let displayStudents=[...students].sort((a,b)=>{
+    if(DAY_ORDER2[a.day]!==DAY_ORDER2[b.day]) return DAY_ORDER2[a.day]-DAY_ORDER2[b.day]
+    return a.time.localeCompare(b.time)
+  })
+  if(dashQuery) displayStudents=displayStudents.filter(s=>s.name.toLowerCase().includes(dashQuery)||(s.kana&&s.kana.toLowerCase().includes(dashQuery)))
+  if(!displayStudents.length){el.innerHTML='<div style="color:var(--text3);font-size:12px;padding:8px 0">'+(dashQuery?'「'+dashQuery+'」に一致しません':'生徒が登録されていません')+'</div>';return}
+  el.innerHTML=displayStudents.map((s,i)=>{
     const[bg,fg]=AVATAR_COLORS[i%AVATAR_COLORS.length]
     const sel=canSelectDates(s)
     const status=s.course===3?'<span class="badge b-green">全日固定</span>'
@@ -1751,13 +1817,17 @@ function showStudentInfo(e, studentId){
   `)
 }
 
-function cancelAbsence(id){
+async function cancelAbsence(id){
   approvedAbsences = approvedAbsences.filter(a=>a.id!==id)
+  if(sb) await sb.from('requests').update({status:'pending'}).eq('id',id)
+  // 生徒のrequestsに戻す
+  await loadStudents()
   closeModal()
   renderScheduleByPage('schedule-thu-sat')
   renderScheduleByPage('schedule-fri')
   renderScheduleByPage('schedule-sun')
-  toast('欠席を取り消しました')
+  renderTransferRequests()
+  toast('欠席承認を取り消しました')
 }
 
 /* ===== DRAG & DROP ===== */
@@ -1856,24 +1926,35 @@ function openTransferModal(day, date, slot){
     </div>
   `)
 }
-function confirmTransferModal(day, date, slot){
+async function confirmTransferModal(day, date, slot){
   const name = document.getElementById('tr-modal-student')?.value
   if(!name) return
   const transfer = {
-    id: 'tr_'+Date.now(),
     studentName: name,
     fromDate:'', fromTime:'', fromDay:'',
     toDate: date, toTime: slot, toDay: day,
     month: selectedMonth
   }
+  if(sb){
+    const{data}=await sb.from('manual_transfers').insert([transfer]).select().single()
+    if(data) transfer.id=data.id
+    else transfer.id='tr_'+Date.now()
+  } else {
+    transfer.id='tr_'+Date.now()
+  }
   manualTransfers.push(transfer)
   closeModal()
-  renderScheduleTable()
+  renderScheduleByPage('schedule-thu-sat')
+  renderScheduleByPage('schedule-fri')
+  renderScheduleByPage('schedule-sun')
   toast(name+'の振替を'+date+'（'+day+'）'+slot+'に設定しました')
 }
-function removeTransfer(id){
+async function removeTransfer(id){
   manualTransfers = manualTransfers.filter(t=>t.id!==id)
-  renderScheduleTable()
+  if(sb) await sb.from('manual_transfers').delete().eq('id',id)
+  renderScheduleByPage('schedule-thu-sat')
+  renderScheduleByPage('schedule-fri')
+  renderScheduleByPage('schedule-sun')
 }
 
 /* ===== TRIAL MODAL ===== */
@@ -1891,21 +1972,29 @@ function openTrialModal(day, date, slot){
     </div>
   `)
 }
-function confirmTrialModal(day, date, slot){
+async function confirmTrialModal(day, date, slot){
   const memo = document.getElementById('trial-memo')?.value.trim()||''
-  const trial = {
-    id: 'trial_'+Date.now(),
-    date, time: slot, day, memo,
-    month: selectedMonth
+  const trial = { date, time: slot, day, memo, month: selectedMonth }
+  if(sb){
+    const{data}=await sb.from('trial_lessons').insert([trial]).select().single()
+    if(data) trial.id=data.id
+    else trial.id='trial_'+Date.now()
+  } else {
+    trial.id='trial_'+Date.now()
   }
   trialLessons.push(trial)
   closeModal()
-  renderScheduleTable()
+  renderScheduleByPage('schedule-thu-sat')
+  renderScheduleByPage('schedule-fri')
+  renderScheduleByPage('schedule-sun')
   toast('体験レッスンを'+date+'（'+day+'）'+slot+'に登録しました')
 }
-function removeTrial(id){
+async function removeTrial(id){
   trialLessons = trialLessons.filter(t=>t.id!==id)
-  renderScheduleTable()
+  if(sb) await sb.from('trial_lessons').delete().eq('id',id)
+  renderScheduleByPage('schedule-thu-sat')
+  renderScheduleByPage('schedule-fri')
+  renderScheduleByPage('schedule-sun')
 }
 
 /* ===== MODAL HELPER ===== */
