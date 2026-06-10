@@ -437,6 +437,18 @@ async function saveEditStudent(){
   toast(name+'さんの情報を更新しました')
 }
 
+
+/* ===== 申請取り消し（生徒側） ===== */
+async function cancelRequest(studentId, requestId, p){
+  const s = students.find(x=>x.id===studentId)
+  if(!s) return
+  s.requests = s.requests.filter(r=>r.id!==requestId)
+  if(sb) await sb.from('requests').delete().eq('id',requestId)
+  renderPortalAbsent(s,p)
+  renderDashboard()
+  toast('申請を取り消しました')
+}
+
 /* ===== CALENDAR ===== */
 .cal-wrap{margin-bottom:14px}
 .cal-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
@@ -1420,19 +1432,47 @@ async function deleteStudent(id){
    ===================================================== */
 function renderTransferRequests(){
   const el=document.getElementById('transfer-requests')
-  const all=students.flatMap(s=>s.requests.map(r=>({...r,sname:s.name,sid:s.id})))
-  if(!all.length){el.innerHTML='<div style="color:var(--text3);font-size:12px;padding:8px 0">相談はまだありません</div>';return}
-  el.innerHTML=all.map(r=>`
-    <div style="border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px;margin-bottom:8px">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
-        <span style="font-weight:600">${r.sname} — ${r.date}</span><span class="badge b-amber">${r.type}</span>
-      </div>
-      <div style="font-size:12px;color:var(--text2);margin-bottom:8px">「${r.note}」</div>
-      <div style="display:flex;gap:6px">
-        <button class="btn btn-primary btn-sm" onclick="handleResolve('${r.id}','承認','${r.sid}')"><i class="ti ti-check"></i> 承認する</button>
-        <button class="btn btn-sm" style="color:var(--amber);border-color:#E8C98A" onclick="handleResolve('${r.id}','今回は見送り','${r.sid}')"><i class="ti ti-clock"></i> 今回は見送り</button>
-      </div>
-    </div>`).join('')
+  const pending=students.flatMap(s=>s.requests.map(r=>({...r,sname:s.name,sid:s.id})))
+  const approved=approvedAbsences.filter(a=>a.month===selectedMonth)
+
+  if(!pending.length && !approved.length){
+    el.innerHTML='<div style="color:var(--text3);font-size:12px;padding:8px 0">相談はまだありません</div>'
+    return
+  }
+
+  let html=''
+
+  // 未対応の申請
+  if(pending.length){
+    html+=`<div style="font-size:11px;font-weight:600;color:var(--text2);margin-bottom:6px;text-transform:uppercase;letter-spacing:.05em">未対応（${pending.length}件）</div>`
+    html+=pending.map(r=>`
+      <div style="border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px;margin-bottom:8px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+          <span style="font-weight:600">${r.sname} — ${r.date}</span><span class="badge b-amber">${r.type}</span>
+        </div>
+        <div style="font-size:12px;color:var(--text2);margin-bottom:8px">「${r.note}」</div>
+        <div style="display:flex;gap:6px">
+          <button class="btn btn-primary btn-sm" onclick="handleResolve('${r.id}','承認','${r.sid}')"><i class="ti ti-check"></i> 承認する</button>
+          <button class="btn btn-sm" style="color:var(--amber);border-color:#E8C98A" onclick="handleResolve('${r.id}','今回は見送り','${r.sid}')"><i class="ti ti-clock"></i> 今回は見送り</button>
+        </div>
+      </div>`).join('')
+  }
+
+  // 承認済みの欠席
+  if(approved.length){
+    html+=`<div style="font-size:11px;font-weight:600;color:var(--text2);margin:12px 0 6px;text-transform:uppercase;letter-spacing:.05em">承認済み（${approved.length}件）</div>`
+    html+=approved.map(a=>`
+      <div style="border:1px solid var(--green-light);border-radius:var(--radius-sm);padding:10px;margin-bottom:8px;background:var(--green-light)">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+          <span style="font-weight:600">${a.studentName} — ${a.date}（${a.day}）</span>
+          <span class="badge b-green">承認済み</span>
+        </div>
+        <div style="font-size:12px;color:var(--green);margin-bottom:6px">${a.type}${a.note?` — 「${a.note}」`:''}</div>
+        <button class="btn btn-sm" style="font-size:11px" onclick="cancelAbsence('${a.id}')"><i class="ti ti-x"></i> 取り消す</button>
+      </div>`).join('')
+  }
+
+  el.innerHTML=html
 }
 async function handleResolve(requestId,action,studentId){
   await resolveRequest(requestId,action,studentId)
@@ -1588,14 +1628,60 @@ function renderPortalAbsent(s,p){
   const locked=p==='sp'&&isScheduleLocked()
   const dates=canSelectDates(s)?s.selected:(lessonDates[s.day]||[])
   const opts=dates.length?dates.map(d=>`<option>${d}（${s.day}）${s.time}</option>`).join(''):'<option>確定している日程がありません</option>'
-  document.getElementById(p+'p-absent').innerHTML=`<div class="card">
-    <div class="card-title">欠席・振替相談</div>
-    <div class="info-box"><strong>欠席</strong>：来校できない日程をご連絡ください。<br><strong>振替相談</strong>：振替は原則なしですが、前月以内の相談のみ受け付けます。確実な振替をお約束するものではありません。</div>
-    <div class="form-group" style="margin-bottom:10px"><div class="lbl">該当する日程</div><select id="${p}-absent-date" ${locked?'disabled':''}>${opts}</select></div>
-    <div class="form-group" style="margin-bottom:10px"><div class="lbl">種別</div><select id="${p}-absent-type" ${locked?'disabled':''}><option>欠席（振替なし）</option><option>振替相談希望</option></select></div>
-    <div class="form-group" style="margin-bottom:12px"><div class="lbl">理由・ご希望</div><textarea id="${p}-absent-note" ${locked?'disabled':''} placeholder="${locked?'締め切り済みのため受付を終了しました':'例）急な用事のため。振替：6月中可能な日があれば教えてください。'}"></textarea></div>
-    <button class="btn btn-primary" onclick="handleSubmitAbsent('${s.id}','${p}')" ${locked?'disabled':''}><i class="ti ti-send"></i> 送信する</button>
-  </div>`
+
+  // 申請中の一覧
+  const pendingRequests = s.requests||[]
+  // 承認済み欠席
+  const approvedList = approvedAbsences.filter(a=>a.studentId===s.id&&a.month===selectedMonth)
+
+  let statusHtml = ''
+  if(pendingRequests.length || approvedList.length){
+    statusHtml += `<div class="card" style="margin-bottom:12px">
+      <div class="card-title">申請・欠席状況</div>`
+
+    // 申請中
+    if(pendingRequests.length){
+      statusHtml += `<div style="font-size:11px;font-weight:600;color:var(--amber);margin-bottom:6px">📋 申請中（講師の確認待ち）</div>`
+      statusHtml += pendingRequests.map(r=>`
+        <div style="border:1px solid #FAC775;border-radius:var(--radius-sm);padding:8px 10px;margin-bottom:6px;background:var(--amber-light)">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px">
+            <span style="font-size:12px;font-weight:600">${r.date}</span>
+            <span class="badge b-amber" style="font-size:10px">${r.type}</span>
+          </div>
+          <div style="font-size:11px;color:var(--amber);margin-bottom:6px">「${r.note}」</div>
+          <button class="btn btn-sm" style="font-size:11px;color:var(--red);border-color:#F7C1C1"
+            onclick="cancelRequest('${s.id}','${r.id}','${p}')">
+            <i class="ti ti-x"></i> 取り消す
+          </button>
+        </div>`).join('')
+    }
+
+    // 承認済み
+    if(approvedList.length){
+      statusHtml += `<div style="font-size:11px;font-weight:600;color:var(--green);margin:8px 0 6px">✅ 承認済み欠席</div>`
+      statusHtml += approvedList.map(a=>`
+        <div style="border:1px solid var(--green-light);border-radius:var(--radius-sm);padding:8px 10px;margin-bottom:6px;background:var(--green-light)">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <span style="font-size:12px;font-weight:600">${a.date}（${a.day}）${a.time}</span>
+            <span class="badge b-green" style="font-size:10px">承認済み</span>
+          </div>
+          <div style="font-size:11px;color:var(--green);margin-top:2px">${a.type}</div>
+        </div>`).join('')
+    }
+
+    statusHtml += `</div>`
+  }
+
+  document.getElementById(p+'p-absent').innerHTML=`
+    ${statusHtml}
+    <div class="card">
+      <div class="card-title">新規申請</div>
+      <div class="info-box"><strong>欠席</strong>：来校できない日程をご連絡ください。<br><strong>振替相談</strong>：振替は原則なしですが、前月以内の相談のみ受け付けます。確実な振替をお約束するものではありません。</div>
+      <div class="form-group" style="margin-bottom:10px"><div class="lbl">該当する日程</div><select id="${p}-absent-date" ${locked?'disabled':''}>${opts}</select></div>
+      <div class="form-group" style="margin-bottom:10px"><div class="lbl">種別</div><select id="${p}-absent-type" ${locked?'disabled':''}><option>欠席（振替なし）</option><option>振替相談希望</option></select></div>
+      <div class="form-group" style="margin-bottom:12px"><div class="lbl">理由・ご希望</div><textarea id="${p}-absent-note" ${locked?'disabled':''} placeholder="${locked?'締め切り済みのため受付を終了しました':'例）急な用事のため。振替：6月中可能な日があれば教えてください。'}"></textarea></div>
+      <button class="btn btn-primary" onclick="handleSubmitAbsent('${s.id}','${p}')" ${locked?'disabled':''}><i class="ti ti-send"></i> 送信する</button>
+    </div>`
 }
 
 async function handleSubmitAbsent(sid,p){
@@ -1893,6 +1979,18 @@ async function saveEditStudent(){
   closeEditModal()
   renderStudentList()
   toast(name+'さんの情報を更新しました')
+}
+
+
+/* ===== 申請取り消し（生徒側） ===== */
+async function cancelRequest(studentId, requestId, p){
+  const s = students.find(x=>x.id===studentId)
+  if(!s) return
+  s.requests = s.requests.filter(r=>r.id!==requestId)
+  if(sb) await sb.from('requests').delete().eq('id',requestId)
+  renderPortalAbsent(s,p)
+  renderDashboard()
+  toast('申請を取り消しました')
 }
 
 /* ===== CALENDAR ===== */
