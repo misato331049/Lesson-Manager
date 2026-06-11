@@ -875,7 +875,7 @@ const TEACHER_PASSWORD = null
 /* =====================================================
    SUPABASE 初期化
    ===================================================== */
-const isConfigured = SUPABASE_URL !== 'https://gdsrcbqmzcakzldizsrv.supabase.co'
+const isConfigured = SUPABASE_URL !== 'YOUR_SUPABASE_URL'
 const sb = isConfigured
   ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
   : null
@@ -1237,7 +1237,7 @@ async function doTeacherLogin(){
   try {
     const { data, error } = await sb.rpc('check_teacher_password', { input_password: pw })
     if(error) throw error
-    if(data === true){
+    if(data === true || data === 't' || data === 'true' || data == true){
       teacherLoggedIn=true
       document.getElementById('teacher-login-error').style.display='none'
       initApp()
@@ -2294,19 +2294,15 @@ function renderStudentCalendar(studentId){
 
   // "6/5" → day番号のSetに変換（欠席を除く）
   const lessonDaySet = {}
-  // 最初から全て配列として格納
   lessonDays.filter(d=>!absentDatesForCal.includes(d)).forEach(d => {
     const parts = d.split('/')
     if(parts.length === 2) {
       const m = parseInt(parts[0])
       const day = parseInt(parts[1])
-      if(m === month){
-        if(!lessonDaySet[day]) lessonDaySet[day] = []
-        lessonDaySet[day].push({date:d, time:s.time, isTransfer:false})
-      }
+      if(m === month) lessonDaySet[day] = {date:d, time:s.time, isTransfer:false}
     }
   })
-  // 振替日程を追加（同じ日に複数コマも対応）
+  // 振替日程を追加（同じ日に複数コマある場合も対応）
   transferDatesForCal.forEach(t => {
     const parts = (t.toDate||'').split('/')
     if(parts.length === 2) {
@@ -2314,9 +2310,14 @@ function renderStudentCalendar(studentId){
       const day = parseInt(parts[1])
       if(m === month){
         if(!lessonDaySet[day]) lessonDaySet[day] = []
+        else if(!Array.isArray(lessonDaySet[day])) lessonDaySet[day] = [lessonDaySet[day]]
         lessonDaySet[day].push({date:t.toDate, time:t.toTime||s.time, isTransfer:true})
       }
     }
+  })
+  // 通常レッスンも配列化
+  Object.keys(lessonDaySet).forEach(k=>{
+    if(!Array.isArray(lessonDaySet[k])) lessonDaySet[k]=[lessonDaySet[k]]
   })
 
   const firstDay = new Date(year, month-1, 1).getDay() // 0=日
@@ -2341,7 +2342,7 @@ function renderStudentCalendar(studentId){
     const lessonTag = hasLesson
       ? (lessonInfoArr).map(lessonInfo=>
           `<span class="cal-lesson-tag${lessonInfo.isTransfer?' cal-lesson-transfer':''}"
-            onclick="showLessonPopup(${d},${month},'${lessonInfo.time}','','${lessonInfo.isTransfer}')"
+            onclick="showLessonPopup(${d},${month},'${lessonInfo.time}','${s.day}','${lessonInfo.isTransfer}')"
             style="${lessonInfo.isTransfer?'background:#6B7280;font-size:8px;':''}">
             ${lessonInfo.isTransfer?'振替':'レッスン'}</span>`
         ).join('')
