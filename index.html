@@ -1663,6 +1663,9 @@ async function doLogin(){
     toast('Supabaseが未設定のためデモモードで表示します',true)
     return
   }
+  // 振替・承認済み欠席など最新データを取得してから表示
+  await loadLessonDates()
+  await loadStudents()
   // ローカルに既にデータがあれば使う、なければSupabaseから直接取得
   let s = students.find(x=>x.name===name)
   if(!s){
