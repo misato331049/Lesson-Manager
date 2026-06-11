@@ -1771,7 +1771,13 @@ function renderPortalSchedule(s,p){
     if(transferDates.length){
       html+=`<div style="margin-top:8px;border-top:1px solid var(--border);padding-top:8px">`
       html+=`<div style="font-size:11px;font-weight:600;color:#374151;margin-bottom:4px">振替レッスン</div>`
-      html+=transferDates.map(t=>`<div style="display:flex;align-items:center;gap:9px;padding:6px 0;border-bottom:1px solid var(--border)"><i class="ti ti-calendar-plus" style="color:#6B7280;font-size:16px"></i><span>${t.date}（${t.day}）${t.time}</span><span class="badge b-gray" style="margin-left:auto">振替</span></div>`).join('')
+      html+=transferDates.map(t=>{
+        const parts=(t.date||'').split('/')
+        const dateObj=parts.length===2?new Date(2026,parseInt(parts[0])-1,parseInt(parts[1])):null
+        const WEEK=['日','月','火','水','木','金','土']
+        const dowStr=dateObj?WEEK[dateObj.getDay()]+'曜':t.day
+        return `<div style="display:flex;align-items:center;gap:9px;padding:6px 0;border-bottom:1px solid var(--border)"><i class="ti ti-calendar-plus" style="color:#6B7280;font-size:16px"></i><span>${t.date}（${dowStr}）${t.time}</span><span class="badge b-gray" style="margin-left:auto">振替</span></div>`
+      }).join('')
       html+=`</div>`
     }
     html+=`<div style="margin-top:9px;font-size:11px;color:var(--text3)">日程の選択・変更はありません</div>`
@@ -1788,7 +1794,13 @@ function renderPortalSchedule(s,p){
     if(transferDates.length){
       html+=`<div style="margin-top:8px;border-top:1px solid var(--border);padding-top:8px">`
       html+=`<div style="font-size:11px;font-weight:600;color:#374151;margin-bottom:4px">振替レッスン</div>`
-      html+=transferDates.map(t=>`<div style="display:flex;align-items:center;gap:9px;padding:6px 0;border-bottom:1px solid var(--border)"><i class="ti ti-calendar-plus" style="color:#6B7280;font-size:16px"></i><span>${t.date}（${t.day}）${t.time}</span><span class="badge b-gray" style="margin-left:auto">振替</span></div>`).join('')
+      html+=transferDates.map(t=>{
+        const parts=(t.date||'').split('/')
+        const dateObj=parts.length===2?new Date(2026,parseInt(parts[0])-1,parseInt(parts[1])):null
+        const WEEK=['日','月','火','水','木','金','土']
+        const dowStr=dateObj?WEEK[dateObj.getDay()]+'曜':t.day
+        return `<div style="display:flex;align-items:center;gap:9px;padding:6px 0;border-bottom:1px solid var(--border)"><i class="ti ti-calendar-plus" style="color:#6B7280;font-size:16px"></i><span>${t.date}（${dowStr}）${t.time}</span><span class="badge b-gray" style="margin-left:auto">振替</span></div>`
+      }).join('')
       html+=`</div>`
     }
   }
@@ -2290,14 +2302,22 @@ function renderStudentCalendar(studentId){
       if(m === month) lessonDaySet[day] = {date:d, time:s.time, isTransfer:false}
     }
   })
-  // 振替日程を追加
+  // 振替日程を追加（同じ日に複数コマある場合も対応）
   transferDatesForCal.forEach(t => {
     const parts = (t.toDate||'').split('/')
     if(parts.length === 2) {
       const m = parseInt(parts[0])
       const day = parseInt(parts[1])
-      if(m === month) lessonDaySet[day] = {date:t.toDate, time:t.toTime||s.time, isTransfer:true}
+      if(m === month){
+        if(!lessonDaySet[day]) lessonDaySet[day] = []
+        else if(!Array.isArray(lessonDaySet[day])) lessonDaySet[day] = [lessonDaySet[day]]
+        lessonDaySet[day].push({date:t.toDate, time:t.toTime||s.time, isTransfer:true})
+      }
     }
+  })
+  // 通常レッスンも配列化
+  Object.keys(lessonDaySet).forEach(k=>{
+    if(!Array.isArray(lessonDaySet[k])) lessonDaySet[k]=[lessonDaySet[k]]
   })
 
   const firstDay = new Date(year, month-1, 1).getDay() // 0=日
@@ -2312,18 +2332,20 @@ function renderStudentCalendar(studentId){
   for(let d=1; d<=lastDate; d++){
     const dow = new Date(year, month-1, d).getDay()
     const isToday = today.getFullYear()===year && today.getMonth()+1===month && today.getDate()===d
-    const lessonInfo = lessonDaySet[d]
-    const hasLesson = lessonInfo !== undefined
+    const lessonInfoArr = lessonDaySet[d]
+    const hasLesson = lessonInfoArr !== undefined && lessonInfoArr.length > 0
     const dowClass = dow===0?'sun':dow===6?'sat':''
     let cls = 'cal-day'
     if(isToday) cls += ' today'
     if(hasLesson) cls += ' has-lesson'
     const dateClass = 'cal-date' + (dowClass?' '+dowClass:'') + (isToday?' today-num':'')
     const lessonTag = hasLesson
-      ? `<span class="cal-lesson-tag${lessonInfo.isTransfer?' cal-lesson-transfer':''}"
-          onclick="showLessonPopup(${d},${month},'${lessonInfo.time}','${lessonInfo.isTransfer?(lessonInfo.date.split('/')[0]+'/'+lessonInfo.date.split('/')[1]):s.day}','${lessonInfo.isTransfer}')"
-          style="${lessonInfo.isTransfer?'background:#6B7280;':''}">
-          ${lessonInfo.isTransfer?'振替':'レッスン'}</span>`
+      ? (lessonInfoArr).map(lessonInfo=>
+          `<span class="cal-lesson-tag${lessonInfo.isTransfer?' cal-lesson-transfer':''}"
+            onclick="showLessonPopup(${d},${month},'${lessonInfo.time}','${s.day}','${lessonInfo.isTransfer}')"
+            style="${lessonInfo.isTransfer?'background:#6B7280;font-size:8px;':''}">
+            ${lessonInfo.isTransfer?'振替':'レッスン'}</span>`
+        ).join('')
       : ''
     html += `<div class="${cls}">`
       + `<div class="${dateClass}">${d}</div>`
@@ -2335,8 +2357,12 @@ function renderStudentCalendar(studentId){
 
 function showLessonPopup(day, month, time, dow, isTransfer){
   const DAY_NAMES = {木:'木曜日',金:'金曜日',土:'土曜日',日:'日曜日'}
+  // 実際の曜日を日付から計算
+  const dateObj = new Date(2026, parseInt(month)-1, parseInt(day))
+  const WEEK = ['日曜日','月曜日','火曜日','水曜日','木曜日','金曜日','土曜日']
+  const actualDow = WEEK[dateObj.getDay()]
   document.getElementById('popup-title').textContent = isTransfer==='true'?'振替レッスン':'レッスン'
-  document.getElementById('popup-date').textContent = '2026年' + month + '月' + day + '日（' + (DAY_NAMES[dow]||dow+'曜日') + '）'
+  document.getElementById('popup-date').textContent = '2026年' + month + '月' + day + '日（' + actualDow + '）'
   document.getElementById('popup-time').textContent = time
   document.getElementById('lesson-popup-overlay').style.display = 'flex'
 }
