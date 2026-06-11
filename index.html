@@ -316,13 +316,16 @@ function closeSlotMenu(){
 
 /* ===== TRANSFER MODAL ===== */
 function openTransferModal(day, date, slot){
-  const studentOpts = students.map(s=>`<option value="${s.name}">${s.name}（${s.day}曜）</option>`).join('')
+  const studentOpts = students.map(s=>`<option value="${s.name}" data-day="${s.day}" data-time="${s.time}">${s.name}（${s.day}曜 ${s.time}）</option>`).join('')
   showModal('transfer-modal',`
     <div class="modal-title" style="color:var(--text)"><i class="ti ti-switch-horizontal" style="color:#6B7280"></i> 振替設定</div>
-    <div style="font-size:12px;color:var(--text2);margin-bottom:12px">${date}（${day}）${slot}</div>
+    <div style="font-size:12px;color:var(--text2);margin-bottom:12px">振替先：${date}（${day}）${slot}</div>
     <div class="form-group" style="margin-bottom:10px">
       <div class="lbl">生徒名</div>
       <select id="tr-modal-student">${studentOpts}</select>
+    </div>
+    <div style="font-size:11px;color:var(--text2);margin-bottom:10px">
+      ※ 選択した生徒のマイページにも振替日程が表示されます
     </div>
     <div class="modal-actions">
       <button class="btn btn-primary" style="flex:1" onclick="confirmTransferModal('${day}','${date}','${slot}')"><i class="ti ti-check"></i> 設定する</button>
@@ -1725,17 +1728,49 @@ function refreshPortal(id,p){
 function renderPortalSchedule(s,p){
   const locked=p==='sp'&&isScheduleLocked()
   const dates=lessonDates[s.day]||[]
-  // sp の場合はカレンダーと分離した専用divに描画
   const el=p==='sp'
     ? document.getElementById('spp-schedule-list')
     : document.getElementById(p+'p-schedule')
   if(!el) return
   const selectable=canSelectDates(s)
-  if(!dates.length){el.innerHTML='<div class="card"><div class="card-title">今月の日程</div><div style="font-size:12px;color:var(--text3)">講師がまだ日程を設定していません</div></div>';return}
+
+  // 承認済み欠席の日付を取得
+  const absentDates = approvedAbsences
+    .filter(a=>a.studentId===s.id&&a.month===selectedMonth)
+    .map(a=>a.date)
+
+  // 振替で追加された日程を取得（講師が設定した振替）
+  const transferDates = manualTransfers
+    .filter(t=>t.studentName===s.name&&t.month===selectedMonth&&t.toDate)
+    .map(t=>({date:t.toDate, day:t.toDay, time:t.toTime}))
+
+  if(!dates.length && !transferDates.length){
+    el.innerHTML='<div class="card"><div class="card-title">今月の日程</div><div style="font-size:12px;color:var(--text3)">講師がまだ日程を設定していません</div></div>'
+    return
+  }
   let html='<div class="card">'
   if(!selectable){
+    // 承認済み欠席を除いた日程を表示
+    const activeDates = dates.filter(d=>!absentDates.includes(d))
     html+=`<div class="card-title">${s.day}曜日（${s.course===3?'全'+dates.length+'回・固定':'月2回・固定'}）</div>`
-    html+=dates.map(d=>`<div style="display:flex;align-items:center;gap:9px;padding:7px 0;border-bottom:1px solid var(--border)"><i class="ti ti-calendar-check" style="color:var(--green);font-size:16px"></i><span>${d}（${s.day}）${s.time}</span><span class="badge b-green" style="margin-left:auto">固定</span></div>`).join('')
+    if(activeDates.length){
+      html+=activeDates.map(d=>`<div style="display:flex;align-items:center;gap:9px;padding:7px 0;border-bottom:1px solid var(--border)"><i class="ti ti-calendar-check" style="color:var(--green);font-size:16px"></i><span>${d}（${s.day}）${s.time}</span><span class="badge b-green" style="margin-left:auto">固定</span></div>`).join('')
+    } else {
+      html+=`<div style="font-size:12px;color:var(--text3);padding:6px 0">レッスン日程はありません</div>`
+    }
+    // 欠席した日程を取り消し線で表示
+    if(absentDates.filter(d=>dates.includes(d)).length){
+      html+=`<div style="margin-top:6px;font-size:11px;color:var(--text3)">欠席済み：`
+      html+=absentDates.filter(d=>dates.includes(d)).map(d=>`<span style="text-decoration:line-through;margin-right:8px">${d}</span>`).join('')
+      html+=`</div>`
+    }
+    // 振替日程を追加表示
+    if(transferDates.length){
+      html+=`<div style="margin-top:8px;border-top:1px solid var(--border);padding-top:8px">`
+      html+=`<div style="font-size:11px;font-weight:600;color:#374151;margin-bottom:4px">振替レッスン</div>`
+      html+=transferDates.map(t=>`<div style="display:flex;align-items:center;gap:9px;padding:6px 0;border-bottom:1px solid var(--border)"><i class="ti ti-calendar-plus" style="color:#6B7280;font-size:16px"></i><span>${t.date}（${t.day}）${t.time}</span><span class="badge b-gray" style="margin-left:auto">振替</span></div>`).join('')
+      html+=`</div>`
+    }
     html+=`<div style="margin-top:9px;font-size:11px;color:var(--text3)">日程の選択・変更はありません</div>`
   } else {
     html+=`<div class="card-title">${s.day}曜日（${dates.length}回から2回を選択）</div>`
@@ -1746,6 +1781,13 @@ function renderPortalSchedule(s,p){
     </label>`).join('')
     html+=`<div style="margin-top:10px;font-size:12px;color:var(--text2)">選択数: <strong id="${p}-sel-count">${s.selected.length}</strong> / 2</div>`
     html+=`<div style="margin-top:10px"><button class="btn btn-primary" onclick="confirmDates('${s.id}','${p}')" ${locked?'disabled':''}><i class="ti ti-check"></i> 日程を確定する</button></div>`
+    // 振替日程を追加表示
+    if(transferDates.length){
+      html+=`<div style="margin-top:8px;border-top:1px solid var(--border);padding-top:8px">`
+      html+=`<div style="font-size:11px;font-weight:600;color:#374151;margin-bottom:4px">振替レッスン</div>`
+      html+=transferDates.map(t=>`<div style="display:flex;align-items:center;gap:9px;padding:6px 0;border-bottom:1px solid var(--border)"><i class="ti ti-calendar-plus" style="color:#6B7280;font-size:16px"></i><span>${t.date}（${t.day}）${t.time}</span><span class="badge b-gray" style="margin-left:auto">振替</span></div>`).join('')
+      html+=`</div>`
+    }
   }
   el.innerHTML=html+'</div>'
 }
@@ -2004,13 +2046,16 @@ function closeSlotMenu(){
 
 /* ===== TRANSFER MODAL ===== */
 function openTransferModal(day, date, slot){
-  const studentOpts = students.map(s=>`<option value="${s.name}">${s.name}（${s.day}曜）</option>`).join('')
+  const studentOpts = students.map(s=>`<option value="${s.name}" data-day="${s.day}" data-time="${s.time}">${s.name}（${s.day}曜 ${s.time}）</option>`).join('')
   showModal('transfer-modal',`
     <div class="modal-title" style="color:var(--text)"><i class="ti ti-switch-horizontal" style="color:#6B7280"></i> 振替設定</div>
-    <div style="font-size:12px;color:var(--text2);margin-bottom:12px">${date}（${day}）${slot}</div>
+    <div style="font-size:12px;color:var(--text2);margin-bottom:12px">振替先：${date}（${day}）${slot}</div>
     <div class="form-group" style="margin-bottom:10px">
       <div class="lbl">生徒名</div>
       <select id="tr-modal-student">${studentOpts}</select>
+    </div>
+    <div style="font-size:11px;color:var(--text2);margin-bottom:10px">
+      ※ 選択した生徒のマイページにも振替日程が表示されます
     </div>
     <div class="modal-actions">
       <button class="btn btn-primary" style="flex:1" onclick="confirmTransferModal('${day}','${date}','${slot}')"><i class="ti ti-check"></i> 設定する</button>
@@ -2222,14 +2267,33 @@ function renderStudentCalendar(studentId){
 
   // 確定済み日程を取得
   const lessonDays = canSelectDates(s) ? s.selected : (lessonDates[s.day] || [])
-  // "6/5" → day番号のSetに変換
+
+  // 承認済み欠席の日付
+  const absentDatesForCal = approvedAbsences
+    .filter(a=>a.studentId===s.id&&a.month===selectedMonth)
+    .map(a=>a.date)
+
+  // 振替で追加された日程
+  const transferDatesForCal = manualTransfers
+    .filter(t=>t.studentName===s.name&&t.month===selectedMonth&&t.toDate)
+
+  // "6/5" → day番号のSetに変換（欠席を除く）
   const lessonDaySet = {}
-  lessonDays.forEach(d => {
+  lessonDays.filter(d=>!absentDatesForCal.includes(d)).forEach(d => {
     const parts = d.split('/')
     if(parts.length === 2) {
       const m = parseInt(parts[0])
       const day = parseInt(parts[1])
-      if(m === month) lessonDaySet[day] = d
+      if(m === month) lessonDaySet[day] = {date:d, time:s.time, isTransfer:false}
+    }
+  })
+  // 振替日程を追加
+  transferDatesForCal.forEach(t => {
+    const parts = (t.toDate||'').split('/')
+    if(parts.length === 2) {
+      const m = parseInt(parts[0])
+      const day = parseInt(parts[1])
+      if(m === month) lessonDaySet[day] = {date:t.toDate, time:t.toTime||s.time, isTransfer:true}
     }
   })
 
@@ -2245,14 +2309,18 @@ function renderStudentCalendar(studentId){
   for(let d=1; d<=lastDate; d++){
     const dow = new Date(year, month-1, d).getDay()
     const isToday = today.getFullYear()===year && today.getMonth()+1===month && today.getDate()===d
-    const hasLesson = lessonDaySet[d] !== undefined
+    const lessonInfo = lessonDaySet[d]
+    const hasLesson = lessonInfo !== undefined
     const dowClass = dow===0?'sun':dow===6?'sat':''
     let cls = 'cal-day'
     if(isToday) cls += ' today'
     if(hasLesson) cls += ' has-lesson'
     const dateClass = 'cal-date' + (dowClass?' '+dowClass:'') + (isToday?' today-num':'')
     const lessonTag = hasLesson
-      ? `<span class="cal-lesson-tag" onclick="showLessonPopup(${d},${month},'${s.time}','${s.day}')">レッスン</span>`
+      ? `<span class="cal-lesson-tag${lessonInfo.isTransfer?' cal-lesson-transfer':''}"
+          onclick="showLessonPopup(${d},${month},'${lessonInfo.time}','${lessonInfo.isTransfer?(lessonInfo.date.split('/')[0]+'/'+lessonInfo.date.split('/')[1]):s.day}','${lessonInfo.isTransfer}')"
+          style="${lessonInfo.isTransfer?'background:#6B7280;':''}">
+          ${lessonInfo.isTransfer?'振替':'レッスン'}</span>`
       : ''
     html += `<div class="${cls}">`
       + `<div class="${dateClass}">${d}</div>`
@@ -2262,10 +2330,10 @@ function renderStudentCalendar(studentId){
   bodyEl.innerHTML = html
 }
 
-function showLessonPopup(day, month, time, dow){
+function showLessonPopup(day, month, time, dow, isTransfer){
   const DAY_NAMES = {木:'木曜日',金:'金曜日',土:'土曜日',日:'日曜日'}
-  document.getElementById('popup-title').textContent = 'レッスン'
-  document.getElementById('popup-date').textContent = '2026年' + month + '月' + day + '日（' + (DAY_NAMES[dow]||dow) + '）'
+  document.getElementById('popup-title').textContent = isTransfer==='true'?'振替レッスン':'レッスン'
+  document.getElementById('popup-date').textContent = '2026年' + month + '月' + day + '日（' + (DAY_NAMES[dow]||dow+'曜日') + '）'
   document.getElementById('popup-time').textContent = time
   document.getElementById('lesson-popup-overlay').style.display = 'flex'
 }
