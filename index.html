@@ -645,8 +645,8 @@ async function reloadPage(){
 const SUPABASE_URL = 'https://gdsrcbqmzcakzldizsrv.supabase.co'        // 例: https://xxxx.supabase.co
 const SUPABASE_ANON_KEY = 'sb_publishable_1kvfIoWeos6iH0N1N3W15g_gqf-Z8Aj'  // 例: eyJhbGc...
 
-// 2. 講師用パスワード（生徒には教えないでください）
-const TEACHER_PASSWORD = 'LessonManager3310419'
+// 2. 講師用パスワードはSupabaseで管理（ソースコードには記載しません）
+const TEACHER_PASSWORD = null
 </script>
 <!-- ====================================================== -->
 
@@ -1214,13 +1214,35 @@ function nav(id){
 /* =====================================================
    講師ログイン
    ===================================================== */
-function doTeacherLogin(){
+async function doTeacherLogin(){
   const pw=document.getElementById('teacher-pw').value
-  if(pw===TEACHER_PASSWORD){
-    teacherLoggedIn=true
-    document.getElementById('teacher-login-error').style.display='none'
-    initApp()
-  } else {
+  if(!pw){ document.getElementById('teacher-login-error').style.display='block'; return }
+
+  if(!sb){
+    // Supabase未設定時はデモ用パスワードで動作
+    if(pw==='demo1234'){
+      teacherLoggedIn=true
+      document.getElementById('teacher-login-error').style.display='none'
+      initApp()
+    } else {
+      document.getElementById('teacher-login-error').style.display='block'
+    }
+    return
+  }
+
+  // Supabaseのサーバー側関数でパスワードを照合（ソースコードにパスワードを持たない）
+  try {
+    const { data, error } = await sb.rpc('check_teacher_password', { input_password: pw })
+    if(error) throw error
+    if(data === true){
+      teacherLoggedIn=true
+      document.getElementById('teacher-login-error').style.display='none'
+      initApp()
+    } else {
+      document.getElementById('teacher-login-error').style.display='block'
+    }
+  } catch(e) {
+    console.error('Auth error:', e)
     document.getElementById('teacher-login-error').style.display='block'
   }
 }
