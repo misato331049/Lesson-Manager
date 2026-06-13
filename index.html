@@ -500,6 +500,7 @@ async function cancelRequest(studentId, requestId, p){
   s.requests = s.requests.filter(r=>r.id!==requestId)
   if(sb) await sb.from('requests').delete().eq('id',requestId)
   renderPortalAbsent(s,p)
+  renderPortalNotices(s,p)
   renderDashboard()
   toast('申請を取り消しました')
 }
@@ -520,6 +521,159 @@ async function reloadPage(){
   else if(pageId==='transfer-admin') renderTransferRequests()
   if(btn) btn.style.animation=''
   toast('更新しました')
+}
+
+
+/* ===== お知らせ機能 ===== */
+
+async function loadNotices(){
+  if(!sb) return
+  const{data}=await sb.from('notices').select('*').order('created_at',{ascending:false})
+  if(data) notices=data
+}
+
+async function sendNotice(){
+  const title=document.getElementById('notice-title').value.trim()
+  const body=document.getElementById('notice-body').value.trim()
+  const month=parseInt(document.getElementById('notice-month').value||selectedMonth)
+  if(!title||!body){toast('タイトルと本文を入力してください',true);return}
+
+  const notice={title,body,month,confirmed_by:[],comments:[]}
+  if(sb){
+    const{data,error}=await sb.from('notices').insert([notice]).select().single()
+    if(error){toast('送信に失敗しました',true);return}
+    if(data) notice.id=data.id
+  } else {
+    notice.id='n_'+Date.now()
+  }
+  notices.unshift(notice)
+  document.getElementById('notice-title').value=''
+  document.getElementById('notice-body').value=''
+  renderNoticesAdmin()
+  toast('お知らせを送信しました')
+}
+
+function renderNoticesAdmin(){
+  const el=document.getElementById('notices-list')
+  if(!el) return
+  // 月セレクトを設定
+  const sel=document.getElementById('notice-month')
+  if(sel&&!sel.innerHTML) sel.innerHTML=buildMonthSelect()
+
+  const list=notices.filter(n=>!document.getElementById('notice-month')||parseInt(document.getElementById('notice-month').value||selectedMonth)===n.month||true)
+  if(!list.length){el.innerHTML='<div style="color:var(--text3);font-size:12px;padding:8px 0">まだお知らせはありません</div>';return}
+
+  el.innerHTML=list.map(n=>`
+    <div style="border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px;margin-bottom:8px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+        <span style="font-weight:600;font-size:13px">${n.title}</span>
+        <span class="badge b-blue" style="font-size:10px">${n.month}月</span>
+      </div>
+      <div style="font-size:12px;color:var(--text2);margin-bottom:6px;white-space:pre-wrap">${n.body}</div>
+      <div style="display:flex;gap:12px;font-size:11px;color:var(--text3)">
+        <span><i class="ti ti-check"></i> 確認済み：${(n.confirmed_by||[]).length}名</span>
+        <span><i class="ti ti-message"></i> コメント：${(n.comments||[]).length}件</span>
+      </div>
+      ${(n.comments||[]).length?`
+      <div style="margin-top:8px;border-top:1px solid var(--border);padding-top:6px">
+        ${(n.comments||[]).map(c=>`
+        <div style="font-size:11px;padding:4px 0;border-bottom:1px solid var(--border)">
+          <span style="font-weight:600;color:var(--blue)">${c.name}</span>
+          <span style="color:var(--text2);margin-left:6px">${c.text}</span>
+        </div>`).join('')}
+      </div>`:''}
+      <button class="btn btn-sm" style="margin-top:8px;color:var(--red);border-color:#F7C1C1" onclick="deleteNotice('${n.id}')"><i class="ti ti-trash"></i> 削除</button>
+    </div>`).join('')
+}
+
+async function deleteNotice(id){
+  notices=notices.filter(n=>n.id!==id)
+  if(sb) await sb.from('notices').delete().eq('id',id)
+  renderNoticesAdmin()
+  toast('削除しました')
+}
+
+function renderPortalNotices(s,p){
+  const container=p==='sp'
+    ? document.getElementById('spp-notices')
+    : document.getElementById('tsvp-notices')
+  if(!container) return
+
+  const myNotices=notices.filter(n=>n.month===selectedMonth)
+  if(!myNotices.length){
+    container.innerHTML='<div class="card"><div style="font-size:12px;color:var(--text3);padding:8px 0">現在お知らせはありません</div></div>'
+    return
+  }
+
+  container.innerHTML=myNotices.map(n=>{
+    const confirmed=(n.confirmed_by||[]).includes(s.id)
+    const myComment=(n.comments||[]).find(c=>c.student_id===s.id)
+    return `<div class="card" style="margin-bottom:10px">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px">
+        <span style="font-weight:600;font-size:13px">${n.title}</span>
+        ${confirmed?'<span class="badge b-green" style="font-size:10px;flex-shrink:0">確認済み</span>':'<span class="badge b-amber" style="font-size:10px;flex-shrink:0">未確認</span>'}
+      </div>
+      <div style="font-size:12px;color:var(--text2);margin-bottom:10px;white-space:pre-wrap;line-height:1.6">${n.body}</div>
+
+      ${!confirmed?`
+      <button class="btn btn-primary btn-sm" onclick="confirmNotice('${n.id}','${s.id}','${p}')">
+        <i class="ti ti-check"></i> 確認しました
+      </button>`:''}
+
+      <div style="margin-top:10px;border-top:1px solid var(--border);padding-top:8px">
+        <div style="font-size:11px;font-weight:600;color:var(--text2);margin-bottom:6px">コメント・不具合報告</div>
+        ${myComment
+          ?`<div style="background:var(--bg);border-radius:4px;padding:6px 8px;font-size:11px;color:var(--text2)">${myComment.text}
+            <button onclick="deleteMyComment('${n.id}','${s.id}','${p}')" style="margin-left:8px;font-size:10px;background:none;border:none;color:var(--red);cursor:pointer">取り消す</button>
+          </div>`
+          :`<div style="display:flex;gap:6px">
+            <input id="notice-comment-${n.id}" placeholder="内容を入力..." style="flex:1;font-size:11px;padding:5px 8px">
+            <button class="btn btn-sm" onclick="sendNoticeComment('${n.id}','${s.id}','${p}')">送信</button>
+          </div>`
+        }
+      </div>
+    </div>`
+  }).join('')
+
+  // 未確認バッジ
+  const unread=myNotices.filter(n=>!(n.confirmed_by||[]).includes(s.id)).length
+  const badge=document.getElementById(p==='sp'?'spp-notice-badge':'tsv-notice-badge')
+  if(badge) badge.style.display=unread>0?'block':'none'
+}
+
+async function confirmNotice(noticeId, studentId, p){
+  const n=notices.find(x=>x.id===noticeId)
+  if(!n) return
+  if(!n.confirmed_by) n.confirmed_by=[]
+  if(!n.confirmed_by.includes(studentId)){
+    n.confirmed_by.push(studentId)
+    if(sb) await sb.from('notices').update({confirmed_by:n.confirmed_by}).eq('id',noticeId)
+  }
+  renderPortalNotices(loggedInStudent, p)
+  toast('確認しました')
+}
+
+async function sendNoticeComment(noticeId, studentId, p){
+  const input=document.getElementById('notice-comment-'+noticeId)
+  const text=input?.value.trim()
+  if(!text){toast('コメントを入力してください',true);return}
+  const n=notices.find(x=>x.id===noticeId)
+  if(!n) return
+  if(!n.comments) n.comments=[]
+  const comment={student_id:studentId, name:loggedInStudent.name, text}
+  n.comments.push(comment)
+  if(sb) await sb.from('notices').update({comments:n.comments}).eq('id',noticeId)
+  renderPortalNotices(loggedInStudent, p)
+  toast('コメントを送信しました')
+}
+
+async function deleteMyComment(noticeId, studentId, p){
+  const n=notices.find(x=>x.id===noticeId)
+  if(!n) return
+  n.comments=(n.comments||[]).filter(c=>c.student_id!==studentId)
+  if(sb) await sb.from('notices').update({comments:n.comments}).eq('id',noticeId)
+  renderPortalNotices(loggedInStudent, p)
+  toast('コメントを取り消しました')
 }
 
 /* ===== CALENDAR ===== */
@@ -675,6 +829,7 @@ const TEACHER_PASSWORD = null
     <div class="nav-item" onclick="nav('lesson-dates')" id="n-lesson-dates"><i class="ti ti-calendar"></i> 日程設定</div>
     <div class="nav-item" onclick="nav('students')" id="n-students"><i class="ti ti-users"></i> 生徒管理</div>
     <div class="nav-item" onclick="nav('transfer-admin')" id="n-transfer-admin"><i class="ti ti-switch-horizontal"></i> 振替相談</div>
+    <div class="nav-item" onclick="nav('notices-admin')" id="n-notices-admin"><i class="ti ti-bell-ringing"></i> お知らせ</div>
     <div class="nav-section" style="margin-top:8px">生徒ページ（講師）</div>
     <div class="nav-item" onclick="nav('teacher-student-view')" id="n-teacher-student-view"><i class="ti ti-eye"></i> 生徒ページを見る</div>
   </div>
@@ -728,6 +883,30 @@ const TEACHER_PASSWORD = null
 <div class="page" id="page-schedule-sun">
   <div class="print-title" id="print-title-sun"></div>
   <div class="sched-outer"><div id="sched-days-row-sun" class="sched-days-row"></div></div>
+</div>
+
+<!-- お知らせ管理 -->
+<div class="page" id="page-notices-admin">
+  <div class="card">
+    <div class="card-title">お知らせを送信</div>
+    <div class="form-group" style="margin-bottom:10px">
+      <div class="lbl">タイトル</div>
+      <input id="notice-title" placeholder="例）6月のレッスン資料について">
+    </div>
+    <div class="form-group" style="margin-bottom:10px">
+      <div class="lbl">本文・URL</div>
+      <textarea id="notice-body" style="min-height:100px" placeholder="例）今月のレッスン資料はこちらです。&#10;https://drive.google.com/..."></textarea>
+    </div>
+    <div class="form-group" style="margin-bottom:12px">
+      <div class="lbl">対象月</div>
+      <select id="notice-month"></select>
+    </div>
+    <button class="btn btn-primary" onclick="sendNotice()"><i class="ti ti-send"></i> 送信する</button>
+  </div>
+  <div class="card" style="margin-top:12px">
+    <div class="card-title">送信済みお知らせ</div>
+    <div id="notices-list"><div class="loading"><div class="spinner"></div>読み込み中...</div></div>
+  </div>
 </div>
 
 <!-- DASHBOARD -->
@@ -805,9 +984,11 @@ const TEACHER_PASSWORD = null
     <div class="tab-bar">
       <div class="tab active" onclick="tsvTab('schedule')" id="tsvt-schedule">日程</div>
       <div class="tab" onclick="tsvTab('absent')" id="tsvt-absent">欠席・相談</div>
+      <div class="tab" onclick="tsvTab('notices')" id="tsvt-notices" style="position:relative">お知らせ<span id="tsv-notice-badge" style="display:none;position:absolute;top:4px;right:4px;width:7px;height:7px;background:var(--red);border-radius:50%"></span></div>
     </div>
     <div id="tsvp-schedule"></div>
     <div id="tsvp-absent" style="display:none"></div>
+    <div id="tsvp-notices" style="display:none"></div>
   </div>
 </div>
 
@@ -865,6 +1046,7 @@ const TEACHER_PASSWORD = null
     </div>
   </div>
   <div id="spp-absent" style="display:none"></div>
+  <div id="spp-notices" style="display:none"></div>
 </div>
 
   </div><!-- /content -->
@@ -939,6 +1121,7 @@ function getCurrentMonth(){return new Date().getMonth()+1}
 let students=[]
 let manualTransfers=[]  // [{id, studentName, fromDate, fromTime, fromDay, toDate, toTime, toDay, month}]
 let approvedAbsences=[] // [{id, studentId, studentName, date, time, day, note, month}] 承認済み欠席
+let notices=[]  // [{id, title, body, month, created_at}] お知らせ
 let trialLessons=[]     // [{id, date, time, day, memo, month}]
 let dragData=null       // ドラッグ中のデータ
 let lessonDates={木:[],金:[],土:[],日:[]}
@@ -984,6 +1167,11 @@ async function loadStudents(){
         month:selectedMonth
       }))
     }
+    // お知らせを取得
+    const{data:noticeData}=await sb.from('notices')
+      .select('*').eq('month',selectedMonth).order('created_at',{ascending:false})
+    if(noticeData) notices=noticeData
+
     // 振替データを取得
     const{data:transfers}=await sb.from('manual_transfers')
       .select('*').eq('month',selectedMonth)
@@ -1118,7 +1306,7 @@ const PAGE_TITLES={
   'schedule-fri':'レッスン表（金曜）',
   'schedule-sun':'レッスン表（日曜）',
   'dashboard':'ダッシュボード',
-  'lesson-dates':'日程設定','students':'生徒管理','transfer-admin':'振替相談',
+  'lesson-dates':'日程設定','students':'生徒管理','transfer-admin':'振替相談','notices-admin':'お知らせ管理',
   'teacher-student-view':'生徒ページを見る','student-login':'生徒ページ','student-portal':'マイページ'
 }
 
@@ -1143,7 +1331,7 @@ function setTopbar(id){
     acts.innerHTML=`<select id="month-sel" onchange="changeMonth(this.value)" style="font-size:12px;padding:5px 8px;width:auto">${buildMonthSelect()}</select>`
   } else if(id==='student-portal'){
     acts.innerHTML=`<select id="sp-month-sel" onchange="changeStudentMonth(this.value)" style="font-size:12px;padding:5px 8px;width:auto">${buildMonthSelect()}</select>`
-  } else if(id==='dashboard'||id==='transfer-admin'||id==='schedule-thu-sat'||id==='schedule-fri'||id==='schedule-sun'){
+  } else if(id==='dashboard'||id==='transfer-admin'||id==='notices-admin'||id==='schedule-thu-sat'||id==='schedule-fri'||id==='schedule-sun'){
     acts.innerHTML=`<button class="btn btn-sm" onclick="reloadPage()"><i class="ti ti-refresh"></i> 更新</button>`
   } else {
     acts.innerHTML=''
@@ -1647,10 +1835,12 @@ function loadTeacherStudentView(){
   c.style.display='block';refreshPortal(id,'tsv');tsvTab('schedule')
 }
 function tsvTab(name){
-  ['schedule','absent'].forEach(t=>{
-    document.getElementById('tsvp-'+t).style.display=t===name?'block':'none'
-    document.getElementById('tsvt-'+t).classList.toggle('active',t===name)
+  ['schedule','absent','notices'].forEach(t=>{
+    const el=document.getElementById('tsvp-'+t)
+    if(el) el.style.display=t===name?'block':'none'
+    document.getElementById('tsvt-'+t)?.classList.toggle('active',t===name)
   })
+  if(name==='notices'&&loggedInStudent) renderPortalNotices(loggedInStudent,'tsv')
 }
 
 /* =====================================================
@@ -2265,6 +2455,159 @@ async function reloadPage(){
   else if(pageId==='transfer-admin') renderTransferRequests()
   if(btn) btn.style.animation=''
   toast('更新しました')
+}
+
+
+/* ===== お知らせ機能 ===== */
+
+async function loadNotices(){
+  if(!sb) return
+  const{data}=await sb.from('notices').select('*').order('created_at',{ascending:false})
+  if(data) notices=data
+}
+
+async function sendNotice(){
+  const title=document.getElementById('notice-title').value.trim()
+  const body=document.getElementById('notice-body').value.trim()
+  const month=parseInt(document.getElementById('notice-month').value||selectedMonth)
+  if(!title||!body){toast('タイトルと本文を入力してください',true);return}
+
+  const notice={title,body,month,confirmed_by:[],comments:[]}
+  if(sb){
+    const{data,error}=await sb.from('notices').insert([notice]).select().single()
+    if(error){toast('送信に失敗しました',true);return}
+    if(data) notice.id=data.id
+  } else {
+    notice.id='n_'+Date.now()
+  }
+  notices.unshift(notice)
+  document.getElementById('notice-title').value=''
+  document.getElementById('notice-body').value=''
+  renderNoticesAdmin()
+  toast('お知らせを送信しました')
+}
+
+function renderNoticesAdmin(){
+  const el=document.getElementById('notices-list')
+  if(!el) return
+  // 月セレクトを設定
+  const sel=document.getElementById('notice-month')
+  if(sel&&!sel.innerHTML) sel.innerHTML=buildMonthSelect()
+
+  const list=notices.filter(n=>!document.getElementById('notice-month')||parseInt(document.getElementById('notice-month').value||selectedMonth)===n.month||true)
+  if(!list.length){el.innerHTML='<div style="color:var(--text3);font-size:12px;padding:8px 0">まだお知らせはありません</div>';return}
+
+  el.innerHTML=list.map(n=>`
+    <div style="border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px;margin-bottom:8px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+        <span style="font-weight:600;font-size:13px">${n.title}</span>
+        <span class="badge b-blue" style="font-size:10px">${n.month}月</span>
+      </div>
+      <div style="font-size:12px;color:var(--text2);margin-bottom:6px;white-space:pre-wrap">${n.body}</div>
+      <div style="display:flex;gap:12px;font-size:11px;color:var(--text3)">
+        <span><i class="ti ti-check"></i> 確認済み：${(n.confirmed_by||[]).length}名</span>
+        <span><i class="ti ti-message"></i> コメント：${(n.comments||[]).length}件</span>
+      </div>
+      ${(n.comments||[]).length?`
+      <div style="margin-top:8px;border-top:1px solid var(--border);padding-top:6px">
+        ${(n.comments||[]).map(c=>`
+        <div style="font-size:11px;padding:4px 0;border-bottom:1px solid var(--border)">
+          <span style="font-weight:600;color:var(--blue)">${c.name}</span>
+          <span style="color:var(--text2);margin-left:6px">${c.text}</span>
+        </div>`).join('')}
+      </div>`:''}
+      <button class="btn btn-sm" style="margin-top:8px;color:var(--red);border-color:#F7C1C1" onclick="deleteNotice('${n.id}')"><i class="ti ti-trash"></i> 削除</button>
+    </div>`).join('')
+}
+
+async function deleteNotice(id){
+  notices=notices.filter(n=>n.id!==id)
+  if(sb) await sb.from('notices').delete().eq('id',id)
+  renderNoticesAdmin()
+  toast('削除しました')
+}
+
+function renderPortalNotices(s,p){
+  const container=p==='sp'
+    ? document.getElementById('spp-notices')
+    : document.getElementById('tsvp-notices')
+  if(!container) return
+
+  const myNotices=notices.filter(n=>n.month===selectedMonth)
+  if(!myNotices.length){
+    container.innerHTML='<div class="card"><div style="font-size:12px;color:var(--text3);padding:8px 0">現在お知らせはありません</div></div>'
+    return
+  }
+
+  container.innerHTML=myNotices.map(n=>{
+    const confirmed=(n.confirmed_by||[]).includes(s.id)
+    const myComment=(n.comments||[]).find(c=>c.student_id===s.id)
+    return `<div class="card" style="margin-bottom:10px">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px">
+        <span style="font-weight:600;font-size:13px">${n.title}</span>
+        ${confirmed?'<span class="badge b-green" style="font-size:10px;flex-shrink:0">確認済み</span>':'<span class="badge b-amber" style="font-size:10px;flex-shrink:0">未確認</span>'}
+      </div>
+      <div style="font-size:12px;color:var(--text2);margin-bottom:10px;white-space:pre-wrap;line-height:1.6">${n.body}</div>
+
+      ${!confirmed?`
+      <button class="btn btn-primary btn-sm" onclick="confirmNotice('${n.id}','${s.id}','${p}')">
+        <i class="ti ti-check"></i> 確認しました
+      </button>`:''}
+
+      <div style="margin-top:10px;border-top:1px solid var(--border);padding-top:8px">
+        <div style="font-size:11px;font-weight:600;color:var(--text2);margin-bottom:6px">コメント・不具合報告</div>
+        ${myComment
+          ?`<div style="background:var(--bg);border-radius:4px;padding:6px 8px;font-size:11px;color:var(--text2)">${myComment.text}
+            <button onclick="deleteMyComment('${n.id}','${s.id}','${p}')" style="margin-left:8px;font-size:10px;background:none;border:none;color:var(--red);cursor:pointer">取り消す</button>
+          </div>`
+          :`<div style="display:flex;gap:6px">
+            <input id="notice-comment-${n.id}" placeholder="内容を入力..." style="flex:1;font-size:11px;padding:5px 8px">
+            <button class="btn btn-sm" onclick="sendNoticeComment('${n.id}','${s.id}','${p}')">送信</button>
+          </div>`
+        }
+      </div>
+    </div>`
+  }).join('')
+
+  // 未確認バッジ
+  const unread=myNotices.filter(n=>!(n.confirmed_by||[]).includes(s.id)).length
+  const badge=document.getElementById(p==='sp'?'spp-notice-badge':'tsv-notice-badge')
+  if(badge) badge.style.display=unread>0?'block':'none'
+}
+
+async function confirmNotice(noticeId, studentId, p){
+  const n=notices.find(x=>x.id===noticeId)
+  if(!n) return
+  if(!n.confirmed_by) n.confirmed_by=[]
+  if(!n.confirmed_by.includes(studentId)){
+    n.confirmed_by.push(studentId)
+    if(sb) await sb.from('notices').update({confirmed_by:n.confirmed_by}).eq('id',noticeId)
+  }
+  renderPortalNotices(loggedInStudent, p)
+  toast('確認しました')
+}
+
+async function sendNoticeComment(noticeId, studentId, p){
+  const input=document.getElementById('notice-comment-'+noticeId)
+  const text=input?.value.trim()
+  if(!text){toast('コメントを入力してください',true);return}
+  const n=notices.find(x=>x.id===noticeId)
+  if(!n) return
+  if(!n.comments) n.comments=[]
+  const comment={student_id:studentId, name:loggedInStudent.name, text}
+  n.comments.push(comment)
+  if(sb) await sb.from('notices').update({comments:n.comments}).eq('id',noticeId)
+  renderPortalNotices(loggedInStudent, p)
+  toast('コメントを送信しました')
+}
+
+async function deleteMyComment(noticeId, studentId, p){
+  const n=notices.find(x=>x.id===noticeId)
+  if(!n) return
+  n.comments=(n.comments||[]).filter(c=>c.student_id!==studentId)
+  if(sb) await sb.from('notices').update({comments:n.comments}).eq('id',noticeId)
+  renderPortalNotices(loggedInStudent, p)
+  toast('コメントを取り消しました')
 }
 
 /* ===== CALENDAR ===== */
