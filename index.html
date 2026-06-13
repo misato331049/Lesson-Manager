@@ -532,13 +532,55 @@ async function loadNotices(){
   if(data) notices=data
 }
 
+function renderNoticeStudentList(){
+  const el=document.getElementById('notice-student-list')
+  if(!el) return
+  const query=(document.getElementById('notice-student-search')?.value||'').toLowerCase()
+  const DAY_ORDER={木:0,金:1,土:2,日:3}
+  let list=[...students].sort((a,b)=>{
+    if(DAY_ORDER[a.day]!==DAY_ORDER[b.day]) return DAY_ORDER[a.day]-DAY_ORDER[b.day]
+    return a.time.localeCompare(b.time)
+  })
+  if(query) list=list.filter(s=>s.name.toLowerCase().includes(query)||(s.kana&&s.kana.toLowerCase().includes(query)))
+
+  el.innerHTML=list.map(s=>`
+    <label style="display:flex;align-items:center;gap:8px;padding:5px 4px;cursor:pointer;border-bottom:1px solid var(--border)">
+      <input type="checkbox" class="notice-student-cb" value="${s.id}" data-name="${s.name}" checked style="width:14px;height:14px;cursor:pointer">
+      <span style="font-size:12px;font-weight:500">${s.name}</span>
+      <span style="font-size:11px;color:var(--text2)">${s.day}曜 ${s.time}</span>
+    </label>`).join('')
+  updateNoticeSelectedCount()
+}
+
+function filterNoticeStudents(){
+  renderNoticeStudentList()
+}
+
+function selectAllNoticeStudents(checked){
+  document.querySelectorAll('.notice-student-cb').forEach(cb=>cb.checked=checked)
+  updateNoticeSelectedCount()
+}
+
+function updateNoticeSelectedCount(){
+  const total=document.querySelectorAll('.notice-student-cb').length
+  const selected=document.querySelectorAll('.notice-student-cb:checked').length
+  const el=document.getElementById('notice-selected-count')
+  if(el) el.textContent=selected+'/'+ total+'名選択中'
+}
+
 async function sendNotice(){
   const title=document.getElementById('notice-title').value.trim()
   const body=document.getElementById('notice-body').value.trim()
   const month=parseInt(document.getElementById('notice-month').value||selectedMonth)
   if(!title||!body){toast('タイトルと本文を入力してください',true);return}
 
-  const notice={title,body,month,confirmed_by:[],comments:[]}
+  // 送信先の生徒IDを取得
+  const checkedCbs=document.querySelectorAll('.notice-student-cb:checked')
+  if(!checkedCbs.length){toast('送信先を1名以上選択してください',true);return}
+  const targetIds=Array.from(checkedCbs).map(cb=>cb.value)
+  const targetNames=Array.from(checkedCbs).map(cb=>cb.dataset.name)
+
+  const notice={title,body,month,target_ids:targetIds,target_names:targetNames,confirmed_by:[],comments:[]}
   if(sb){
     const{data,error}=await sb.from('notices').insert([notice]).select().single()
     if(error){toast('送信に失敗しました',true);return}
@@ -550,18 +592,26 @@ async function sendNotice(){
   document.getElementById('notice-title').value=''
   document.getElementById('notice-body').value=''
   renderNoticesAdmin()
-  toast('お知らせを送信しました')
+  toast(targetNames.length+'名にお知らせを送信しました')
 }
 
 function renderNoticesAdmin(){
   const el=document.getElementById('notices-list')
   if(!el) return
-  // 月セレクトを設定
   const sel=document.getElementById('notice-month')
   if(sel&&!sel.innerHTML) sel.innerHTML=buildMonthSelect()
 
-  const list=notices.filter(n=>!document.getElementById('notice-month')||parseInt(document.getElementById('notice-month').value||selectedMonth)===n.month||true)
-  if(!list.length){el.innerHTML='<div style="color:var(--text3);font-size:12px;padding:8px 0">まだお知らせはありません</div>';return}
+  const query=(document.getElementById('notices-search')?.value||'').toLowerCase()
+  let list=notices
+  if(query) list=list.filter(n=>
+    n.title.toLowerCase().includes(query)||
+    (n.target_names||[]).some(name=>name.toLowerCase().includes(query))
+  )
+
+  if(!list.length){
+    el.innerHTML='<div style="color:var(--text3);font-size:12px;padding:8px 0">'+(query?'該当するお知らせがありません':'まだお知らせはありません')+'</div>'
+    return
+  }
 
   el.innerHTML=list.map(n=>`
     <div style="border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px;margin-bottom:8px">
@@ -570,6 +620,9 @@ function renderNoticesAdmin(){
         <span class="badge b-blue" style="font-size:10px">${n.month}月</span>
       </div>
       <div style="font-size:12px;color:var(--text2);margin-bottom:6px;white-space:pre-wrap">${n.body}</div>
+      <div style="font-size:11px;color:var(--text3);margin-bottom:6px">
+        <i class="ti ti-users"></i> 送信先：${(n.target_names||['全員']).join('、')}
+      </div>
       <div style="display:flex;gap:12px;font-size:11px;color:var(--text3)">
         <span><i class="ti ti-check"></i> 確認済み：${(n.confirmed_by||[]).length}名</span>
         <span><i class="ti ti-message"></i> コメント：${(n.comments||[]).length}件</span>
@@ -599,7 +652,11 @@ function renderPortalNotices(s,p){
     : document.getElementById('tsvp-notices')
   if(!container) return
 
-  const myNotices=notices.filter(n=>n.month===selectedMonth)
+  // 自分宛て（target_idsに自分が含まれるか、target_idsがない場合は全員）
+  const myNotices=notices.filter(n=>
+    n.month===selectedMonth &&
+    (!n.target_ids || n.target_ids.length===0 || n.target_ids.includes(s.id))
+  )
   if(!myNotices.length){
     container.innerHTML='<div class="card"><div style="font-size:12px;color:var(--text3);padding:8px 0">現在お知らせはありません</div></div>'
     return
@@ -647,7 +704,7 @@ async function confirmNotice(noticeId, studentId, p){
   if(!n.confirmed_by) n.confirmed_by=[]
   if(!n.confirmed_by.includes(studentId)){
     n.confirmed_by.push(studentId)
-    if(sb) await sb.from('notices').update({confirmed_by:n.confirmed_by}).eq('id',noticeId)
+    if(sb) await sb.from('notices').update({confirmed_by:n.confirmed_by,comments:n.comments||[]}).eq('id',noticeId)
   }
   renderPortalNotices(loggedInStudent, p)
   toast('確認しました')
@@ -895,16 +952,29 @@ const TEACHER_PASSWORD = null
     </div>
     <div class="form-group" style="margin-bottom:10px">
       <div class="lbl">本文・URL</div>
-      <textarea id="notice-body" style="min-height:100px" placeholder="例）今月のレッスン資料はこちらです。&#10;https://drive.google.com/..."></textarea>
+      <textarea id="notice-body" style="min-height:80px" placeholder="例）今月のレッスン資料はこちらです。&#10;https://drive.google.com/..."></textarea>
     </div>
-    <div class="form-group" style="margin-bottom:12px">
+    <div class="form-group" style="margin-bottom:10px">
       <div class="lbl">対象月</div>
       <select id="notice-month"></select>
+    </div>
+    <div class="form-group" style="margin-bottom:12px">
+      <div class="lbl">送信先</div>
+      <div style="display:flex;gap:8px;margin-bottom:8px;align-items:center">
+        <input id="notice-student-search" placeholder="名前で検索..." oninput="filterNoticeStudents()" style="width:180px;font-size:12px;padding:5px 8px">
+        <button class="btn btn-sm" onclick="selectAllNoticeStudents(true)">全員選択</button>
+        <button class="btn btn-sm" onclick="selectAllNoticeStudents(false)">全員解除</button>
+        <span id="notice-selected-count" style="font-size:11px;color:var(--text2)"></span>
+      </div>
+      <div id="notice-student-list" style="max-height:200px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--radius-sm);padding:6px"></div>
     </div>
     <button class="btn btn-primary" onclick="sendNotice()"><i class="ti ti-send"></i> 送信する</button>
   </div>
   <div class="card" style="margin-top:12px">
-    <div class="card-title">送信済みお知らせ</div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+      <div class="card-title" style="margin-bottom:0">送信済みお知らせ</div>
+      <input id="notices-search" placeholder="名前・タイトルで検索..." oninput="renderNoticesAdmin()" style="width:180px;font-size:12px;padding:5px 8px">
+    </div>
     <div id="notices-list"><div class="loading"><div class="spinner"></div>読み込み中...</div></div>
   </div>
 </div>
@@ -2466,13 +2536,55 @@ async function loadNotices(){
   if(data) notices=data
 }
 
+function renderNoticeStudentList(){
+  const el=document.getElementById('notice-student-list')
+  if(!el) return
+  const query=(document.getElementById('notice-student-search')?.value||'').toLowerCase()
+  const DAY_ORDER={木:0,金:1,土:2,日:3}
+  let list=[...students].sort((a,b)=>{
+    if(DAY_ORDER[a.day]!==DAY_ORDER[b.day]) return DAY_ORDER[a.day]-DAY_ORDER[b.day]
+    return a.time.localeCompare(b.time)
+  })
+  if(query) list=list.filter(s=>s.name.toLowerCase().includes(query)||(s.kana&&s.kana.toLowerCase().includes(query)))
+
+  el.innerHTML=list.map(s=>`
+    <label style="display:flex;align-items:center;gap:8px;padding:5px 4px;cursor:pointer;border-bottom:1px solid var(--border)">
+      <input type="checkbox" class="notice-student-cb" value="${s.id}" data-name="${s.name}" checked style="width:14px;height:14px;cursor:pointer">
+      <span style="font-size:12px;font-weight:500">${s.name}</span>
+      <span style="font-size:11px;color:var(--text2)">${s.day}曜 ${s.time}</span>
+    </label>`).join('')
+  updateNoticeSelectedCount()
+}
+
+function filterNoticeStudents(){
+  renderNoticeStudentList()
+}
+
+function selectAllNoticeStudents(checked){
+  document.querySelectorAll('.notice-student-cb').forEach(cb=>cb.checked=checked)
+  updateNoticeSelectedCount()
+}
+
+function updateNoticeSelectedCount(){
+  const total=document.querySelectorAll('.notice-student-cb').length
+  const selected=document.querySelectorAll('.notice-student-cb:checked').length
+  const el=document.getElementById('notice-selected-count')
+  if(el) el.textContent=selected+'/'+ total+'名選択中'
+}
+
 async function sendNotice(){
   const title=document.getElementById('notice-title').value.trim()
   const body=document.getElementById('notice-body').value.trim()
   const month=parseInt(document.getElementById('notice-month').value||selectedMonth)
   if(!title||!body){toast('タイトルと本文を入力してください',true);return}
 
-  const notice={title,body,month,confirmed_by:[],comments:[]}
+  // 送信先の生徒IDを取得
+  const checkedCbs=document.querySelectorAll('.notice-student-cb:checked')
+  if(!checkedCbs.length){toast('送信先を1名以上選択してください',true);return}
+  const targetIds=Array.from(checkedCbs).map(cb=>cb.value)
+  const targetNames=Array.from(checkedCbs).map(cb=>cb.dataset.name)
+
+  const notice={title,body,month,target_ids:targetIds,target_names:targetNames,confirmed_by:[],comments:[]}
   if(sb){
     const{data,error}=await sb.from('notices').insert([notice]).select().single()
     if(error){toast('送信に失敗しました',true);return}
@@ -2484,18 +2596,26 @@ async function sendNotice(){
   document.getElementById('notice-title').value=''
   document.getElementById('notice-body').value=''
   renderNoticesAdmin()
-  toast('お知らせを送信しました')
+  toast(targetNames.length+'名にお知らせを送信しました')
 }
 
 function renderNoticesAdmin(){
   const el=document.getElementById('notices-list')
   if(!el) return
-  // 月セレクトを設定
   const sel=document.getElementById('notice-month')
   if(sel&&!sel.innerHTML) sel.innerHTML=buildMonthSelect()
 
-  const list=notices.filter(n=>!document.getElementById('notice-month')||parseInt(document.getElementById('notice-month').value||selectedMonth)===n.month||true)
-  if(!list.length){el.innerHTML='<div style="color:var(--text3);font-size:12px;padding:8px 0">まだお知らせはありません</div>';return}
+  const query=(document.getElementById('notices-search')?.value||'').toLowerCase()
+  let list=notices
+  if(query) list=list.filter(n=>
+    n.title.toLowerCase().includes(query)||
+    (n.target_names||[]).some(name=>name.toLowerCase().includes(query))
+  )
+
+  if(!list.length){
+    el.innerHTML='<div style="color:var(--text3);font-size:12px;padding:8px 0">'+(query?'該当するお知らせがありません':'まだお知らせはありません')+'</div>'
+    return
+  }
 
   el.innerHTML=list.map(n=>`
     <div style="border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px;margin-bottom:8px">
@@ -2504,6 +2624,9 @@ function renderNoticesAdmin(){
         <span class="badge b-blue" style="font-size:10px">${n.month}月</span>
       </div>
       <div style="font-size:12px;color:var(--text2);margin-bottom:6px;white-space:pre-wrap">${n.body}</div>
+      <div style="font-size:11px;color:var(--text3);margin-bottom:6px">
+        <i class="ti ti-users"></i> 送信先：${(n.target_names||['全員']).join('、')}
+      </div>
       <div style="display:flex;gap:12px;font-size:11px;color:var(--text3)">
         <span><i class="ti ti-check"></i> 確認済み：${(n.confirmed_by||[]).length}名</span>
         <span><i class="ti ti-message"></i> コメント：${(n.comments||[]).length}件</span>
@@ -2533,7 +2656,11 @@ function renderPortalNotices(s,p){
     : document.getElementById('tsvp-notices')
   if(!container) return
 
-  const myNotices=notices.filter(n=>n.month===selectedMonth)
+  // 自分宛て（target_idsに自分が含まれるか、target_idsがない場合は全員）
+  const myNotices=notices.filter(n=>
+    n.month===selectedMonth &&
+    (!n.target_ids || n.target_ids.length===0 || n.target_ids.includes(s.id))
+  )
   if(!myNotices.length){
     container.innerHTML='<div class="card"><div style="font-size:12px;color:var(--text3);padding:8px 0">現在お知らせはありません</div></div>'
     return
@@ -2581,7 +2708,7 @@ async function confirmNotice(noticeId, studentId, p){
   if(!n.confirmed_by) n.confirmed_by=[]
   if(!n.confirmed_by.includes(studentId)){
     n.confirmed_by.push(studentId)
-    if(sb) await sb.from('notices').update({confirmed_by:n.confirmed_by}).eq('id',noticeId)
+    if(sb) await sb.from('notices').update({confirmed_by:n.confirmed_by,comments:n.comments||[]}).eq('id',noticeId)
   }
   renderPortalNotices(loggedInStudent, p)
   toast('確認しました')
