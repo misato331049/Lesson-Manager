@@ -144,6 +144,7 @@ input:disabled,select:disabled,textarea:disabled{opacity:.5;cursor:not-allowed;b
 .loading{display:flex;align-items:center;justify-content:center;padding:40px;color:var(--text3);font-size:13px;gap:8px}
 .spinner{width:16px;height:16px;border:2px solid var(--border);border-top-color:var(--blue);border-radius:50%;animation:spin .6s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
+.ti-refresh{display:inline-block}
 
 /* ===== SUPABASE設定バナー ===== */
 .setup-banner{background:var(--amber-light);border:1px solid #FAC775;border-radius:var(--radius);padding:16px 20px;margin-bottom:20px}
@@ -151,6 +152,74 @@ input:disabled,select:disabled,textarea:disabled{opacity:.5;cursor:not-allowed;b
 .setup-banner p{font-size:12px;color:var(--amber);line-height:1.7;margin-bottom:10px}
 .setup-banner code{background:#fff;border:1px solid #FAC775;border-radius:4px;padding:1px 6px;font-family:monospace;font-size:11px}
 
+
+
+/* ===== 生徒情報ポップアップ（スケジュール表から） ===== */
+function showStudentInfo(e, studentId){
+  e.stopPropagation()
+  if(!studentId) return
+  const s = students.find(x=>x.id===studentId)
+  if(!s) return
+
+  const requests = s.requests || []
+  const absInfo = approvedAbsences.filter(a=>a.studentId===studentId&&a.month===selectedMonth)
+
+  let reqHtml = ''
+  if(requests.length){
+    reqHtml += `<div style="margin-bottom:8px"><div style="font-size:11px;font-weight:600;color:var(--amber);margin-bottom:4px">📋 振替・欠席申請</div>`
+    requests.forEach(r=>{
+      reqHtml += `<div style="background:var(--amber-light);border-radius:4px;padding:6px 8px;margin-bottom:4px;font-size:11px">
+        <div style="font-weight:500">${r.date}</div>
+        <div style="color:var(--amber)">種別：${r.type}</div>
+        <div style="margin-top:2px">${r.note}</div>
+      </div>`
+    })
+    reqHtml += `</div>`
+  }
+
+  let absHtml = ''
+  if(absInfo.length){
+    absHtml += `<div style="margin-bottom:8px"><div style="font-size:11px;font-weight:600;color:var(--text2);margin-bottom:4px">✅ 承認済み欠席（${selectedMonth}月）</div>`
+    absInfo.forEach(a=>{
+      absHtml += `<div style="background:var(--bg);border-radius:4px;padding:6px 8px;margin-bottom:4px;font-size:11px">
+        <div style="font-weight:500">${a.date}（${a.day}）${a.time}</div>
+        <div style="color:var(--text2)">${a.type}</div>
+        ${a.note?`<div style="margin-top:2px">${a.note}</div>`:''}
+        <button onclick="cancelAbsence('${a.id}')" style="margin-top:4px;font-size:10px;padding:1px 6px;border:1px solid var(--border2);border-radius:3px;background:none;cursor:pointer;color:var(--red)">取り消し</button>
+      </div>`
+    })
+    absHtml += `</div>`
+  }
+
+  if(!requests.length && !absInfo.length){
+    reqHtml = '<div style="font-size:12px;color:var(--text3);padding:4px 0">申請・欠席情報はありません</div>'
+  }
+
+  showModal('student-info-modal',`
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+      <div style="width:36px;height:36px;border-radius:50%;background:var(--blue-light);color:var(--blue);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;flex-shrink:0">${initials(s.name)}</div>
+      <div>
+        <div style="font-size:15px;font-weight:600">${s.name}</div>
+        <div style="font-size:12px;color:var(--text2)">${s.day}曜 ${s.time} / 月${s.course}回</div>
+      </div>
+    </div>
+    ${reqHtml}${absHtml}
+    <button class="btn" style="width:100%;justify-content:center;margin-top:4px" onclick="closeModal()">閉じる</button>
+  `)
+}
+
+async function cancelAbsence(id){
+  approvedAbsences = approvedAbsences.filter(a=>a.id!==id)
+  if(sb) await sb.from('requests').update({status:'pending'}).eq('id',id)
+  // 生徒のrequestsに戻す
+  await loadStudents()
+  closeModal()
+  renderScheduleByPage('schedule-thu-sat')
+  renderScheduleByPage('schedule-fri')
+  renderScheduleByPage('schedule-sun')
+  renderTransferRequests()
+  toast('欠席承認を取り消しました')
+}
 
 /* ===== DRAG & DROP ===== */
 function onDragStart(e, studentId, name, fromDay, fromDate, fromSlot){
@@ -186,16 +255,29 @@ async function onDrop(e, toDay, toDate, toSlot){
   }
 
   // 振替として新しいコマに追加
+  const cleanName = name.replace('（振替）','')
+  const transferRow = {
+    student_name: cleanName,
+    from_date: fromDate, from_time: fromSlot, from_day: fromDay,
+    to_date: toDate, to_time: toSlot, to_day: toDay,
+    month: selectedMonth
+  }
   const transfer = {
     id: 'tr_'+Date.now(),
-    studentName: name.replace('（振替）',''),
+    studentName: cleanName,
     fromDate, fromTime: fromSlot, fromDay,
     toDate, toTime: toSlot, toDay,
     month: selectedMonth
   }
+  if(sb){
+    const{data}=await sb.from('manual_transfers').insert([transferRow]).select().single()
+    if(data) transfer.id=data.id
+  }
   manualTransfers.push(transfer)
-  renderScheduleTable()
-  toast(name+'を'+toDate+'（'+toDay+'）'+toSlot+'に移動しました')
+  renderScheduleByPage('schedule-thu-sat')
+  renderScheduleByPage('schedule-fri')
+  renderScheduleByPage('schedule-sun')
+  toast(cleanName+'を'+toDate+'（'+toDay+'）'+toSlot+'に移動しました')
 }
 
 
@@ -234,13 +316,16 @@ function closeSlotMenu(){
 
 /* ===== TRANSFER MODAL ===== */
 function openTransferModal(day, date, slot){
-  const studentOpts = students.map(s=>`<option value="${s.name}">${s.name}（${s.day}曜）</option>`).join('')
+  const studentOpts = students.map(s=>`<option value="${s.name}" data-day="${s.day}" data-time="${s.time}">${s.name}（${s.day}曜 ${s.time}）</option>`).join('')
   showModal('transfer-modal',`
     <div class="modal-title" style="color:var(--text)"><i class="ti ti-switch-horizontal" style="color:#6B7280"></i> 振替設定</div>
-    <div style="font-size:12px;color:var(--text2);margin-bottom:12px">${date}（${day}）${slot}</div>
+    <div style="font-size:12px;color:var(--text2);margin-bottom:12px">振替先：${date}（${day}）${slot}</div>
     <div class="form-group" style="margin-bottom:10px">
       <div class="lbl">生徒名</div>
       <select id="tr-modal-student">${studentOpts}</select>
+    </div>
+    <div style="font-size:11px;color:var(--text2);margin-bottom:10px">
+      ※ 選択した生徒のマイページにも振替日程が表示されます
     </div>
     <div class="modal-actions">
       <button class="btn btn-primary" style="flex:1" onclick="confirmTransferModal('${day}','${date}','${slot}')"><i class="ti ti-check"></i> 設定する</button>
@@ -248,24 +333,50 @@ function openTransferModal(day, date, slot){
     </div>
   `)
 }
-function confirmTransferModal(day, date, slot){
+async function confirmTransferModal(day, date, slot){
   const name = document.getElementById('tr-modal-student')?.value
   if(!name) return
   const transfer = {
-    id: 'tr_'+Date.now(),
-    studentName: name,
-    fromDate:'', fromTime:'', fromDay:'',
-    toDate: date, toTime: slot, toDay: day,
+    student_name: name,
+    from_date:'', from_time:'', from_day:'',
+    to_date: date, to_time: slot, to_day: day,
     month: selectedMonth
+  }
+  if(sb){
+    const{data}=await sb.from('manual_transfers').insert([transfer]).select().single()
+    if(data){
+      transfer.id=data.id
+      transfer.studentName=name
+      transfer.toDate=date
+      transfer.toTime=slot
+      transfer.toDay=day
+    } else {
+      transfer.id='tr_'+Date.now()
+      transfer.studentName=name
+      transfer.toDate=date
+      transfer.toTime=slot
+      transfer.toDay=day
+    }
+  } else {
+    transfer.id='tr_'+Date.now()
+    transfer.studentName=name
+    transfer.toDate=date
+    transfer.toTime=slot
+    transfer.toDay=day
   }
   manualTransfers.push(transfer)
   closeModal()
-  renderScheduleTable()
+  renderScheduleByPage('schedule-thu-sat')
+  renderScheduleByPage('schedule-fri')
+  renderScheduleByPage('schedule-sun')
   toast(name+'の振替を'+date+'（'+day+'）'+slot+'に設定しました')
 }
-function removeTransfer(id){
+async function removeTransfer(id){
   manualTransfers = manualTransfers.filter(t=>t.id!==id)
-  renderScheduleTable()
+  if(sb) await sb.from('manual_transfers').delete().eq('id',id)
+  renderScheduleByPage('schedule-thu-sat')
+  renderScheduleByPage('schedule-fri')
+  renderScheduleByPage('schedule-sun')
 }
 
 /* ===== TRIAL MODAL ===== */
@@ -283,21 +394,29 @@ function openTrialModal(day, date, slot){
     </div>
   `)
 }
-function confirmTrialModal(day, date, slot){
+async function confirmTrialModal(day, date, slot){
   const memo = document.getElementById('trial-memo')?.value.trim()||''
-  const trial = {
-    id: 'trial_'+Date.now(),
-    date, time: slot, day, memo,
-    month: selectedMonth
+  const trial = { date, time: slot, day, memo, month: selectedMonth }
+  if(sb){
+    const{data}=await sb.from('trial_lessons').insert([trial]).select().single()
+    if(data) trial.id=data.id
+    else trial.id='trial_'+Date.now()
+  } else {
+    trial.id='trial_'+Date.now()
   }
   trialLessons.push(trial)
   closeModal()
-  renderScheduleTable()
+  renderScheduleByPage('schedule-thu-sat')
+  renderScheduleByPage('schedule-fri')
+  renderScheduleByPage('schedule-sun')
   toast('体験レッスンを'+date+'（'+day+'）'+slot+'に登録しました')
 }
-function removeTrial(id){
+async function removeTrial(id){
   trialLessons = trialLessons.filter(t=>t.id!==id)
-  renderScheduleTable()
+  if(sb) await sb.from('trial_lessons').delete().eq('id',id)
+  renderScheduleByPage('schedule-thu-sat')
+  renderScheduleByPage('schedule-fri')
+  renderScheduleByPage('schedule-sun')
 }
 
 /* ===== MODAL HELPER ===== */
@@ -371,6 +490,247 @@ async function saveEditStudent(){
   closeEditModal()
   renderStudentList()
   toast(name+'さんの情報を更新しました')
+}
+
+
+/* ===== 申請取り消し（生徒側） ===== */
+async function cancelRequest(studentId, requestId, p){
+  const s = students.find(x=>x.id===studentId)
+  if(!s) return
+  s.requests = s.requests.filter(r=>r.id!==requestId)
+  if(sb) await sb.from('requests').delete().eq('id',requestId)
+  renderPortalAbsent(s,p)
+  renderPortalNotices(s,p)
+  renderDashboard()
+  toast('申請を取り消しました')
+}
+
+
+/* ===== ページ更新 ===== */
+async function reloadPage(){
+  const btn = document.querySelector('.ti-refresh')
+  if(btn) btn.style.animation='spin .6s linear infinite'
+  await loadLessonDates()
+  await loadStudents()
+  const activeNav = document.querySelector('.nav-item.active')
+  const pageId = activeNav?.id?.replace('n-','')
+  if(pageId==='schedule-thu-sat') renderScheduleByPage('schedule-thu-sat')
+  else if(pageId==='schedule-fri') renderScheduleByPage('schedule-fri')
+  else if(pageId==='schedule-sun') renderScheduleByPage('schedule-sun')
+  else if(pageId==='dashboard') renderDashboard()
+  else if(pageId==='transfer-admin') renderTransferRequests()
+  if(btn) btn.style.animation=''
+  toast('更新しました')
+}
+
+
+/* ===== お知らせ機能 ===== */
+
+async function loadNotices(){
+  if(!sb) return
+  const{data}=await sb.from('notices').select('*').order('created_at',{ascending:false})
+  if(data) notices=data
+}
+
+function renderNoticeStudentList(){
+  const el=document.getElementById('notice-student-list')
+  if(!el) return
+  const query=(document.getElementById('notice-student-search')?.value||'').toLowerCase()
+  const DAY_ORDER={木:0,金:1,土:2,日:3}
+  let list=[...students].sort((a,b)=>{
+    if(DAY_ORDER[a.day]!==DAY_ORDER[b.day]) return DAY_ORDER[a.day]-DAY_ORDER[b.day]
+    return a.time.localeCompare(b.time)
+  })
+  if(query) list=list.filter(s=>s.name.toLowerCase().includes(query)||(s.kana&&s.kana.toLowerCase().includes(query)))
+
+  el.innerHTML=list.map(s=>`
+    <label style="display:flex;align-items:center;gap:8px;padding:5px 4px;cursor:pointer;border-bottom:1px solid var(--border)">
+      <input type="checkbox" class="notice-student-cb" value="${s.id}" data-name="${s.name}" checked style="width:14px;height:14px;cursor:pointer">
+      <span style="font-size:12px;font-weight:500">${s.name}</span>
+      <span style="font-size:11px;color:var(--text2)">${s.day}曜 ${s.time}</span>
+    </label>`).join('')
+  updateNoticeSelectedCount()
+}
+
+function filterNoticeStudents(){
+  renderNoticeStudentList()
+}
+
+function selectAllNoticeStudents(checked){
+  document.querySelectorAll('.notice-student-cb').forEach(cb=>cb.checked=checked)
+  updateNoticeSelectedCount()
+}
+
+function updateNoticeSelectedCount(){
+  const total=document.querySelectorAll('.notice-student-cb').length
+  const selected=document.querySelectorAll('.notice-student-cb:checked').length
+  const el=document.getElementById('notice-selected-count')
+  if(el) el.textContent=selected+'/'+ total+'名選択中'
+}
+
+async function sendNotice(){
+  const title=document.getElementById('notice-title').value.trim()
+  const body=document.getElementById('notice-body').value.trim()
+  const month=parseInt(document.getElementById('notice-month').value||selectedMonth)
+  if(!title||!body){toast('タイトルと本文を入力してください',true);return}
+
+  // 送信先の生徒IDを取得
+  const checkedCbs=document.querySelectorAll('.notice-student-cb:checked')
+  if(!checkedCbs.length){toast('送信先を1名以上選択してください',true);return}
+  const targetIds=Array.from(checkedCbs).map(cb=>cb.value)
+  const targetNames=Array.from(checkedCbs).map(cb=>cb.dataset.name)
+
+  const notice={title,body,month,target_ids:targetIds,target_names:targetNames,confirmed_by:[],comments:[]}
+  if(sb){
+    const{data,error}=await sb.from('notices').insert([notice]).select().single()
+    if(error){toast('送信に失敗しました',true);return}
+    if(data) notice.id=data.id
+  } else {
+    notice.id='n_'+Date.now()
+  }
+  notices.unshift(notice)
+  document.getElementById('notice-title').value=''
+  document.getElementById('notice-body').value=''
+  renderNoticesAdmin()
+  toast(targetNames.length+'名にお知らせを送信しました')
+}
+
+function renderNoticesAdmin(){
+  const el=document.getElementById('notices-list')
+  if(!el) return
+  const sel=document.getElementById('notice-month')
+  if(sel&&!sel.innerHTML) sel.innerHTML=buildMonthSelect()
+
+  const query=(document.getElementById('notices-search')?.value||'').toLowerCase()
+  let list=notices
+  if(query) list=list.filter(n=>
+    n.title.toLowerCase().includes(query)||
+    (n.target_names||[]).some(name=>name.toLowerCase().includes(query))
+  )
+
+  if(!list.length){
+    el.innerHTML='<div style="color:var(--text3);font-size:12px;padding:8px 0">'+(query?'該当するお知らせがありません':'まだお知らせはありません')+'</div>'
+    return
+  }
+
+  el.innerHTML=list.map(n=>`
+    <div style="border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px;margin-bottom:8px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+        <span style="font-weight:600;font-size:13px">${n.title}</span>
+        <span class="badge b-blue" style="font-size:10px">${n.month}月</span>
+      </div>
+      <div style="font-size:12px;color:var(--text2);margin-bottom:6px;white-space:pre-wrap">${n.body}</div>
+      <div style="font-size:11px;color:var(--text3);margin-bottom:6px">
+        <i class="ti ti-users"></i> 送信先：${(n.target_names||['全員']).join('、')}
+      </div>
+      <div style="display:flex;gap:12px;font-size:11px;color:var(--text3)">
+        <span><i class="ti ti-check"></i> 確認済み：${(n.confirmed_by||[]).length}名</span>
+        <span><i class="ti ti-message"></i> コメント：${(n.comments||[]).length}件</span>
+      </div>
+      ${(n.comments||[]).length?`
+      <div style="margin-top:8px;border-top:1px solid var(--border);padding-top:6px">
+        ${(n.comments||[]).map(c=>`
+        <div style="font-size:11px;padding:4px 0;border-bottom:1px solid var(--border)">
+          <span style="font-weight:600;color:var(--blue)">${c.name}</span>
+          <span style="color:var(--text2);margin-left:6px">${c.text}</span>
+        </div>`).join('')}
+      </div>`:''}
+      <button class="btn btn-sm" style="margin-top:8px;color:var(--red);border-color:#F7C1C1" onclick="deleteNotice('${n.id}')"><i class="ti ti-trash"></i> 削除</button>
+    </div>`).join('')
+}
+
+async function deleteNotice(id){
+  notices=notices.filter(n=>n.id!==id)
+  if(sb) await sb.from('notices').delete().eq('id',id)
+  renderNoticesAdmin()
+  toast('削除しました')
+}
+
+function renderPortalNotices(s,p){
+  const container=p==='sp'
+    ? document.getElementById('spp-notices')
+    : document.getElementById('tsvp-notices')
+  if(!container) return
+
+  // 自分宛て（target_idsに自分が含まれるか、target_idsがない場合は全員）
+  const myNotices=notices.filter(n=>
+    n.month===selectedMonth &&
+    (!n.target_ids || n.target_ids.length===0 || n.target_ids.includes(s.id))
+  )
+  if(!myNotices.length){
+    container.innerHTML='<div class="card"><div style="font-size:12px;color:var(--text3);padding:8px 0">現在お知らせはありません</div></div>'
+    return
+  }
+
+  container.innerHTML=myNotices.map(n=>{
+    const confirmed=(n.confirmed_by||[]).includes(s.id)
+    const myComment=(n.comments||[]).find(c=>c.student_id===s.id)
+    return `<div class="card" style="margin-bottom:10px">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px">
+        <span style="font-weight:600;font-size:13px">${n.title}</span>
+        ${confirmed?'<span class="badge b-green" style="font-size:10px;flex-shrink:0">確認済み</span>':'<span class="badge b-amber" style="font-size:10px;flex-shrink:0">未確認</span>'}
+      </div>
+      <div style="font-size:12px;color:var(--text2);margin-bottom:10px;white-space:pre-wrap;line-height:1.6">${n.body}</div>
+
+      ${!confirmed?`
+      <button class="btn btn-primary btn-sm" onclick="confirmNotice('${n.id}','${s.id}','${p}')">
+        <i class="ti ti-check"></i> 確認しました
+      </button>`:''}
+
+      <div style="margin-top:10px;border-top:1px solid var(--border);padding-top:8px">
+        <div style="font-size:11px;font-weight:600;color:var(--text2);margin-bottom:6px">コメント・不具合報告</div>
+        ${myComment
+          ?`<div style="background:var(--bg);border-radius:4px;padding:6px 8px;font-size:11px;color:var(--text2)">${myComment.text}
+            <button onclick="deleteMyComment('${n.id}','${s.id}','${p}')" style="margin-left:8px;font-size:10px;background:none;border:none;color:var(--red);cursor:pointer">取り消す</button>
+          </div>`
+          :`<div style="display:flex;gap:6px">
+            <input id="notice-comment-${n.id}" placeholder="内容を入力..." style="flex:1;font-size:11px;padding:5px 8px">
+            <button class="btn btn-sm" onclick="sendNoticeComment('${n.id}','${s.id}','${p}')">送信</button>
+          </div>`
+        }
+      </div>
+    </div>`
+  }).join('')
+
+  // 未確認バッジ
+  const unread=myNotices.filter(n=>!(n.confirmed_by||[]).includes(s.id)).length
+  const badge=document.getElementById(p==='sp'?'spp-notice-badge':'tsv-notice-badge')
+  if(badge) badge.style.display=unread>0?'block':'none'
+}
+
+async function confirmNotice(noticeId, studentId, p){
+  const n=notices.find(x=>x.id===noticeId)
+  if(!n) return
+  if(!n.confirmed_by) n.confirmed_by=[]
+  if(!n.confirmed_by.includes(studentId)){
+    n.confirmed_by.push(studentId)
+    if(sb) await sb.from('notices').update({confirmed_by:n.confirmed_by,comments:n.comments||[]}).eq('id',noticeId)
+  }
+  renderPortalNotices(loggedInStudent, p)
+  toast('確認しました')
+}
+
+async function sendNoticeComment(noticeId, studentId, p){
+  const input=document.getElementById('notice-comment-'+noticeId)
+  const text=input?.value.trim()
+  if(!text){toast('コメントを入力してください',true);return}
+  const n=notices.find(x=>x.id===noticeId)
+  if(!n) return
+  if(!n.comments) n.comments=[]
+  const comment={student_id:studentId, name:loggedInStudent.name, text}
+  n.comments.push(comment)
+  if(sb) await sb.from('notices').update({comments:n.comments}).eq('id',noticeId)
+  renderPortalNotices(loggedInStudent, p)
+  toast('コメントを送信しました')
+}
+
+async function deleteMyComment(noticeId, studentId, p){
+  const n=notices.find(x=>x.id===noticeId)
+  if(!n) return
+  n.comments=(n.comments||[]).filter(c=>c.student_id!==studentId)
+  if(sb) await sb.from('notices').update({comments:n.comments}).eq('id',noticeId)
+  renderPortalNotices(loggedInStudent, p)
+  toast('コメントを取り消しました')
 }
 
 /* ===== CALENDAR ===== */
@@ -483,6 +843,8 @@ async function saveEditStudent(){
   .break-slot { display: flex !important; align-items: center !important; justify-content: center !important; font-size: 10px !important; }
   .print-title { display: block !important; font-size: 15px !important; font-weight: 700 !important; margin-bottom: 3mm !important; flex-shrink: 0 !important; }
   @page { size: A4 landscape; margin: 6mm; }
+  /* 振替・体験の削除ボタンを印刷時に非表示 */
+  .cell-transfer span, .cell-trial span, .cell-name span { display: none !important; }
 }
 .print-title { display: none; }
 </style>
@@ -494,11 +856,11 @@ async function saveEditStudent(){
      ====================================================== -->
 <script>
 // 1. Supabaseダッシュボード → Project Settings → API から取得
-const SUPABASE_URL = 'YOUR_SUPABASE_URL'        // 例: https://xxxx.supabase.co
-const SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY'  // 例: eyJhbGc...
+const SUPABASE_URL = 'https://gdsrcbqmzcakzldizsrv.supabase.co'        // 例: https://xxxx.supabase.co
+const SUPABASE_ANON_KEY = 'sb_publishable_1kvfIoWeos6iH0N1N3W15g_gqf-Z8Aj'  // 例: eyJhbGc...
 
-// 2. 講師用パスワード（生徒には教えないでください）
-const TEACHER_PASSWORD = 'teacher1234'
+// 2. 講師用パスワードはSupabaseで管理（ソースコードには記載しません）
+const TEACHER_PASSWORD = null
 </script>
 <!-- ====================================================== -->
 
@@ -524,6 +886,7 @@ const TEACHER_PASSWORD = 'teacher1234'
     <div class="nav-item" onclick="nav('lesson-dates')" id="n-lesson-dates"><i class="ti ti-calendar"></i> 日程設定</div>
     <div class="nav-item" onclick="nav('students')" id="n-students"><i class="ti ti-users"></i> 生徒管理</div>
     <div class="nav-item" onclick="nav('transfer-admin')" id="n-transfer-admin"><i class="ti ti-switch-horizontal"></i> 振替相談</div>
+    <div class="nav-item" onclick="nav('notices-admin')" id="n-notices-admin"><i class="ti ti-bell-ringing"></i> お知らせ</div>
     <div class="nav-section" style="margin-top:8px">生徒ページ（講師）</div>
     <div class="nav-item" onclick="nav('teacher-student-view')" id="n-teacher-student-view"><i class="ti ti-eye"></i> 生徒ページを見る</div>
   </div>
@@ -579,6 +942,43 @@ const TEACHER_PASSWORD = 'teacher1234'
   <div class="sched-outer"><div id="sched-days-row-sun" class="sched-days-row"></div></div>
 </div>
 
+<!-- お知らせ管理 -->
+<div class="page" id="page-notices-admin">
+  <div class="card">
+    <div class="card-title">お知らせを送信</div>
+    <div class="form-group" style="margin-bottom:10px">
+      <div class="lbl">タイトル</div>
+      <input id="notice-title" placeholder="例）6月のレッスン資料について">
+    </div>
+    <div class="form-group" style="margin-bottom:10px">
+      <div class="lbl">本文・URL</div>
+      <textarea id="notice-body" style="min-height:80px" placeholder="例）今月のレッスン資料はこちらです。&#10;https://drive.google.com/..."></textarea>
+    </div>
+    <div class="form-group" style="margin-bottom:10px">
+      <div class="lbl">対象月</div>
+      <select id="notice-month"></select>
+    </div>
+    <div class="form-group" style="margin-bottom:12px">
+      <div class="lbl">送信先</div>
+      <div style="display:flex;gap:8px;margin-bottom:8px;align-items:center">
+        <input id="notice-student-search" placeholder="名前で検索..." oninput="filterNoticeStudents()" style="width:180px;font-size:12px;padding:5px 8px">
+        <button class="btn btn-sm" onclick="selectAllNoticeStudents(true)">全員選択</button>
+        <button class="btn btn-sm" onclick="selectAllNoticeStudents(false)">全員解除</button>
+        <span id="notice-selected-count" style="font-size:11px;color:var(--text2)"></span>
+      </div>
+      <div id="notice-student-list" style="max-height:200px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--radius-sm);padding:6px"></div>
+    </div>
+    <button class="btn btn-primary" onclick="sendNotice()"><i class="ti ti-send"></i> 送信する</button>
+  </div>
+  <div class="card" style="margin-top:12px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+      <div class="card-title" style="margin-bottom:0">送信済みお知らせ</div>
+      <input id="notices-search" placeholder="名前・タイトルで検索..." oninput="renderNoticesAdmin()" style="width:180px;font-size:12px;padding:5px 8px">
+    </div>
+    <div id="notices-list"><div class="loading"><div class="spinner"></div>読み込み中...</div></div>
+  </div>
+</div>
+
 <!-- DASHBOARD -->
 <div class="page" id="page-dashboard">
   <div class="stat-grid">
@@ -587,7 +987,13 @@ const TEACHER_PASSWORD = 'teacher1234'
     <div class="stat"><div class="stat-label"><i class="ti ti-calendar"></i> 月2回</div><div class="stat-val" id="d-2x">—</div></div>
     <div class="stat"><div class="stat-label"><i class="ti ti-bell"></i> 振替相談</div><div class="stat-val" id="d-req" style="color:var(--red)">—</div></div>
   </div>
-  <div class="card"><div class="card-title">生徒状況</div><div id="dash-list"><div class="loading"><div class="spinner"></div>読み込み中...</div></div></div>
+  <div class="card">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+      <div class="card-title" style="margin-bottom:0">生徒状況</div>
+      <input id="dash-search" placeholder="名前で検索..." oninput="renderDashboard()" style="width:180px;padding:5px 10px;font-size:12px">
+    </div>
+    <div id="dash-list"><div class="loading"><div class="spinner"></div>読み込み中...</div></div>
+  </div>
 </div>
 
 <!-- LESSON DATES -->
@@ -648,9 +1054,11 @@ const TEACHER_PASSWORD = 'teacher1234'
     <div class="tab-bar">
       <div class="tab active" onclick="tsvTab('schedule')" id="tsvt-schedule">日程</div>
       <div class="tab" onclick="tsvTab('absent')" id="tsvt-absent">欠席・相談</div>
+      <div class="tab" onclick="tsvTab('notices')" id="tsvt-notices" style="position:relative">お知らせ<span id="tsv-notice-badge" style="display:none;position:absolute;top:4px;right:4px;width:7px;height:7px;background:var(--red);border-radius:50%"></span></div>
     </div>
     <div id="tsvp-schedule"></div>
     <div id="tsvp-absent" style="display:none"></div>
+    <div id="tsvp-notices" style="display:none"></div>
   </div>
 </div>
 
@@ -708,6 +1116,7 @@ const TEACHER_PASSWORD = 'teacher1234'
     </div>
   </div>
   <div id="spp-absent" style="display:none"></div>
+  <div id="spp-notices" style="display:none"></div>
 </div>
 
   </div><!-- /content -->
@@ -781,6 +1190,8 @@ function getCurrentMonth(){return new Date().getMonth()+1}
    ===================================================== */
 let students=[]
 let manualTransfers=[]  // [{id, studentName, fromDate, fromTime, fromDay, toDate, toTime, toDay, month}]
+let approvedAbsences=[] // [{id, studentId, studentName, date, time, day, note, month}] 承認済み欠席
+let notices=[]  // [{id, title, body, month, created_at}] お知らせ
 let trialLessons=[]     // [{id, date, time, day, memo, month}]
 let dragData=null       // ドラッグ中のデータ
 let lessonDates={木:[],金:[],土:[],日:[]}
@@ -797,7 +1208,6 @@ async function loadStudents(){
   if(!sb)return
   const{data,error}=await sb.from('students').select('*').order('created_at')
   if(!error&&data){
-    // 各生徒の選択日程を取得
     for(const s of data){
       const{data:sel}=await sb.from('student_selections')
         .select('date').eq('student_id',s.id).eq('month',selectedMonth)
@@ -807,6 +1217,47 @@ async function loadStudents(){
       s.requests=req||[]
     }
     students=data
+  }
+  // 承認済み欠席を取得
+  if(sb){
+    const{data:approved}=await sb.from('requests')
+      .select('*,students(name,day,time)')
+      .eq('status','approved')
+      .eq('month',selectedMonth)
+    if(approved){
+      approvedAbsences=approved.map(r=>({
+        id:r.id,
+        studentId:r.student_id,
+        studentName:r.students?.name||'',
+        date:r.date.split('（')[0].trim(),
+        time:r.students?.time||'',
+        day:r.students?.day||'',
+        note:r.note||'',
+        type:r.type||'欠席',
+        month:selectedMonth
+      }))
+    }
+    // お知らせを取得
+    const{data:noticeData}=await sb.from('notices')
+      .select('*').eq('month',selectedMonth).order('created_at',{ascending:false})
+    if(noticeData) notices=noticeData
+
+    // 振替データを取得
+    const{data:transfers}=await sb.from('manual_transfers')
+      .select('*').eq('month',selectedMonth)
+    if(transfers) manualTransfers=transfers.map(t=>({
+      id:t.id,
+      studentName:t.student_name,
+      fromDate:t.from_date, fromTime:t.from_time, fromDay:t.from_day,
+      toDate:t.to_date, toTime:t.to_time, toDay:t.to_day,
+      month:t.month
+    }))
+    // 体験レッスンを取得
+    const{data:trials}=await sb.from('trial_lessons')
+      .select('*').eq('month',selectedMonth)
+    if(trials) trialLessons=trials.map(t=>({
+      id:t.id, date:t.date, time:t.time, day:t.day, memo:t.memo, month:t.month
+    }))
   }
 }
 
@@ -889,10 +1340,30 @@ async function submitRequest(studentId,date,type,note){
 }
 
 async function resolveRequest(requestId,action,studentId){
-  if(!sb)return
-  await sb.from('requests').update({status:action==='承認'?'approved':'dismissed'}).eq('id',requestId)
+  const newStatus = action==='承認'?'approved':'dismissed'
+  if(sb) await sb.from('requests').update({status:newStatus,month:selectedMonth}).eq('id',requestId)
   const s=students.find(x=>x.id===studentId)
-  if(s)s.requests=s.requests.filter(r=>r.id!==requestId)
+  if(s){
+    const req=s.requests.find(r=>r.id===requestId)
+    if(action==='承認' && req){
+      const datePart = req.date.split('（')[0].trim()
+      const absEntry = {
+        id: requestId, // requestIdをそのまま使う
+        studentId:s.id,
+        studentName:s.name,
+        date:datePart,
+        time:s.time,
+        day:s.day,
+        note:req.note||'',
+        type:req.type||'欠席',
+        month:selectedMonth
+      }
+      // 重複を避けて追加
+      approvedAbsences = approvedAbsences.filter(a=>a.id!==requestId)
+      approvedAbsences.push(absEntry)
+    }
+    s.requests=s.requests.filter(r=>r.id!==requestId)
+  }
 }
 
 /* =====================================================
@@ -905,7 +1376,7 @@ const PAGE_TITLES={
   'schedule-fri':'レッスン表（金曜）',
   'schedule-sun':'レッスン表（日曜）',
   'dashboard':'ダッシュボード',
-  'lesson-dates':'日程設定','students':'生徒管理','transfer-admin':'振替相談',
+  'lesson-dates':'日程設定','students':'生徒管理','transfer-admin':'振替相談','notices-admin':'お知らせ管理',
   'teacher-student-view':'生徒ページを見る','student-login':'生徒ページ','student-portal':'マイページ'
 }
 
@@ -930,6 +1401,8 @@ function setTopbar(id){
     acts.innerHTML=`<select id="month-sel" onchange="changeMonth(this.value)" style="font-size:12px;padding:5px 8px;width:auto">${buildMonthSelect()}</select>`
   } else if(id==='student-portal'){
     acts.innerHTML=`<select id="sp-month-sel" onchange="changeStudentMonth(this.value)" style="font-size:12px;padding:5px 8px;width:auto">${buildMonthSelect()}</select>`
+  } else if(id==='dashboard'||id==='transfer-admin'||id==='notices-admin'||id==='schedule-thu-sat'||id==='schedule-fri'||id==='schedule-sun'){
+    acts.innerHTML=`<button class="btn btn-sm" onclick="reloadPage()"><i class="ti ti-refresh"></i> 更新</button>`
   } else {
     acts.innerHTML=''
   }
@@ -1002,13 +1475,35 @@ function nav(id){
 /* =====================================================
    講師ログイン
    ===================================================== */
-function doTeacherLogin(){
+async function doTeacherLogin(){
   const pw=document.getElementById('teacher-pw').value
-  if(pw===TEACHER_PASSWORD){
-    teacherLoggedIn=true
-    document.getElementById('teacher-login-error').style.display='none'
-    initApp()
-  } else {
+  if(!pw){ document.getElementById('teacher-login-error').style.display='block'; return }
+
+  if(!sb){
+    // Supabase未設定時はデモ用パスワードで動作
+    if(pw==='demo1234'){
+      teacherLoggedIn=true
+      document.getElementById('teacher-login-error').style.display='none'
+      initApp()
+    } else {
+      document.getElementById('teacher-login-error').style.display='block'
+    }
+    return
+  }
+
+  // Supabaseのサーバー側関数でパスワードを照合（ソースコードにパスワードを持たない）
+  try {
+    const { data, error } = await sb.rpc('check_teacher_password', { input_password: pw })
+    if(error) throw error
+    if(data === true || data === 't' || data === 'true' || data == true){
+      teacherLoggedIn=true
+      document.getElementById('teacher-login-error').style.display='none'
+      initApp()
+    } else {
+      document.getElementById('teacher-login-error').style.display='block'
+    }
+  } catch(e) {
+    console.error('Auth error:', e)
     document.getElementById('teacher-login-error').style.display='block'
   }
 }
@@ -1025,7 +1520,11 @@ async function initApp(){
 function getEntries(day,date,slotKey){
   const normal = students.filter(s=>s.day===day&&s.time===slotKey).map(s=>{
     const ds=canSelectDates(s)?s.selected:(lessonDates[day]||[])
-    return ds.includes(date)?{name:s.name,type:s.course===3?'fixed':'selected',studentId:s.id}:null
+    if(!ds.includes(date)) return null
+    // 承認済み欠席の場合は表示しない（空きコマに）
+    const isAbsent = approvedAbsences.some(a=>a.studentId===s.id&&a.date===date&&a.day===day&&a.month===selectedMonth)
+    if(isAbsent) return null
+    return {name:s.name,type:s.course===3?'fixed':'selected',studentId:s.id}
   }).filter(Boolean)
   // 振替（手動移動）
   const transfers = manualTransfers
@@ -1092,7 +1591,14 @@ function renderScheduleByPage(pageId){
             cellHtml += `</span>`
           } else {
             if(isTeacher){
-              cellHtml += `<span class="cell-name cell-${e.type} draggable" draggable="true" ondragstart="onDragStart(event,'${e.studentId||''}','${e.name}','${day}','${d}','${slot}')">${e.name}</span>`
+              // 振替申請があれば名前クリックで詳細表示
+              const hasRequest = students.find(x=>x.id===e.studentId)?.requests?.length > 0
+              cellHtml += `<span class="cell-name cell-${e.type} draggable" draggable="true"
+                ondragstart="onDragStart(event,'${e.studentId||''}','${e.name}','${day}','${d}','${slot}')"
+                onclick="showStudentInfo(event,'${e.studentId||''}')"
+                style="cursor:pointer"
+                title="${hasRequest?'クリックして詳細を見る':''}"
+              >${e.name}${hasRequest?'<span style=\"font-size:8px;vertical-align:super;color:#A32D2D\">●</span>':''}</span>`
             } else {
               cellHtml += `<span class="cell-name cell-${e.type}">${e.name}</span>`
             }
@@ -1199,8 +1705,16 @@ function renderDashboard(){
   document.getElementById('d-2x').textContent=students.filter(s=>s.course===2).length
   document.getElementById('d-req').textContent=students.reduce((a,s)=>a+s.requests.length,0)
   const el=document.getElementById('dash-list')
-  if(!students.length){el.innerHTML='<div style="color:var(--text3);font-size:12px;padding:8px 0">生徒が登録されていません</div>';return}
-  el.innerHTML=students.map((s,i)=>{
+  const dashSearchEl=document.getElementById('dash-search')
+  const dashQuery=dashSearchEl?dashSearchEl.value.trim().toLowerCase():''
+  const DAY_ORDER2={木:0,金:1,土:2,日:3}
+  let displayStudents=[...students].sort((a,b)=>{
+    if(DAY_ORDER2[a.day]!==DAY_ORDER2[b.day]) return DAY_ORDER2[a.day]-DAY_ORDER2[b.day]
+    return a.time.localeCompare(b.time)
+  })
+  if(dashQuery) displayStudents=displayStudents.filter(s=>s.name.toLowerCase().includes(dashQuery)||(s.kana&&s.kana.toLowerCase().includes(dashQuery)))
+  if(!displayStudents.length){el.innerHTML='<div style="color:var(--text3);font-size:12px;padding:8px 0">'+(dashQuery?'「'+dashQuery+'」に一致しません':'生徒が登録されていません')+'</div>';return}
+  el.innerHTML=displayStudents.map((s,i)=>{
     const[bg,fg]=AVATAR_COLORS[i%AVATAR_COLORS.length]
     const sel=canSelectDates(s)
     const status=s.course===3?'<span class="badge b-green">全日固定</span>'
@@ -1298,7 +1812,6 @@ function renderStudentList(){
   }).join('')
 }
 function filterStudents(){ renderStudentList() }
-async function addStudent
 async function addStudent(){
   const name=document.getElementById('s-name').value.trim()
   if(!name){toast('氏名を入力してください',true);return}
@@ -1325,23 +1838,56 @@ async function deleteStudent(id){
    ===================================================== */
 function renderTransferRequests(){
   const el=document.getElementById('transfer-requests')
-  const all=students.flatMap(s=>s.requests.map(r=>({...r,sname:s.name,sid:s.id})))
-  if(!all.length){el.innerHTML='<div style="color:var(--text3);font-size:12px;padding:8px 0">相談はまだありません</div>';return}
-  el.innerHTML=all.map(r=>`
-    <div style="border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px;margin-bottom:8px">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
-        <span style="font-weight:600">${r.sname} — ${r.date}</span><span class="badge b-amber">${r.type}</span>
-      </div>
-      <div style="font-size:12px;color:var(--text2);margin-bottom:8px">「${r.note}」</div>
-      <div style="display:flex;gap:6px">
-        <button class="btn btn-primary btn-sm" onclick="handleResolve('${r.id}','承認','${r.sid}')"><i class="ti ti-check"></i> 承認する</button>
-        <button class="btn btn-sm" style="color:var(--amber);border-color:#E8C98A" onclick="handleResolve('${r.id}','今回は見送り','${r.sid}')"><i class="ti ti-clock"></i> 今回は見送り</button>
-      </div>
-    </div>`).join('')
+  const pending=students.flatMap(s=>s.requests.map(r=>({...r,sname:s.name,sid:s.id})))
+  const approved=approvedAbsences.filter(a=>a.month===selectedMonth)
+
+  if(!pending.length && !approved.length){
+    el.innerHTML='<div style="color:var(--text3);font-size:12px;padding:8px 0">相談はまだありません</div>'
+    return
+  }
+
+  let html=''
+
+  // 未対応の申請
+  if(pending.length){
+    html+=`<div style="font-size:11px;font-weight:600;color:var(--text2);margin-bottom:6px;text-transform:uppercase;letter-spacing:.05em">未対応（${pending.length}件）</div>`
+    html+=pending.map(r=>`
+      <div style="border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px;margin-bottom:8px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+          <span style="font-weight:600">${r.sname} — ${r.date}</span><span class="badge b-amber">${r.type}</span>
+        </div>
+        <div style="font-size:12px;color:var(--text2);margin-bottom:8px">「${r.note}」</div>
+        <div style="display:flex;gap:6px">
+          <button class="btn btn-primary btn-sm" onclick="handleResolve('${r.id}','承認','${r.sid}')"><i class="ti ti-check"></i> 承認する</button>
+          <button class="btn btn-sm" style="color:var(--amber);border-color:#E8C98A" onclick="handleResolve('${r.id}','今回は見送り','${r.sid}')"><i class="ti ti-clock"></i> 今回は見送り</button>
+        </div>
+      </div>`).join('')
+  }
+
+  // 承認済みの欠席
+  if(approved.length){
+    html+=`<div style="font-size:11px;font-weight:600;color:var(--text2);margin:12px 0 6px;text-transform:uppercase;letter-spacing:.05em">承認済み（${approved.length}件）</div>`
+    html+=approved.map(a=>`
+      <div style="border:1px solid var(--green-light);border-radius:var(--radius-sm);padding:10px;margin-bottom:8px;background:var(--green-light)">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+          <span style="font-weight:600">${a.studentName} — ${a.date}（${a.day}）</span>
+          <span class="badge b-green">承認済み</span>
+        </div>
+        <div style="font-size:12px;color:var(--green);margin-bottom:6px">${a.type}${a.note?` — 「${a.note}」`:''}</div>
+        <button class="btn btn-sm" style="font-size:11px" onclick="cancelAbsence('${a.id}')"><i class="ti ti-x"></i> 取り消す</button>
+      </div>`).join('')
+  }
+
+  el.innerHTML=html
 }
 async function handleResolve(requestId,action,studentId){
   await resolveRequest(requestId,action,studentId)
-  renderTransferRequests();renderDashboard();toast('「'+action+'」にしました')
+  renderTransferRequests();renderDashboard()
+  // スケジュール表も更新
+  renderScheduleByPage('schedule-thu-sat')
+  renderScheduleByPage('schedule-fri')
+  renderScheduleByPage('schedule-sun')
+  toast('「'+action+'」にしました')
 }
 
 /* =====================================================
@@ -1359,10 +1905,12 @@ function loadTeacherStudentView(){
   c.style.display='block';refreshPortal(id,'tsv');tsvTab('schedule')
 }
 function tsvTab(name){
-  ['schedule','absent'].forEach(t=>{
-    document.getElementById('tsvp-'+t).style.display=t===name?'block':'none'
-    document.getElementById('tsvt-'+t).classList.toggle('active',t===name)
+  ['schedule','absent','notices'].forEach(t=>{
+    const el=document.getElementById('tsvp-'+t)
+    if(el) el.style.display=t===name?'block':'none'
+    document.getElementById('tsvt-'+t)?.classList.toggle('active',t===name)
   })
+  if(name==='notices'&&loggedInStudent) renderPortalNotices(loggedInStudent,'tsv')
 }
 
 /* =====================================================
@@ -1375,6 +1923,9 @@ async function doLogin(){
     toast('Supabaseが未設定のためデモモードで表示します',true)
     return
   }
+  // 振替・承認済み欠席など最新データを取得してから表示
+  await loadLessonDates()
+  await loadStudents()
   // ローカルに既にデータがあれば使う、なければSupabaseから直接取得
   let s = students.find(x=>x.name===name)
   if(!s){
@@ -1440,17 +1991,55 @@ function refreshPortal(id,p){
 function renderPortalSchedule(s,p){
   const locked=p==='sp'&&isScheduleLocked()
   const dates=lessonDates[s.day]||[]
-  // sp の場合はカレンダーと分離した専用divに描画
   const el=p==='sp'
     ? document.getElementById('spp-schedule-list')
     : document.getElementById(p+'p-schedule')
   if(!el) return
   const selectable=canSelectDates(s)
-  if(!dates.length){el.innerHTML='<div class="card"><div class="card-title">今月の日程</div><div style="font-size:12px;color:var(--text3)">講師がまだ日程を設定していません</div></div>';return}
+
+  // 承認済み欠席の日付を取得
+  const absentDates = approvedAbsences
+    .filter(a=>a.studentId===s.id&&a.month===selectedMonth)
+    .map(a=>a.date)
+
+  // 振替で追加された日程を取得（講師が設定した振替）
+  const transferDates = manualTransfers
+    .filter(t=>t.studentName===s.name&&t.month===selectedMonth&&t.toDate)
+    .map(t=>({date:t.toDate, day:t.toDay, time:t.toTime}))
+
+  if(!dates.length && !transferDates.length){
+    el.innerHTML='<div class="card"><div class="card-title">今月の日程</div><div style="font-size:12px;color:var(--text3)">講師がまだ日程を設定していません</div></div>'
+    return
+  }
   let html='<div class="card">'
   if(!selectable){
+    // 承認済み欠席を除いた日程を表示
+    const activeDates = dates.filter(d=>!absentDates.includes(d))
     html+=`<div class="card-title">${s.day}曜日（${s.course===3?'全'+dates.length+'回・固定':'月2回・固定'}）</div>`
-    html+=dates.map(d=>`<div style="display:flex;align-items:center;gap:9px;padding:7px 0;border-bottom:1px solid var(--border)"><i class="ti ti-calendar-check" style="color:var(--green);font-size:16px"></i><span>${d}（${s.day}）${s.time}</span><span class="badge b-green" style="margin-left:auto">固定</span></div>`).join('')
+    if(activeDates.length){
+      html+=activeDates.map(d=>`<div style="display:flex;align-items:center;gap:9px;padding:7px 0;border-bottom:1px solid var(--border)"><i class="ti ti-calendar-check" style="color:var(--green);font-size:16px"></i><span>${d}（${s.day}）${s.time}</span><span class="badge b-green" style="margin-left:auto">固定</span></div>`).join('')
+    } else {
+      html+=`<div style="font-size:12px;color:var(--text3);padding:6px 0">レッスン日程はありません</div>`
+    }
+    // 欠席した日程を取り消し線で表示
+    if(absentDates.filter(d=>dates.includes(d)).length){
+      html+=`<div style="margin-top:6px;font-size:11px;color:var(--text3)">欠席済み：`
+      html+=absentDates.filter(d=>dates.includes(d)).map(d=>`<span style="text-decoration:line-through;margin-right:8px">${d}</span>`).join('')
+      html+=`</div>`
+    }
+    // 振替日程を追加表示
+    if(transferDates.length){
+      html+=`<div style="margin-top:8px;border-top:1px solid var(--border);padding-top:8px">`
+      html+=`<div style="font-size:11px;font-weight:600;color:#374151;margin-bottom:4px">振替レッスン</div>`
+      html+=transferDates.map(t=>{
+        const parts=(t.date||'').split('/')
+        const dateObj=parts.length===2?new Date(2026,parseInt(parts[0])-1,parseInt(parts[1])):null
+        const WEEK=['日','月','火','水','木','金','土']
+        const dowStr=dateObj?WEEK[dateObj.getDay()]+'曜':t.day
+        return `<div style="display:flex;align-items:center;gap:9px;padding:6px 0;border-bottom:1px solid var(--border)"><i class="ti ti-calendar-plus" style="color:#6B7280;font-size:16px"></i><span>${t.date}（${dowStr}）${t.time}</span><span class="badge b-gray" style="margin-left:auto">振替</span></div>`
+      }).join('')
+      html+=`</div>`
+    }
     html+=`<div style="margin-top:9px;font-size:11px;color:var(--text3)">日程の選択・変更はありません</div>`
   } else {
     html+=`<div class="card-title">${s.day}曜日（${dates.length}回から2回を選択）</div>`
@@ -1461,6 +2050,19 @@ function renderPortalSchedule(s,p){
     </label>`).join('')
     html+=`<div style="margin-top:10px;font-size:12px;color:var(--text2)">選択数: <strong id="${p}-sel-count">${s.selected.length}</strong> / 2</div>`
     html+=`<div style="margin-top:10px"><button class="btn btn-primary" onclick="confirmDates('${s.id}','${p}')" ${locked?'disabled':''}><i class="ti ti-check"></i> 日程を確定する</button></div>`
+    // 振替日程を追加表示
+    if(transferDates.length){
+      html+=`<div style="margin-top:8px;border-top:1px solid var(--border);padding-top:8px">`
+      html+=`<div style="font-size:11px;font-weight:600;color:#374151;margin-bottom:4px">振替レッスン</div>`
+      html+=transferDates.map(t=>{
+        const parts=(t.date||'').split('/')
+        const dateObj=parts.length===2?new Date(2026,parseInt(parts[0])-1,parseInt(parts[1])):null
+        const WEEK=['日','月','火','水','木','金','土']
+        const dowStr=dateObj?WEEK[dateObj.getDay()]+'曜':t.day
+        return `<div style="display:flex;align-items:center;gap:9px;padding:6px 0;border-bottom:1px solid var(--border)"><i class="ti ti-calendar-plus" style="color:#6B7280;font-size:16px"></i><span>${t.date}（${dowStr}）${t.time}</span><span class="badge b-gray" style="margin-left:auto">振替</span></div>`
+      }).join('')
+      html+=`</div>`
+    }
   }
   el.innerHTML=html+'</div>'
 }
@@ -1488,14 +2090,60 @@ function renderPortalAbsent(s,p){
   const locked=p==='sp'&&isScheduleLocked()
   const dates=canSelectDates(s)?s.selected:(lessonDates[s.day]||[])
   const opts=dates.length?dates.map(d=>`<option>${d}（${s.day}）${s.time}</option>`).join(''):'<option>確定している日程がありません</option>'
-  document.getElementById(p+'p-absent').innerHTML=`<div class="card">
-    <div class="card-title">欠席・振替相談</div>
-    <div class="info-box"><strong>欠席</strong>：来校できない日程をご連絡ください。<br><strong>振替相談</strong>：振替は原則なしですが、前月以内の相談のみ受け付けます。確実な振替をお約束するものではありません。</div>
-    <div class="form-group" style="margin-bottom:10px"><div class="lbl">該当する日程</div><select id="${p}-absent-date" ${locked?'disabled':''}>${opts}</select></div>
-    <div class="form-group" style="margin-bottom:10px"><div class="lbl">種別</div><select id="${p}-absent-type" ${locked?'disabled':''}><option>欠席（振替なし）</option><option>振替相談希望</option></select></div>
-    <div class="form-group" style="margin-bottom:12px"><div class="lbl">理由・ご希望</div><textarea id="${p}-absent-note" ${locked?'disabled':''} placeholder="${locked?'締め切り済みのため受付を終了しました':'例）急な用事のため。振替：6月中可能な日があれば教えてください。'}"></textarea></div>
-    <button class="btn btn-primary" onclick="handleSubmitAbsent('${s.id}','${p}')" ${locked?'disabled':''}><i class="ti ti-send"></i> 送信する</button>
-  </div>`
+
+  // 申請中の一覧
+  const pendingRequests = s.requests||[]
+  // 承認済み欠席
+  const approvedList = approvedAbsences.filter(a=>a.studentId===s.id&&a.month===selectedMonth)
+
+  let statusHtml = ''
+  if(pendingRequests.length || approvedList.length){
+    statusHtml += `<div class="card" style="margin-bottom:12px">
+      <div class="card-title">申請・欠席状況</div>`
+
+    // 申請中
+    if(pendingRequests.length){
+      statusHtml += `<div style="font-size:11px;font-weight:600;color:var(--amber);margin-bottom:6px">📋 申請中（講師の確認待ち）</div>`
+      statusHtml += pendingRequests.map(r=>`
+        <div style="border:1px solid #FAC775;border-radius:var(--radius-sm);padding:8px 10px;margin-bottom:6px;background:var(--amber-light)">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px">
+            <span style="font-size:12px;font-weight:600">${r.date}</span>
+            <span class="badge b-amber" style="font-size:10px">${r.type}</span>
+          </div>
+          <div style="font-size:11px;color:var(--amber);margin-bottom:6px">「${r.note}」</div>
+          <button class="btn btn-sm" style="font-size:11px;color:var(--red);border-color:#F7C1C1"
+            onclick="cancelRequest('${s.id}','${r.id}','${p}')">
+            <i class="ti ti-x"></i> 取り消す
+          </button>
+        </div>`).join('')
+    }
+
+    // 承認済み
+    if(approvedList.length){
+      statusHtml += `<div style="font-size:11px;font-weight:600;color:var(--green);margin:8px 0 6px">✅ 承認済み欠席</div>`
+      statusHtml += approvedList.map(a=>`
+        <div style="border:1px solid var(--green-light);border-radius:var(--radius-sm);padding:8px 10px;margin-bottom:6px;background:var(--green-light)">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <span style="font-size:12px;font-weight:600">${a.date}（${a.day}）${a.time}</span>
+            <span class="badge b-green" style="font-size:10px">承認済み</span>
+          </div>
+          <div style="font-size:11px;color:var(--green);margin-top:2px">${a.type}</div>
+        </div>`).join('')
+    }
+
+    statusHtml += `</div>`
+  }
+
+  document.getElementById(p+'p-absent').innerHTML=`
+    ${statusHtml}
+    <div class="card">
+      <div class="card-title">新規申請</div>
+      <div class="info-box"><strong>欠席</strong>：来校できない日程をご連絡ください。<br><strong>振替相談</strong>：振替は原則なしですが、前月以内の相談のみ受け付けます。確実な振替をお約束するものではありません。</div>
+      <div class="form-group" style="margin-bottom:10px"><div class="lbl">該当する日程</div><select id="${p}-absent-date" ${locked?'disabled':''}>${opts}</select></div>
+      <div class="form-group" style="margin-bottom:10px"><div class="lbl">種別</div><select id="${p}-absent-type" ${locked?'disabled':''}><option>欠席（振替なし）</option><option>振替相談希望</option></select></div>
+      <div class="form-group" style="margin-bottom:12px"><div class="lbl">理由・ご希望</div><textarea id="${p}-absent-note" ${locked?'disabled':''} placeholder="${locked?'締め切り済みのため受付を終了しました':'例）急な用事のため。振替：6月中可能な日があれば教えてください。'}"></textarea></div>
+      <button class="btn btn-primary" onclick="handleSubmitAbsent('${s.id}','${p}')" ${locked?'disabled':''}><i class="ti ti-send"></i> 送信する</button>
+    </div>`
 }
 
 async function handleSubmitAbsent(sid,p){
@@ -1509,6 +2157,74 @@ async function handleSubmitAbsent(sid,p){
 }
 
 
+
+
+/* ===== 生徒情報ポップアップ（スケジュール表から） ===== */
+function showStudentInfo(e, studentId){
+  e.stopPropagation()
+  if(!studentId) return
+  const s = students.find(x=>x.id===studentId)
+  if(!s) return
+
+  const requests = s.requests || []
+  const absInfo = approvedAbsences.filter(a=>a.studentId===studentId&&a.month===selectedMonth)
+
+  let reqHtml = ''
+  if(requests.length){
+    reqHtml += `<div style="margin-bottom:8px"><div style="font-size:11px;font-weight:600;color:var(--amber);margin-bottom:4px">📋 振替・欠席申請</div>`
+    requests.forEach(r=>{
+      reqHtml += `<div style="background:var(--amber-light);border-radius:4px;padding:6px 8px;margin-bottom:4px;font-size:11px">
+        <div style="font-weight:500">${r.date}</div>
+        <div style="color:var(--amber)">種別：${r.type}</div>
+        <div style="margin-top:2px">${r.note}</div>
+      </div>`
+    })
+    reqHtml += `</div>`
+  }
+
+  let absHtml = ''
+  if(absInfo.length){
+    absHtml += `<div style="margin-bottom:8px"><div style="font-size:11px;font-weight:600;color:var(--text2);margin-bottom:4px">✅ 承認済み欠席（${selectedMonth}月）</div>`
+    absInfo.forEach(a=>{
+      absHtml += `<div style="background:var(--bg);border-radius:4px;padding:6px 8px;margin-bottom:4px;font-size:11px">
+        <div style="font-weight:500">${a.date}（${a.day}）${a.time}</div>
+        <div style="color:var(--text2)">${a.type}</div>
+        ${a.note?`<div style="margin-top:2px">${a.note}</div>`:''}
+        <button onclick="cancelAbsence('${a.id}')" style="margin-top:4px;font-size:10px;padding:1px 6px;border:1px solid var(--border2);border-radius:3px;background:none;cursor:pointer;color:var(--red)">取り消し</button>
+      </div>`
+    })
+    absHtml += `</div>`
+  }
+
+  if(!requests.length && !absInfo.length){
+    reqHtml = '<div style="font-size:12px;color:var(--text3);padding:4px 0">申請・欠席情報はありません</div>'
+  }
+
+  showModal('student-info-modal',`
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+      <div style="width:36px;height:36px;border-radius:50%;background:var(--blue-light);color:var(--blue);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;flex-shrink:0">${initials(s.name)}</div>
+      <div>
+        <div style="font-size:15px;font-weight:600">${s.name}</div>
+        <div style="font-size:12px;color:var(--text2)">${s.day}曜 ${s.time} / 月${s.course}回</div>
+      </div>
+    </div>
+    ${reqHtml}${absHtml}
+    <button class="btn" style="width:100%;justify-content:center;margin-top:4px" onclick="closeModal()">閉じる</button>
+  `)
+}
+
+async function cancelAbsence(id){
+  approvedAbsences = approvedAbsences.filter(a=>a.id!==id)
+  if(sb) await sb.from('requests').update({status:'pending'}).eq('id',id)
+  // 生徒のrequestsに戻す
+  await loadStudents()
+  closeModal()
+  renderScheduleByPage('schedule-thu-sat')
+  renderScheduleByPage('schedule-fri')
+  renderScheduleByPage('schedule-sun')
+  renderTransferRequests()
+  toast('欠席承認を取り消しました')
+}
 
 /* ===== DRAG & DROP ===== */
 function onDragStart(e, studentId, name, fromDay, fromDate, fromSlot){
@@ -1544,16 +2260,29 @@ async function onDrop(e, toDay, toDate, toSlot){
   }
 
   // 振替として新しいコマに追加
+  const cleanName = name.replace('（振替）','')
+  const transferRow = {
+    student_name: cleanName,
+    from_date: fromDate, from_time: fromSlot, from_day: fromDay,
+    to_date: toDate, to_time: toSlot, to_day: toDay,
+    month: selectedMonth
+  }
   const transfer = {
     id: 'tr_'+Date.now(),
-    studentName: name.replace('（振替）',''),
+    studentName: cleanName,
     fromDate, fromTime: fromSlot, fromDay,
     toDate, toTime: toSlot, toDay,
     month: selectedMonth
   }
+  if(sb){
+    const{data}=await sb.from('manual_transfers').insert([transferRow]).select().single()
+    if(data) transfer.id=data.id
+  }
   manualTransfers.push(transfer)
-  renderScheduleTable()
-  toast(name+'を'+toDate+'（'+toDay+'）'+toSlot+'に移動しました')
+  renderScheduleByPage('schedule-thu-sat')
+  renderScheduleByPage('schedule-fri')
+  renderScheduleByPage('schedule-sun')
+  toast(cleanName+'を'+toDate+'（'+toDay+'）'+toSlot+'に移動しました')
 }
 
 
@@ -1592,13 +2321,16 @@ function closeSlotMenu(){
 
 /* ===== TRANSFER MODAL ===== */
 function openTransferModal(day, date, slot){
-  const studentOpts = students.map(s=>`<option value="${s.name}">${s.name}（${s.day}曜）</option>`).join('')
+  const studentOpts = students.map(s=>`<option value="${s.name}" data-day="${s.day}" data-time="${s.time}">${s.name}（${s.day}曜 ${s.time}）</option>`).join('')
   showModal('transfer-modal',`
     <div class="modal-title" style="color:var(--text)"><i class="ti ti-switch-horizontal" style="color:#6B7280"></i> 振替設定</div>
-    <div style="font-size:12px;color:var(--text2);margin-bottom:12px">${date}（${day}）${slot}</div>
+    <div style="font-size:12px;color:var(--text2);margin-bottom:12px">振替先：${date}（${day}）${slot}</div>
     <div class="form-group" style="margin-bottom:10px">
       <div class="lbl">生徒名</div>
       <select id="tr-modal-student">${studentOpts}</select>
+    </div>
+    <div style="font-size:11px;color:var(--text2);margin-bottom:10px">
+      ※ 選択した生徒のマイページにも振替日程が表示されます
     </div>
     <div class="modal-actions">
       <button class="btn btn-primary" style="flex:1" onclick="confirmTransferModal('${day}','${date}','${slot}')"><i class="ti ti-check"></i> 設定する</button>
@@ -1606,24 +2338,50 @@ function openTransferModal(day, date, slot){
     </div>
   `)
 }
-function confirmTransferModal(day, date, slot){
+async function confirmTransferModal(day, date, slot){
   const name = document.getElementById('tr-modal-student')?.value
   if(!name) return
   const transfer = {
-    id: 'tr_'+Date.now(),
-    studentName: name,
-    fromDate:'', fromTime:'', fromDay:'',
-    toDate: date, toTime: slot, toDay: day,
+    student_name: name,
+    from_date:'', from_time:'', from_day:'',
+    to_date: date, to_time: slot, to_day: day,
     month: selectedMonth
+  }
+  if(sb){
+    const{data}=await sb.from('manual_transfers').insert([transfer]).select().single()
+    if(data){
+      transfer.id=data.id
+      transfer.studentName=name
+      transfer.toDate=date
+      transfer.toTime=slot
+      transfer.toDay=day
+    } else {
+      transfer.id='tr_'+Date.now()
+      transfer.studentName=name
+      transfer.toDate=date
+      transfer.toTime=slot
+      transfer.toDay=day
+    }
+  } else {
+    transfer.id='tr_'+Date.now()
+    transfer.studentName=name
+    transfer.toDate=date
+    transfer.toTime=slot
+    transfer.toDay=day
   }
   manualTransfers.push(transfer)
   closeModal()
-  renderScheduleTable()
+  renderScheduleByPage('schedule-thu-sat')
+  renderScheduleByPage('schedule-fri')
+  renderScheduleByPage('schedule-sun')
   toast(name+'の振替を'+date+'（'+day+'）'+slot+'に設定しました')
 }
-function removeTransfer(id){
+async function removeTransfer(id){
   manualTransfers = manualTransfers.filter(t=>t.id!==id)
-  renderScheduleTable()
+  if(sb) await sb.from('manual_transfers').delete().eq('id',id)
+  renderScheduleByPage('schedule-thu-sat')
+  renderScheduleByPage('schedule-fri')
+  renderScheduleByPage('schedule-sun')
 }
 
 /* ===== TRIAL MODAL ===== */
@@ -1641,21 +2399,29 @@ function openTrialModal(day, date, slot){
     </div>
   `)
 }
-function confirmTrialModal(day, date, slot){
+async function confirmTrialModal(day, date, slot){
   const memo = document.getElementById('trial-memo')?.value.trim()||''
-  const trial = {
-    id: 'trial_'+Date.now(),
-    date, time: slot, day, memo,
-    month: selectedMonth
+  const trial = { date, time: slot, day, memo, month: selectedMonth }
+  if(sb){
+    const{data}=await sb.from('trial_lessons').insert([trial]).select().single()
+    if(data) trial.id=data.id
+    else trial.id='trial_'+Date.now()
+  } else {
+    trial.id='trial_'+Date.now()
   }
   trialLessons.push(trial)
   closeModal()
-  renderScheduleTable()
+  renderScheduleByPage('schedule-thu-sat')
+  renderScheduleByPage('schedule-fri')
+  renderScheduleByPage('schedule-sun')
   toast('体験レッスンを'+date+'（'+day+'）'+slot+'に登録しました')
 }
-function removeTrial(id){
+async function removeTrial(id){
   trialLessons = trialLessons.filter(t=>t.id!==id)
-  renderScheduleTable()
+  if(sb) await sb.from('trial_lessons').delete().eq('id',id)
+  renderScheduleByPage('schedule-thu-sat')
+  renderScheduleByPage('schedule-fri')
+  renderScheduleByPage('schedule-sun')
 }
 
 /* ===== MODAL HELPER ===== */
@@ -1731,6 +2497,246 @@ async function saveEditStudent(){
   toast(name+'さんの情報を更新しました')
 }
 
+
+/* ===== 申請取り消し（生徒側） ===== */
+async function cancelRequest(studentId, requestId, p){
+  const s = students.find(x=>x.id===studentId)
+  if(!s) return
+  s.requests = s.requests.filter(r=>r.id!==requestId)
+  if(sb) await sb.from('requests').delete().eq('id',requestId)
+  renderPortalAbsent(s,p)
+  renderDashboard()
+  toast('申請を取り消しました')
+}
+
+
+/* ===== ページ更新 ===== */
+async function reloadPage(){
+  const btn = document.querySelector('.ti-refresh')
+  if(btn) btn.style.animation='spin .6s linear infinite'
+  await loadLessonDates()
+  await loadStudents()
+  const activeNav = document.querySelector('.nav-item.active')
+  const pageId = activeNav?.id?.replace('n-','')
+  if(pageId==='schedule-thu-sat') renderScheduleByPage('schedule-thu-sat')
+  else if(pageId==='schedule-fri') renderScheduleByPage('schedule-fri')
+  else if(pageId==='schedule-sun') renderScheduleByPage('schedule-sun')
+  else if(pageId==='dashboard') renderDashboard()
+  else if(pageId==='transfer-admin') renderTransferRequests()
+  if(btn) btn.style.animation=''
+  toast('更新しました')
+}
+
+
+/* ===== お知らせ機能 ===== */
+
+async function loadNotices(){
+  if(!sb) return
+  const{data}=await sb.from('notices').select('*').order('created_at',{ascending:false})
+  if(data) notices=data
+}
+
+function renderNoticeStudentList(){
+  const el=document.getElementById('notice-student-list')
+  if(!el) return
+  const query=(document.getElementById('notice-student-search')?.value||'').toLowerCase()
+  const DAY_ORDER={木:0,金:1,土:2,日:3}
+  let list=[...students].sort((a,b)=>{
+    if(DAY_ORDER[a.day]!==DAY_ORDER[b.day]) return DAY_ORDER[a.day]-DAY_ORDER[b.day]
+    return a.time.localeCompare(b.time)
+  })
+  if(query) list=list.filter(s=>s.name.toLowerCase().includes(query)||(s.kana&&s.kana.toLowerCase().includes(query)))
+
+  el.innerHTML=list.map(s=>`
+    <label style="display:flex;align-items:center;gap:8px;padding:5px 4px;cursor:pointer;border-bottom:1px solid var(--border)">
+      <input type="checkbox" class="notice-student-cb" value="${s.id}" data-name="${s.name}" checked style="width:14px;height:14px;cursor:pointer">
+      <span style="font-size:12px;font-weight:500">${s.name}</span>
+      <span style="font-size:11px;color:var(--text2)">${s.day}曜 ${s.time}</span>
+    </label>`).join('')
+  updateNoticeSelectedCount()
+}
+
+function filterNoticeStudents(){
+  renderNoticeStudentList()
+}
+
+function selectAllNoticeStudents(checked){
+  document.querySelectorAll('.notice-student-cb').forEach(cb=>cb.checked=checked)
+  updateNoticeSelectedCount()
+}
+
+function updateNoticeSelectedCount(){
+  const total=document.querySelectorAll('.notice-student-cb').length
+  const selected=document.querySelectorAll('.notice-student-cb:checked').length
+  const el=document.getElementById('notice-selected-count')
+  if(el) el.textContent=selected+'/'+ total+'名選択中'
+}
+
+async function sendNotice(){
+  const title=document.getElementById('notice-title').value.trim()
+  const body=document.getElementById('notice-body').value.trim()
+  const month=parseInt(document.getElementById('notice-month').value||selectedMonth)
+  if(!title||!body){toast('タイトルと本文を入力してください',true);return}
+
+  // 送信先の生徒IDを取得
+  const checkedCbs=document.querySelectorAll('.notice-student-cb:checked')
+  if(!checkedCbs.length){toast('送信先を1名以上選択してください',true);return}
+  const targetIds=Array.from(checkedCbs).map(cb=>cb.value)
+  const targetNames=Array.from(checkedCbs).map(cb=>cb.dataset.name)
+
+  const notice={title,body,month,target_ids:targetIds,target_names:targetNames,confirmed_by:[],comments:[]}
+  if(sb){
+    const{data,error}=await sb.from('notices').insert([notice]).select().single()
+    if(error){toast('送信に失敗しました',true);return}
+    if(data) notice.id=data.id
+  } else {
+    notice.id='n_'+Date.now()
+  }
+  notices.unshift(notice)
+  document.getElementById('notice-title').value=''
+  document.getElementById('notice-body').value=''
+  renderNoticesAdmin()
+  toast(targetNames.length+'名にお知らせを送信しました')
+}
+
+function renderNoticesAdmin(){
+  const el=document.getElementById('notices-list')
+  if(!el) return
+  const sel=document.getElementById('notice-month')
+  if(sel&&!sel.innerHTML) sel.innerHTML=buildMonthSelect()
+
+  const query=(document.getElementById('notices-search')?.value||'').toLowerCase()
+  let list=notices
+  if(query) list=list.filter(n=>
+    n.title.toLowerCase().includes(query)||
+    (n.target_names||[]).some(name=>name.toLowerCase().includes(query))
+  )
+
+  if(!list.length){
+    el.innerHTML='<div style="color:var(--text3);font-size:12px;padding:8px 0">'+(query?'該当するお知らせがありません':'まだお知らせはありません')+'</div>'
+    return
+  }
+
+  el.innerHTML=list.map(n=>`
+    <div style="border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px;margin-bottom:8px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+        <span style="font-weight:600;font-size:13px">${n.title}</span>
+        <span class="badge b-blue" style="font-size:10px">${n.month}月</span>
+      </div>
+      <div style="font-size:12px;color:var(--text2);margin-bottom:6px;white-space:pre-wrap">${n.body}</div>
+      <div style="font-size:11px;color:var(--text3);margin-bottom:6px">
+        <i class="ti ti-users"></i> 送信先：${(n.target_names||['全員']).join('、')}
+      </div>
+      <div style="display:flex;gap:12px;font-size:11px;color:var(--text3)">
+        <span><i class="ti ti-check"></i> 確認済み：${(n.confirmed_by||[]).length}名</span>
+        <span><i class="ti ti-message"></i> コメント：${(n.comments||[]).length}件</span>
+      </div>
+      ${(n.comments||[]).length?`
+      <div style="margin-top:8px;border-top:1px solid var(--border);padding-top:6px">
+        ${(n.comments||[]).map(c=>`
+        <div style="font-size:11px;padding:4px 0;border-bottom:1px solid var(--border)">
+          <span style="font-weight:600;color:var(--blue)">${c.name}</span>
+          <span style="color:var(--text2);margin-left:6px">${c.text}</span>
+        </div>`).join('')}
+      </div>`:''}
+      <button class="btn btn-sm" style="margin-top:8px;color:var(--red);border-color:#F7C1C1" onclick="deleteNotice('${n.id}')"><i class="ti ti-trash"></i> 削除</button>
+    </div>`).join('')
+}
+
+async function deleteNotice(id){
+  notices=notices.filter(n=>n.id!==id)
+  if(sb) await sb.from('notices').delete().eq('id',id)
+  renderNoticesAdmin()
+  toast('削除しました')
+}
+
+function renderPortalNotices(s,p){
+  const container=p==='sp'
+    ? document.getElementById('spp-notices')
+    : document.getElementById('tsvp-notices')
+  if(!container) return
+
+  // 自分宛て（target_idsに自分が含まれるか、target_idsがない場合は全員）
+  const myNotices=notices.filter(n=>
+    n.month===selectedMonth &&
+    (!n.target_ids || n.target_ids.length===0 || n.target_ids.includes(s.id))
+  )
+  if(!myNotices.length){
+    container.innerHTML='<div class="card"><div style="font-size:12px;color:var(--text3);padding:8px 0">現在お知らせはありません</div></div>'
+    return
+  }
+
+  container.innerHTML=myNotices.map(n=>{
+    const confirmed=(n.confirmed_by||[]).includes(s.id)
+    const myComment=(n.comments||[]).find(c=>c.student_id===s.id)
+    return `<div class="card" style="margin-bottom:10px">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px">
+        <span style="font-weight:600;font-size:13px">${n.title}</span>
+        ${confirmed?'<span class="badge b-green" style="font-size:10px;flex-shrink:0">確認済み</span>':'<span class="badge b-amber" style="font-size:10px;flex-shrink:0">未確認</span>'}
+      </div>
+      <div style="font-size:12px;color:var(--text2);margin-bottom:10px;white-space:pre-wrap;line-height:1.6">${n.body}</div>
+
+      ${!confirmed?`
+      <button class="btn btn-primary btn-sm" onclick="confirmNotice('${n.id}','${s.id}','${p}')">
+        <i class="ti ti-check"></i> 確認しました
+      </button>`:''}
+
+      <div style="margin-top:10px;border-top:1px solid var(--border);padding-top:8px">
+        <div style="font-size:11px;font-weight:600;color:var(--text2);margin-bottom:6px">コメント・不具合報告</div>
+        ${myComment
+          ?`<div style="background:var(--bg);border-radius:4px;padding:6px 8px;font-size:11px;color:var(--text2)">${myComment.text}
+            <button onclick="deleteMyComment('${n.id}','${s.id}','${p}')" style="margin-left:8px;font-size:10px;background:none;border:none;color:var(--red);cursor:pointer">取り消す</button>
+          </div>`
+          :`<div style="display:flex;gap:6px">
+            <input id="notice-comment-${n.id}" placeholder="内容を入力..." style="flex:1;font-size:11px;padding:5px 8px">
+            <button class="btn btn-sm" onclick="sendNoticeComment('${n.id}','${s.id}','${p}')">送信</button>
+          </div>`
+        }
+      </div>
+    </div>`
+  }).join('')
+
+  // 未確認バッジ
+  const unread=myNotices.filter(n=>!(n.confirmed_by||[]).includes(s.id)).length
+  const badge=document.getElementById(p==='sp'?'spp-notice-badge':'tsv-notice-badge')
+  if(badge) badge.style.display=unread>0?'block':'none'
+}
+
+async function confirmNotice(noticeId, studentId, p){
+  const n=notices.find(x=>x.id===noticeId)
+  if(!n) return
+  if(!n.confirmed_by) n.confirmed_by=[]
+  if(!n.confirmed_by.includes(studentId)){
+    n.confirmed_by.push(studentId)
+    if(sb) await sb.from('notices').update({confirmed_by:n.confirmed_by,comments:n.comments||[]}).eq('id',noticeId)
+  }
+  renderPortalNotices(loggedInStudent, p)
+  toast('確認しました')
+}
+
+async function sendNoticeComment(noticeId, studentId, p){
+  const input=document.getElementById('notice-comment-'+noticeId)
+  const text=input?.value.trim()
+  if(!text){toast('コメントを入力してください',true);return}
+  const n=notices.find(x=>x.id===noticeId)
+  if(!n) return
+  if(!n.comments) n.comments=[]
+  const comment={student_id:studentId, name:loggedInStudent.name, text}
+  n.comments.push(comment)
+  if(sb) await sb.from('notices').update({comments:n.comments}).eq('id',noticeId)
+  renderPortalNotices(loggedInStudent, p)
+  toast('コメントを送信しました')
+}
+
+async function deleteMyComment(noticeId, studentId, p){
+  const n=notices.find(x=>x.id===noticeId)
+  if(!n) return
+  n.comments=(n.comments||[]).filter(c=>c.student_id!==studentId)
+  if(sb) await sb.from('notices').update({comments:n.comments}).eq('id',noticeId)
+  renderPortalNotices(loggedInStudent, p)
+  toast('コメントを取り消しました')
+}
+
 /* ===== CALENDAR ===== */
 function renderStudentCalendar(studentId){
   const s = students.find(x=>x.id===studentId)
@@ -1746,15 +2752,42 @@ function renderStudentCalendar(studentId){
 
   // 確定済み日程を取得
   const lessonDays = canSelectDates(s) ? s.selected : (lessonDates[s.day] || [])
-  // "6/5" → day番号のSetに変換
+
+  // 承認済み欠席の日付
+  const absentDatesForCal = approvedAbsences
+    .filter(a=>a.studentId===s.id&&a.month===selectedMonth)
+    .map(a=>a.date)
+
+  // 振替で追加された日程
+  const transferDatesForCal = manualTransfers
+    .filter(t=>t.studentName===s.name&&t.month===selectedMonth&&t.toDate)
+
+  // "6/5" → day番号のSetに変換（欠席を除く）
   const lessonDaySet = {}
-  lessonDays.forEach(d => {
+  lessonDays.filter(d=>!absentDatesForCal.includes(d)).forEach(d => {
     const parts = d.split('/')
     if(parts.length === 2) {
       const m = parseInt(parts[0])
       const day = parseInt(parts[1])
-      if(m === month) lessonDaySet[day] = d
+      if(m === month) lessonDaySet[day] = {date:d, time:s.time, isTransfer:false}
     }
+  })
+  // 振替日程を追加（同じ日に複数コマある場合も対応）
+  transferDatesForCal.forEach(t => {
+    const parts = (t.toDate||'').split('/')
+    if(parts.length === 2) {
+      const m = parseInt(parts[0])
+      const day = parseInt(parts[1])
+      if(m === month){
+        if(!lessonDaySet[day]) lessonDaySet[day] = []
+        else if(!Array.isArray(lessonDaySet[day])) lessonDaySet[day] = [lessonDaySet[day]]
+        lessonDaySet[day].push({date:t.toDate, time:t.toTime||s.time, isTransfer:true})
+      }
+    }
+  })
+  // 通常レッスンも配列化
+  Object.keys(lessonDaySet).forEach(k=>{
+    if(!Array.isArray(lessonDaySet[k])) lessonDaySet[k]=[lessonDaySet[k]]
   })
 
   const firstDay = new Date(year, month-1, 1).getDay() // 0=日
@@ -1769,14 +2802,20 @@ function renderStudentCalendar(studentId){
   for(let d=1; d<=lastDate; d++){
     const dow = new Date(year, month-1, d).getDay()
     const isToday = today.getFullYear()===year && today.getMonth()+1===month && today.getDate()===d
-    const hasLesson = lessonDaySet[d] !== undefined
+    const lessonInfoArr = lessonDaySet[d]
+    const hasLesson = lessonInfoArr !== undefined && lessonInfoArr.length > 0
     const dowClass = dow===0?'sun':dow===6?'sat':''
     let cls = 'cal-day'
     if(isToday) cls += ' today'
     if(hasLesson) cls += ' has-lesson'
     const dateClass = 'cal-date' + (dowClass?' '+dowClass:'') + (isToday?' today-num':'')
     const lessonTag = hasLesson
-      ? `<span class="cal-lesson-tag" onclick="showLessonPopup(${d},${month},'${s.time}','${s.day}')">レッスン</span>`
+      ? (lessonInfoArr).map(lessonInfo=>
+          `<span class="cal-lesson-tag${lessonInfo.isTransfer?' cal-lesson-transfer':''}"
+            onclick="showLessonPopup(${d},${month},'${lessonInfo.time}','${s.day}','${lessonInfo.isTransfer}')"
+            style="${lessonInfo.isTransfer?'background:#6B7280;font-size:8px;':''}">
+            ${lessonInfo.isTransfer?'振替':'レッスン'}</span>`
+        ).join('')
       : ''
     html += `<div class="${cls}">`
       + `<div class="${dateClass}">${d}</div>`
@@ -1786,10 +2825,14 @@ function renderStudentCalendar(studentId){
   bodyEl.innerHTML = html
 }
 
-function showLessonPopup(day, month, time, dow){
+function showLessonPopup(day, month, time, dow, isTransfer){
   const DAY_NAMES = {木:'木曜日',金:'金曜日',土:'土曜日',日:'日曜日'}
-  document.getElementById('popup-title').textContent = 'レッスン'
-  document.getElementById('popup-date').textContent = '2026年' + month + '月' + day + '日（' + (DAY_NAMES[dow]||dow) + '）'
+  // 実際の曜日を日付から計算
+  const dateObj = new Date(2026, parseInt(month)-1, parseInt(day))
+  const WEEK = ['日曜日','月曜日','火曜日','水曜日','木曜日','金曜日','土曜日']
+  const actualDow = WEEK[dateObj.getDay()]
+  document.getElementById('popup-title').textContent = isTransfer==='true'?'振替レッスン':'レッスン'
+  document.getElementById('popup-date').textContent = '2026年' + month + '月' + day + '日（' + actualDow + '）'
   document.getElementById('popup-time').textContent = time
   document.getElementById('lesson-popup-overlay').style.display = 'flex'
 }
