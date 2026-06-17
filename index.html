@@ -1094,6 +1094,7 @@ const TEACHER_PASSWORD = null
   <div class="tab-bar">
     <div class="tab active" onclick="spTab('schedule')" id="spt-schedule">日程</div>
     <div class="tab" onclick="spTab('absent')" id="spt-absent">欠席・相談</div>
+    <div class="tab" onclick="spTab('notices')" id="spt-notices" style="position:relative">お知らせ<span id="spp-notice-badge" style="display:none;position:absolute;top:4px;right:4px;width:7px;height:7px;background:var(--red);border-radius:50%"></span></div>
   </div>
   <div id="spp-schedule">
     <!-- 日程リスト（renderPortalScheduleが書き換える） -->
@@ -1959,6 +1960,7 @@ function showStudentPortal(s){
   setTopbar('student-portal')
   refreshPortal(s.id,'sp')
   spTab('schedule')
+  renderPortalNotices(s,'sp')
 }
 function doLogout(){loggedInStudent=null;nav('student-login')}
 
@@ -2844,12 +2846,16 @@ function closeLessonPopup(e){
 }
 
 function spTab(name){
-  ['schedule','absent'].forEach(t=>{
-    document.getElementById('spp-'+t).style.display=t===name?'block':'none'
-    document.getElementById('spt-'+t).classList.toggle('active',t===name)
+  ['schedule','absent','notices'].forEach(t=>{
+    const el=document.getElementById('spp-'+t)
+    if(el) el.style.display=t===name?'block':'none'
+    document.getElementById('spt-'+t)?.classList.toggle('active',t===name)
   })
   if(name==='schedule' && loggedInStudent){
     renderStudentCalendar(loggedInStudent.id)
+  }
+  if(name==='notices' && loggedInStudent){
+    renderPortalNotices(loggedInStudent,'sp')
   }
 }
 
