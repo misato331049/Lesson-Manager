@@ -608,6 +608,14 @@ function renderNoticesAdmin(){
     (n.target_names||[]).some(name=>name.toLowerCase().includes(query))
   )
 
+  // 未返信コメント数を集計してサイドバーバッジを更新
+  const unrepliedCount=notices.reduce((sum,n)=>sum+(n.comments||[]).filter(c=>!c.reply).length,0)
+  const navBadge=document.getElementById('notices-unreplied-badge')
+  if(navBadge){
+    navBadge.style.display=unrepliedCount>0?'inline-block':'none'
+    navBadge.textContent=unrepliedCount
+  }
+
   if(!list.length){
     el.innerHTML='<div style="color:var(--text3);font-size:12px;padding:8px 0">'+(query?'該当するお知らせがありません':'まだお知らせはありません')+'</div>'
     return
@@ -629,10 +637,22 @@ function renderNoticesAdmin(){
       </div>
       ${(n.comments||[]).length?`
       <div style="margin-top:8px;border-top:1px solid var(--border);padding-top:6px">
+        <div style="font-size:11px;font-weight:600;color:var(--text2);margin-bottom:4px">生徒からのコメント</div>
         ${(n.comments||[]).map(c=>`
-        <div style="font-size:11px;padding:4px 0;border-bottom:1px solid var(--border)">
-          <span style="font-weight:600;color:var(--blue)">${c.name}</span>
-          <span style="color:var(--text2);margin-left:6px">${c.text}</span>
+        <div style="background:var(--bg);border-radius:4px;padding:6px 8px;margin-bottom:6px">
+          <div style="font-size:11px;margin-bottom:3px">
+            <span style="font-weight:600;color:var(--blue)">${c.name}</span>
+            <span style="color:var(--text2);margin-left:6px">${c.text}</span>
+          </div>
+          ${c.reply?`
+          <div style="font-size:11px;background:var(--blue-light);border-radius:4px;padding:5px 7px;margin-top:4px;display:flex;justify-content:space-between;align-items:flex-start;gap:6px">
+            <div><span style="font-weight:600;color:var(--blue-dark)">講師：</span><span style="color:var(--text)">${c.reply}</span></div>
+            <button onclick="deleteNoticeReply('${n.id}','${c.student_id}')" style="background:none;border:none;color:var(--red);font-size:10px;cursor:pointer;flex-shrink:0">取消</button>
+          </div>`:`
+          <div style="display:flex;gap:6px;margin-top:4px">
+            <input id="reply-${n.id}-${c.student_id}" placeholder="返信を入力..." style="flex:1;font-size:11px;padding:4px 7px">
+            <button class="btn btn-sm" style="font-size:10px;padding:3px 8px" onclick="sendNoticeReply('${n.id}','${c.student_id}')">返信</button>
+          </div>`}
         </div>`).join('')}
       </div>`:''}
       <button class="btn btn-sm" style="margin-top:8px;color:var(--red);border-color:#F7C1C1" onclick="deleteNotice('${n.id}')"><i class="ti ti-trash"></i> 削除</button>
@@ -644,6 +664,33 @@ async function deleteNotice(id){
   if(sb) await sb.from('notices').delete().eq('id',id)
   renderNoticesAdmin()
   toast('削除しました')
+}
+
+async function sendNoticeReply(noticeId, studentId){
+  const input=document.getElementById('reply-'+noticeId+'-'+studentId)
+  const text=input?.value.trim()
+  if(!text){toast('返信内容を入力してください',true);return}
+  const n=notices.find(x=>x.id===noticeId)
+  if(!n) return
+  const comment=(n.comments||[]).find(c=>c.student_id===studentId)
+  if(!comment) return
+  comment.reply=text
+  comment.reply_read=false
+  if(sb) await sb.from('notices').update({comments:n.comments}).eq('id',noticeId)
+  renderNoticesAdmin()
+  toast('返信を送信しました')
+}
+
+async function deleteNoticeReply(noticeId, studentId){
+  const n=notices.find(x=>x.id===noticeId)
+  if(!n) return
+  const comment=(n.comments||[]).find(c=>c.student_id===studentId)
+  if(!comment) return
+  delete comment.reply
+  delete comment.reply_read
+  if(sb) await sb.from('notices').update({comments:n.comments}).eq('id',noticeId)
+  renderNoticesAdmin()
+  toast('返信を取り消しました')
 }
 
 function renderPortalNotices(s,p){
@@ -682,6 +729,11 @@ function renderPortalNotices(s,p){
         ${myComment
           ?`<div style="background:var(--bg);border-radius:4px;padding:6px 8px;font-size:11px;color:var(--text2)">${myComment.text}
             <button onclick="deleteMyComment('${n.id}','${s.id}','${p}')" style="margin-left:8px;font-size:10px;background:none;border:none;color:var(--red);cursor:pointer">取り消す</button>
+            ${myComment.reply?`
+            <div style="margin-top:6px;background:var(--blue-light);border-radius:4px;padding:6px 8px;color:var(--text)">
+              <span style="font-weight:600;color:var(--blue-dark)">講師からの返信：</span>${myComment.reply}
+            </div>`:`
+            <div style="margin-top:6px;font-size:10px;color:var(--text3)">講師の確認をお待ちください</div>`}
           </div>`
           :`<div style="display:flex;gap:6px">
             <input id="notice-comment-${n.id}" placeholder="内容を入力..." style="flex:1;font-size:11px;padding:5px 8px">
@@ -886,7 +938,7 @@ const TEACHER_PASSWORD = null
     <div class="nav-item" onclick="nav('lesson-dates')" id="n-lesson-dates"><i class="ti ti-calendar"></i> 日程設定</div>
     <div class="nav-item" onclick="nav('students')" id="n-students"><i class="ti ti-users"></i> 生徒管理</div>
     <div class="nav-item" onclick="nav('transfer-admin')" id="n-transfer-admin"><i class="ti ti-switch-horizontal"></i> 振替相談</div>
-    <div class="nav-item" onclick="nav('notices-admin')" id="n-notices-admin"><i class="ti ti-bell-ringing"></i> お知らせ</div>
+    <div class="nav-item" onclick="nav('notices-admin')" id="n-notices-admin" style="position:relative"><i class="ti ti-bell-ringing"></i> お知らせ<span id="notices-unreplied-badge" style="display:none;margin-left:6px;background:var(--red);color:#fff;font-size:10px;font-weight:600;border-radius:9px;padding:1px 6px"></span></div>
     <div class="nav-section" style="margin-top:8px">生徒ページ（講師）</div>
     <div class="nav-item" onclick="nav('teacher-student-view')" id="n-teacher-student-view"><i class="ti ti-eye"></i> 生徒ページを見る</div>
   </div>
@@ -1512,6 +1564,7 @@ async function doTeacherLogin(){
 async function initApp(){
   await loadLessonDates()
   await loadStudents()
+  renderNoticesAdmin()
   nav('schedule-thu-sat')
 }
 
@@ -2614,6 +2667,14 @@ function renderNoticesAdmin(){
     (n.target_names||[]).some(name=>name.toLowerCase().includes(query))
   )
 
+  // 未返信コメント数を集計してサイドバーバッジを更新
+  const unrepliedCount=notices.reduce((sum,n)=>sum+(n.comments||[]).filter(c=>!c.reply).length,0)
+  const navBadge=document.getElementById('notices-unreplied-badge')
+  if(navBadge){
+    navBadge.style.display=unrepliedCount>0?'inline-block':'none'
+    navBadge.textContent=unrepliedCount
+  }
+
   if(!list.length){
     el.innerHTML='<div style="color:var(--text3);font-size:12px;padding:8px 0">'+(query?'該当するお知らせがありません':'まだお知らせはありません')+'</div>'
     return
@@ -2635,10 +2696,22 @@ function renderNoticesAdmin(){
       </div>
       ${(n.comments||[]).length?`
       <div style="margin-top:8px;border-top:1px solid var(--border);padding-top:6px">
+        <div style="font-size:11px;font-weight:600;color:var(--text2);margin-bottom:4px">生徒からのコメント</div>
         ${(n.comments||[]).map(c=>`
-        <div style="font-size:11px;padding:4px 0;border-bottom:1px solid var(--border)">
-          <span style="font-weight:600;color:var(--blue)">${c.name}</span>
-          <span style="color:var(--text2);margin-left:6px">${c.text}</span>
+        <div style="background:var(--bg);border-radius:4px;padding:6px 8px;margin-bottom:6px">
+          <div style="font-size:11px;margin-bottom:3px">
+            <span style="font-weight:600;color:var(--blue)">${c.name}</span>
+            <span style="color:var(--text2);margin-left:6px">${c.text}</span>
+          </div>
+          ${c.reply?`
+          <div style="font-size:11px;background:var(--blue-light);border-radius:4px;padding:5px 7px;margin-top:4px;display:flex;justify-content:space-between;align-items:flex-start;gap:6px">
+            <div><span style="font-weight:600;color:var(--blue-dark)">講師：</span><span style="color:var(--text)">${c.reply}</span></div>
+            <button onclick="deleteNoticeReply('${n.id}','${c.student_id}')" style="background:none;border:none;color:var(--red);font-size:10px;cursor:pointer;flex-shrink:0">取消</button>
+          </div>`:`
+          <div style="display:flex;gap:6px;margin-top:4px">
+            <input id="reply-${n.id}-${c.student_id}" placeholder="返信を入力..." style="flex:1;font-size:11px;padding:4px 7px">
+            <button class="btn btn-sm" style="font-size:10px;padding:3px 8px" onclick="sendNoticeReply('${n.id}','${c.student_id}')">返信</button>
+          </div>`}
         </div>`).join('')}
       </div>`:''}
       <button class="btn btn-sm" style="margin-top:8px;color:var(--red);border-color:#F7C1C1" onclick="deleteNotice('${n.id}')"><i class="ti ti-trash"></i> 削除</button>
@@ -2650,6 +2723,33 @@ async function deleteNotice(id){
   if(sb) await sb.from('notices').delete().eq('id',id)
   renderNoticesAdmin()
   toast('削除しました')
+}
+
+async function sendNoticeReply(noticeId, studentId){
+  const input=document.getElementById('reply-'+noticeId+'-'+studentId)
+  const text=input?.value.trim()
+  if(!text){toast('返信内容を入力してください',true);return}
+  const n=notices.find(x=>x.id===noticeId)
+  if(!n) return
+  const comment=(n.comments||[]).find(c=>c.student_id===studentId)
+  if(!comment) return
+  comment.reply=text
+  comment.reply_read=false
+  if(sb) await sb.from('notices').update({comments:n.comments}).eq('id',noticeId)
+  renderNoticesAdmin()
+  toast('返信を送信しました')
+}
+
+async function deleteNoticeReply(noticeId, studentId){
+  const n=notices.find(x=>x.id===noticeId)
+  if(!n) return
+  const comment=(n.comments||[]).find(c=>c.student_id===studentId)
+  if(!comment) return
+  delete comment.reply
+  delete comment.reply_read
+  if(sb) await sb.from('notices').update({comments:n.comments}).eq('id',noticeId)
+  renderNoticesAdmin()
+  toast('返信を取り消しました')
 }
 
 function renderPortalNotices(s,p){
@@ -2688,6 +2788,11 @@ function renderPortalNotices(s,p){
         ${myComment
           ?`<div style="background:var(--bg);border-radius:4px;padding:6px 8px;font-size:11px;color:var(--text2)">${myComment.text}
             <button onclick="deleteMyComment('${n.id}','${s.id}','${p}')" style="margin-left:8px;font-size:10px;background:none;border:none;color:var(--red);cursor:pointer">取り消す</button>
+            ${myComment.reply?`
+            <div style="margin-top:6px;background:var(--blue-light);border-radius:4px;padding:6px 8px;color:var(--text)">
+              <span style="font-weight:600;color:var(--blue-dark)">講師からの返信：</span>${myComment.reply}
+            </div>`:`
+            <div style="margin-top:6px;font-size:10px;color:var(--text3)">講師の確認をお待ちください</div>`}
           </div>`
           :`<div style="display:flex;gap:6px">
             <input id="notice-comment-${n.id}" placeholder="内容を入力..." style="flex:1;font-size:11px;padding:5px 8px">
