@@ -27,8 +27,8 @@ html,body{height:100%;font-family:var(--f);color:var(--tx);font-size:15px;backgr
 /* HEADER */
 .hdr{height:var(--nh);background:var(--blue);display:flex;align-items:center;padding:0 14px;gap:10px;flex-shrink:0;position:relative;z-index:10}
 .hico{width:30px;height:30px;background:rgba(255,255,255,.2);border-radius:7px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:15px;flex-shrink:0}
-.htitle{font-size:16px;font-weight:700;flex:1;color:#fff}
-.hmonth{background:rgba(255,255,255,.2);color:#fff;border:none;border-radius:6px;padding:5px 10px;font-size:13px;font-family:var(--f);font-weight:600;cursor:pointer;-webkit-appearance:none}
+.htitle{font-size:15px;font-weight:700;flex:1;color:#fff;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.hmonth{background:rgba(255,255,255,.2);color:#fff;border:none;border-radius:6px;padding:4px 8px;font-size:13px;font-family:var(--f);font-weight:700;cursor:pointer;-webkit-appearance:none;flex-shrink:0;min-width:52px}
 .hbadge{background:var(--red);color:#fff;font-size:10px;font-weight:700;border-radius:99px;padding:2px 7px}
 
 /* CONTENT */
@@ -397,7 +397,7 @@ function sortD(a){return[...a].sort((x,y)=>{const px=x.split('/').map(Number),py
 function canSel(s){return(s.day==='木'||s.day==='土')&&s.course===2}
 function pad(n){return String(n).padStart(2,'0')}
 function genTS(){const s=[];let h=12,m=30;while(h<20||(h===20&&m===0)){const eh=m+30>=60?h+1:h,em=(m+30)%60;s.push(`${pad(h)}:${pad(m)}〜${pad(eh)}:${pad(em)}`);m+=30;if(m>=60){m-=60;h++;}}return s}
-function genFri(){const s=[];let h=12,m=30;while(true){const tot=h*60+m+45;if(tot>20*60)break;const eh=Math.floor((h*60+m+45)/60),em=(h*60+m+45)%60;s.push(`${pad(h)}:${pad(m)}〜${pad(eh)}:${pad(em)}`);m+=30;if(m>=60){m-=60;h++;}}return s}
+function genFri(){const s=[];let h=12,m=30;while(true){const tot=h*60+m+45;if(tot>20*60)break;const eh=Math.floor(tot/60),em=tot%60;s.push(`${pad(h)}:${pad(m)}〜${pad(eh)}:${pad(em)}`);m+=45;if(m>=60){m-=60;h++;}}return s}
 const TS=genTS(),FS=genFri()
 const SS=[{s:'10:00〜10:30'},{s:'10:30〜11:00'},{s:'11:00〜11:30'},{s:'11:30〜12:00'},{s:'12:00〜12:30'},{s:'12:30〜13:00'},{s:'休憩',br:true},{s:'14:00〜14:30'},{s:'14:30〜15:00'},{s:'15:00〜15:30'},{s:'15:30〜16:00'},{s:'16:00〜16:30'},{s:'16:30〜17:00'}]
 function getSlots(day){return day==='日'?SS.map(x=>({slot:x.s,isBreak:x.br})):day==='金'?FS.map(s=>({slot:s})):TS.map(s=>({slot:s}))}
