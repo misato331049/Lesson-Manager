@@ -2413,8 +2413,20 @@ async function pcSaveTransferDate(id){
   const time=document.getElementById('pctrtm-'+id)?.value.trim()
   if(!date){toast('振替日付を入力してください',true);return}
   const a=approvedAbsences.find(x=>x.id===id);if(!a)return
+  if(sb){
+    const{error}=await sb.from('requests').update({transfer_date:date,transfer_day:day,transfer_time:time}).eq('id',id)
+    if(error){
+      if(error.message&&error.message.includes('transfer_date')){
+        const newNote=(a.note||'')+` [振替実施:${date}(${day})${time}]`
+        await sb.from('requests').update({note:newNote}).eq('id',id)
+        a.note=newNote
+        toast(`振替実施日を保存しました（代替）：${date}（${day}）${time}`)
+      } else {
+        toast('保存に失敗しました：'+error.message,true);return
+      }
+    }
+  }
   a.transfer_date=date;a.transfer_day=day;a.transfer_time=time
-  if(sb)await sb.from('requests').update({transfer_date:date,transfer_day:day,transfer_time:time}).eq('id',id)
   toast(`振替実施日を保存しました：${date}（${day}）${time}`)
   renderTransferRequests()
 }
