@@ -437,7 +437,7 @@ async function tLoadAll(){
   }))
   lessonDates={木:[],金:[],土:[],日:[]};(d.data||[]).forEach(x=>{if(lessonDates[x.day])lessonDates[x.day].push(x.date)});DAY_LIST.forEach(k=>{lessonDates[k]=sortD(lessonDates[k])})
   tempDates={木:[...lessonDates['木']],金:[...lessonDates['金']],土:[...lessonDates['土']],日:[...lessonDates['日']]}
-  approvedAbsences=(apr.data||[]).map(x=>({id:x.id,studentId:x.student_id,studentName:x.students?.name||'',date:x.date,day:x.students?.day||'',time:x.students?.time||'',type:x.type||'欠席',note:x.note||'',month:selectedMonth}))
+  approvedAbsences=(apr.data||[]).map(x=>({id:x.id,studentId:x.student_id,studentName:x.students?.name||'',date:x.date,day:x.students?.day||'',time:x.students?.time||'',type:x.type||'欠席',note:x.note||'',month:selectedMonth,transfer_date:x.transfer_date||'',transfer_day:x.transfer_day||'',transfer_time:x.transfer_time||''}))
   manualTransfers=(tr.data||[]).map(x=>({id:x.id,studentName:x.student_name,fromDate:x.from_date,fromTime:x.from_time,fromDay:x.from_day,toDate:x.to_date,toTime:x.to_time,toDay:x.to_day,month:x.month}))
   notices=n.data||[]
   trialLessons=trl.data||[]
@@ -653,14 +653,45 @@ function tRequests(){
   }
   if(approved.length){
     html+=`<div class="sdiv">承認済み（${approved.length}件）</div>`
-    html+=approved.map(a=>`<div style="border:1px solid var(--gl);border-radius:var(--rs);padding:12px;margin-bottom:8px;background:var(--gl)">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
-        <span style="font-size:14px;font-weight:700">${a.studentName}</span><span class="b b-gr">承認済み</span>
-      </div>
-      <div style="font-size:14px;font-weight:600;margin-bottom:3px">${a.date}</div>
-      <div style="font-size:13px;color:var(--grn)">${a.type}</div>
-      <button class="btn bsm" style="margin-top:8px;font-size:12px" onclick="tCancelApprove('${a.id}')"><i class="ti ti-x"></i> 取り消す</button>
-    </div>`).join('')
+    html+=approved.map(a=>{
+      const hasTr=a.transfer_date||a.transfer_time
+      return `<div style="border:1px solid var(--gl);border-radius:var(--rs);padding:12px;margin-bottom:8px;background:var(--gl)">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+          <span style="font-size:14px;font-weight:700">${a.studentName}</span>
+          <span class="b b-gr">承認済み</span>
+        </div>
+        <div style="font-size:14px;font-weight:600;margin-bottom:2px">欠席日：${a.date}</div>
+        <div style="font-size:13px;color:var(--grn);margin-bottom:10px">${a.type}${a.note?` —「${a.note}」`:''}</div>
+        <div style="background:rgba(255,255,255,.6);border-radius:var(--rs);padding:10px;border:1px solid rgba(59,109,17,.2)">
+          <div style="font-size:11px;font-weight:700;color:var(--grn);margin-bottom:8px"><i class="ti ti-replace"></i> 振替実施日</div>
+          ${hasTr
+            ? `<div style="font-size:14px;font-weight:700;color:var(--tx);margin-bottom:6px">${a.transfer_date||''}（${a.transfer_day||''}）${a.transfer_time||''}</div>
+               <button class="btn bsm" style="font-size:12px;color:var(--tx2)" onclick="tClearTransferDate('${a.id}')"><i class="ti ti-edit"></i> 変更する</button>`
+            : `<div style="display:flex;gap:6px;align-items:flex-end;flex-wrap:wrap">
+                 <div style="flex:1;min-width:90px">
+                   <div style="font-size:11px;color:var(--tx2);margin-bottom:4px">日付（例：7/3）</div>
+                   <input id="trdt-${a.id}" placeholder="7/3" value="${a.transfer_date||''}" style="font-size:14px;padding:8px 10px">
+                 </div>
+                 <div style="flex:1;min-width:110px">
+                   <div style="font-size:11px;color:var(--tx2);margin-bottom:4px">曜日</div>
+                   <select id="trdw-${a.id}" style="font-size:14px;padding:8px 10px">
+                     <option value="木" ${(a.transfer_day||'')==='木'?'selected':''}>木</option>
+                     <option value="金" ${(a.transfer_day||'')==='金'?'selected':''}>金</option>
+                     <option value="土" ${(a.transfer_day||'')==='土'?'selected':''}>土</option>
+                     <option value="日" ${(a.transfer_day||'')==='日'?'selected':''}>日</option>
+                   </select>
+                 </div>
+                 <div style="flex:1;min-width:140px">
+                   <div style="font-size:11px;color:var(--tx2);margin-bottom:4px">時間（例：14:00〜14:30）</div>
+                   <input id="trtm-${a.id}" placeholder="14:00〜14:30" value="${a.transfer_time||''}" style="font-size:14px;padding:8px 10px">
+                 </div>
+                 <button class="btn bsm bp" onclick="tSaveTransferDate('${a.id}')" style="flex-shrink:0"><i class="ti ti-check"></i> 保存</button>
+               </div>`
+          }
+        </div>
+        <button class="btn bsm" style="margin-top:8px;font-size:12px" onclick="tCancelApprove('${a.id}')"><i class="ti ti-x"></i> 取り消す</button>
+      </div>`
+    }).join('')
   }
   document.getElementById('t-req-list').innerHTML=html
 }
@@ -680,6 +711,23 @@ async function tCancelApprove(id){
   approvedAbsences=approvedAbsences.filter(a=>a.id!==id)
   if(sb)await sb.from('requests').update({status:'pending'}).eq('id',id)
   await tLoadAll();tRequests();toast('取り消しました')
+}
+async function tSaveTransferDate(id){
+  const date=document.getElementById('trdt-'+id)?.value.trim()
+  const day=document.getElementById('trdw-'+id)?.value
+  const time=document.getElementById('trtm-'+id)?.value.trim()
+  if(!date){toast('振替日付を入力してください',true);return}
+  const a=approvedAbsences.find(x=>x.id===id);if(!a)return
+  a.transfer_date=date;a.transfer_day=day;a.transfer_time=time
+  if(sb)await sb.from('requests').update({transfer_date:date,transfer_day:day,transfer_time:time}).eq('id',id)
+  toast(`振替実施日を保存しました：${date}（${day}）${time}`)
+  tRequests()
+}
+async function tClearTransferDate(id){
+  const a=approvedAbsences.find(x=>x.id===id);if(!a)return
+  a.transfer_date='';a.transfer_day='';a.transfer_time=''
+  if(sb)await sb.from('requests').update({transfer_date:null,transfer_day:null,transfer_time:null}).eq('id',id)
+  tRequests()
 }
 
 /* ===== NOTICES ===== */
