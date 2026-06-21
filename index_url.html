@@ -1384,7 +1384,10 @@ async function loadStudents(){
         day:r.students?.day||'',
         note:r.note||'',
         type:r.type||'欠席',
-        month:selectedMonth
+        month:selectedMonth,
+        transfer_date:r.transfer_date||'',
+        transfer_day:r.transfer_day||'',
+        transfer_time:r.transfer_time||''
       }))
     }
     // お知らせを取得
@@ -2029,15 +2032,42 @@ function renderTransferRequests(){
   // 承認済みの欠席
   if(approved.length){
     html+=`<div style="font-size:11px;font-weight:600;color:var(--text2);margin:12px 0 6px;text-transform:uppercase;letter-spacing:.05em">承認済み（${approved.length}件）</div>`
-    html+=approved.map(a=>`
+    html+=approved.map(a=>{
+      const hasTr=a.transfer_date
+      return `
       <div style="border:1px solid var(--green-light);border-radius:var(--radius-sm);padding:10px;margin-bottom:8px;background:var(--green-light)">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
           <span style="font-weight:600">${a.studentName} — ${a.date}（${a.day}）</span>
           <span class="badge b-green">承認済み</span>
         </div>
-        <div style="font-size:12px;color:var(--green);margin-bottom:6px">${a.type}${a.note?` — 「${a.note}」`:''}</div>
+        <div style="font-size:12px;color:var(--green);margin-bottom:8px">${a.type}${a.note?` — 「${a.note}」`:''}</div>
+        <div style="background:rgba(255,255,255,.65);border-radius:6px;padding:8px 10px;margin-bottom:8px;border:1px solid rgba(59,109,17,.2)">
+          <div style="font-size:10px;font-weight:700;color:var(--green);margin-bottom:6px;letter-spacing:.04em;text-transform:uppercase"><i class="ti ti-replace"></i> 振替実施日</div>
+          ${hasTr
+            ? `<div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:4px">${a.transfer_date}（${a.transfer_day}）${a.transfer_time}</div>
+               <button class="btn btn-sm" style="font-size:10px;padding:2px 8px" onclick="pcClearTransferDate('${a.id}')"><i class="ti ti-edit"></i> 変更する</button>`
+            : `<div style="display:flex;gap:6px;align-items:flex-end;flex-wrap:wrap">
+                 <div>
+                   <div style="font-size:10px;color:var(--text2);margin-bottom:3px">日付（例：7/3）</div>
+                   <input id="pctrdt-${a.id}" placeholder="7/3" value="" style="width:80px;font-size:12px;padding:4px 7px">
+                 </div>
+                 <div>
+                   <div style="font-size:10px;color:var(--text2);margin-bottom:3px">曜日</div>
+                   <select id="pctrdw-${a.id}" style="font-size:12px;padding:4px 7px;width:60px">
+                     <option value="木">木</option><option value="金">金</option><option value="土">土</option><option value="日">日</option>
+                   </select>
+                 </div>
+                 <div>
+                   <div style="font-size:10px;color:var(--text2);margin-bottom:3px">時間</div>
+                   <input id="pctrtm-${a.id}" placeholder="14:00〜14:30" value="" style="width:130px;font-size:12px;padding:4px 7px">
+                 </div>
+                 <button class="btn btn-primary btn-sm" style="font-size:11px;padding:4px 10px" onclick="pcSaveTransferDate('${a.id}')"><i class="ti ti-check"></i> 保存</button>
+               </div>`
+          }
+        </div>
         <button class="btn btn-sm" style="font-size:11px" onclick="cancelAbsence('${a.id}')"><i class="ti ti-x"></i> 取り消す</button>
-      </div>`).join('')
+      </div>`
+    }).join('')
   }
 
   el.innerHTML=html
@@ -2377,6 +2407,23 @@ function showStudentInfo(e, studentId){
   `)
 }
 
+async function pcSaveTransferDate(id){
+  const date=document.getElementById('pctrdt-'+id)?.value.trim()
+  const day=document.getElementById('pctrdw-'+id)?.value
+  const time=document.getElementById('pctrtm-'+id)?.value.trim()
+  if(!date){toast('振替日付を入力してください',true);return}
+  const a=approvedAbsences.find(x=>x.id===id);if(!a)return
+  a.transfer_date=date;a.transfer_day=day;a.transfer_time=time
+  if(sb)await sb.from('requests').update({transfer_date:date,transfer_day:day,transfer_time:time}).eq('id',id)
+  toast(`振替実施日を保存しました：${date}（${day}）${time}`)
+  renderTransferRequests()
+}
+async function pcClearTransferDate(id){
+  const a=approvedAbsences.find(x=>x.id===id);if(!a)return
+  a.transfer_date='';a.transfer_day='';a.transfer_time=''
+  if(sb)await sb.from('requests').update({transfer_date:null,transfer_day:null,transfer_time:null}).eq('id',id)
+  renderTransferRequests()
+}
 async function cancelAbsence(id){
   approvedAbsences = approvedAbsences.filter(a=>a.id!==id)
   if(sb) await sb.from('requests').update({status:'pending'}).eq('id',id)
