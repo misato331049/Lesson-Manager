@@ -302,16 +302,41 @@ async function doTeacherLogin(){
   const pw=document.getElementById('teacher-pw').value
   if(!pw){toast('パスワードを入力してください',true);return}
   document.getElementById('pw-error').style.display='none'
-  let ok=false
-  if(sb){
-    const{data}=await sb.from('settings').select('value').eq('key','teacher_password').single()
-    ok=data&&data.value===pw
+
+  if(!sb){
+    // Supabase未設定時はデモ用
+    if(pw==='demo1234'){
+      document.getElementById('bottom-nav').style.display='flex'
+      switchTeacherPage('dashboard')
+    } else {
+      document.getElementById('pw-error').style.display='block'
+    }
+    return
   }
-  if(!ok){document.getElementById('pw-error').style.display='block';return}
-  document.getElementById('bottom-nav').style.display='flex'
-  await loadAll()
-  renderMobileNoticeStudentList()
-  switchTeacherPage('dashboard')
+
+  // 元のindex_url.htmlと同じ：Supabase RPC関数でパスワード照合
+  try {
+    const btn=document.querySelector('#page-login .btn-primary')
+    btn.textContent='確認中...'
+    btn.disabled=true
+    const{data,error}=await sb.rpc('check_teacher_password',{input_password:pw})
+    btn.innerHTML='<i class="ti ti-login"></i> ログイン'
+    btn.disabled=false
+    if(error) throw error
+    if(data===true||data==='t'||data==='true'||data==true){
+      document.getElementById('bottom-nav').style.display='flex'
+      await loadAll()
+      renderMobileNoticeStudentList()
+      switchTeacherPage('dashboard')
+    } else {
+      document.getElementById('pw-error').style.display='block'
+    }
+  } catch(e){
+    console.error('Auth error:',e)
+    document.getElementById('pw-error').style.display='block'
+    const btn=document.querySelector('#page-login .btn-primary')
+    if(btn){btn.innerHTML='<i class="ti ti-login"></i> ログイン';btn.disabled=false}
+  }
 }
 
 // ===== PAGES =====
