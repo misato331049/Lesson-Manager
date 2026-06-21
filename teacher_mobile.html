@@ -10,630 +10,933 @@
 <style>
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 :root{
-  --bg:#f8f7f4;--surface:#ffffff;--border:#e8e6e0;--border2:#d4d0c8;
+  --bg:#f8f7f4;--surface:#fff;--border:#e8e6e0;--border2:#d4d0c8;
   --text:#1a1917;--text2:#6b6860;--text3:#9b9890;
-  --blue:#185FA5;--blue-light:#E6F1FB;--blue-dark:#0C447C;
-  --green:#3B6D11;--green-light:#EAF3DE;
-  --amber:#854F0B;--amber-light:#FAEEDA;
-  --red:#791F1F;--red-light:#FCEBEB;
-  --radius:12px;--radius-sm:8px;
+  --blue:#185FA5;--blue-l:#E6F1FB;--blue-d:#0C447C;
+  --green:#3B6D11;--green-l:#EAF3DE;
+  --amber:#854F0B;--amber-l:#FAEEDA;
+  --red:#791F1F;--red-l:#FCEBEB;
+  --purple:#3C3489;--purple-l:#EEEDFE;
+  --r:12px;--rs:8px;
   --font:'Hiragino Kaku Gothic ProN','Hiragino Sans',Meiryo,sans-serif;
-  --nav-h:64px;--header-h:56px;
+  --nh:56px;--bh:64px;
 }
 html,body{height:100%;font-family:var(--font);color:var(--text);font-size:15px;background:var(--bg);overflow:hidden}
-.app{display:flex;flex-direction:column;height:100vh;overflow:hidden}
+.app{display:flex;flex-direction:column;height:100vh}
 
 /* HEADER */
-.header{height:var(--header-h);background:var(--blue);display:flex;align-items:center;padding:0 16px;gap:10px;flex-shrink:0}
-.header-logo{width:32px;height:32px;background:rgba(255,255,255,.2);border-radius:8px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:16px;flex-shrink:0}
-.header-title{font-size:16px;font-weight:700;flex:1;color:#fff;letter-spacing:-.3px}
-.header-badge{background:var(--red);color:#fff;font-size:11px;font-weight:700;border-radius:99px;padding:2px 8px}
+.hdr{height:var(--nh);background:var(--blue);display:flex;align-items:center;padding:0 16px;gap:10px;flex-shrink:0}
+.hdr-logo{width:32px;height:32px;background:rgba(255,255,255,.2);border-radius:8px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:16px;flex-shrink:0}
+.hdr-title{font-size:16px;font-weight:700;flex:1;color:#fff}
+.hdr-badge{background:var(--red);color:#fff;font-size:11px;font-weight:700;border-radius:99px;padding:2px 9px;margin-left:4px}
 
 /* CONTENT */
-.content{flex:1;overflow-y:auto;overflow-x:hidden;padding:16px 16px calc(var(--nav-h) + 16px);-webkit-overflow-scrolling:touch}
+.content{flex:1;overflow-y:auto;overflow-x:hidden;padding:14px 14px calc(var(--bh)+14px);-webkit-overflow-scrolling:touch}
 .page{display:none}.page.active{display:block}
 
 /* BOTTOM NAV */
-.bottom-nav{height:var(--nav-h);background:var(--surface);border-top:1px solid var(--border);display:flex;align-items:stretch;flex-shrink:0;position:fixed;bottom:0;left:0;right:0;z-index:100;padding-bottom:env(safe-area-inset-bottom)}
-.nav-btn{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;cursor:pointer;color:var(--text3);font-size:10px;font-weight:500;font-family:var(--font);border:none;background:none;position:relative;padding:6px 2px;transition:color .15s}
-.nav-btn.active{color:var(--blue)}
-.nav-btn i{font-size:22px}
-.nav-badge{position:absolute;top:6px;right:calc(50% - 18px);width:8px;height:8px;background:var(--red);border-radius:50%;border:2px solid var(--surface)}
+.bnav{height:var(--bh);background:var(--surface);border-top:1px solid var(--border);display:flex;align-items:stretch;flex-shrink:0;position:fixed;bottom:0;left:0;right:0;z-index:100;padding-bottom:env(safe-area-inset-bottom)}
+.nb{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;cursor:pointer;color:var(--text3);font-size:10px;font-weight:500;font-family:var(--font);border:none;background:none;position:relative;padding:6px 2px}
+.nb.on{color:var(--blue)}.nb i{font-size:21px}
+.nb-dot{position:absolute;top:7px;right:calc(50% - 17px);width:8px;height:8px;background:var(--red);border-radius:50%;border:2px solid var(--surface)}
 
 /* CARDS */
-.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:12px}
-.card-title{font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:14px}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:14px;margin-bottom:12px}
+.ctitle{font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:12px}
 
-/* STAT GRID */
-.stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px}
-.stat{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px}
-.stat-label{font-size:11px;color:var(--text2);margin-bottom:6px;display:flex;align-items:center;gap:5px}
-.stat-val{font-size:28px;font-weight:800;letter-spacing:-.5px}
+/* STATS */
+.sgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
+.stat{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:14px}
+.slbl{font-size:11px;color:var(--text2);margin-bottom:5px;display:flex;align-items:center;gap:5px}
+.sval{font-size:28px;font-weight:800;letter-spacing:-.5px}
 
 /* BADGES */
-.badge{display:inline-flex;align-items:center;font-size:11px;padding:3px 9px;border-radius:99px;font-weight:600}
-.b-blue{background:var(--blue-light);color:var(--blue-dark)}
-.b-green{background:var(--green-light);color:var(--green)}
-.b-amber{background:var(--amber-light);color:var(--amber)}
+.bdg{display:inline-flex;align-items:center;font-size:11px;padding:3px 9px;border-radius:99px;font-weight:600}
+.b-blue{background:var(--blue-l);color:var(--blue-d)}
+.b-green{background:var(--green-l);color:var(--green)}
+.b-amber{background:var(--amber-l);color:var(--amber)}
 .b-gray{background:#F1EFE8;color:#5F5E5A}
-.b-red{background:var(--red-light);color:var(--red)}
+.b-red{background:var(--red-l);color:var(--red)}
+.b-purple{background:var(--purple-l);color:var(--purple)}
 
 /* BUTTONS */
-.btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;padding:11px 18px;border-radius:var(--radius-sm);font-size:14px;cursor:pointer;font-family:var(--font);font-weight:600;border:1px solid var(--border2);background:var(--surface);color:var(--text);-webkit-appearance:none}
-.btn-primary{background:var(--blue);color:#fff;border-color:var(--blue)}
-.btn-primary:active{background:var(--blue-dark)}
-.btn-danger{background:var(--red);color:#fff;border-color:var(--red)}
-.btn-block{width:100%}
-.btn-sm{padding:8px 14px;font-size:13px}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:10px 16px;border-radius:var(--rs);font-size:14px;cursor:pointer;font-family:var(--font);font-weight:600;border:1px solid var(--border2);background:var(--surface);color:var(--text);-webkit-appearance:none;transition:opacity .1s}
+.btn:active{opacity:.75}.btn-p{background:var(--blue);color:#fff;border-color:var(--blue)}
+.btn-g{background:var(--green);color:#fff;border-color:var(--green)}
+.btn-r{background:var(--red);color:#fff;border-color:var(--red)}
+.btn-bl{width:100%}.btn-sm{padding:8px 12px;font-size:13px}
 .btn:disabled{opacity:.4;pointer-events:none}
 
 /* FORMS */
-.form-group{margin-bottom:14px}
-.lbl{font-size:12px;color:var(--text2);font-weight:700;margin-bottom:6px;display:block}
-input,select,textarea{font-family:var(--font);font-size:15px;border:1px solid var(--border2);border-radius:var(--radius-sm);padding:12px 14px;background:var(--surface);color:var(--text);outline:none;width:100%;-webkit-appearance:none}
+.fg{margin-bottom:12px}.lbl{font-size:12px;color:var(--text2);font-weight:700;margin-bottom:6px;display:block}
+input,select,textarea{font-family:var(--font);font-size:15px;border:1px solid var(--border2);border-radius:var(--rs);padding:11px 13px;background:var(--surface);color:var(--text);outline:none;width:100%;-webkit-appearance:none}
 input:focus,select:focus,textarea:focus{border-color:var(--blue)}
-select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M0 0l6 8 6-8z' fill='%236b6860'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 14px center;padding-right:36px}
-textarea{resize:vertical;min-height:90px;line-height:1.6}
+select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M0 0l6 8 6-8z' fill='%236b6860'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 13px center;padding-right:34px}
+textarea{resize:vertical;min-height:80px;line-height:1.6}
 
 /* LOGIN */
-.login-wrap{min-height:calc(100vh - var(--header-h));display:flex;align-items:center;justify-content:center;padding:20px}
-.login-card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:28px 22px;width:100%;max-width:340px}
-.login-icon{width:56px;height:56px;border-radius:14px;background:var(--blue-light);display:flex;align-items:center;justify-content:center;margin:0 auto 16px;color:var(--blue);font-size:28px}
+.lwrap{min-height:calc(100vh - var(--nh));display:flex;align-items:center;justify-content:center;padding:20px}
+.lcard{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:28px 20px;width:100%;max-width:340px}
+.licon{width:54px;height:54px;border-radius:14px;background:var(--blue-l);display:flex;align-items:center;justify-content:center;margin:0 auto 14px;color:var(--blue);font-size:26px}
 
-/* STUDENT ROW */
-.student-row{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--border)}
-.student-row:last-child{border-bottom:none}
-.student-avatar{width:38px;height:38px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0}
-.student-name{font-size:15px;font-weight:700}
-.student-info{font-size:12px;color:var(--text2);margin-top:2px}
+/* ROWS */
+.srow{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--border)}
+.srow:last-child{border-bottom:none}
+.avt{width:38px;height:38px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0}
 
-/* REQUEST CARD */
-.req-card{border:1px solid #FAC775;border-radius:var(--radius-sm);padding:14px;margin-bottom:12px;background:var(--amber-light)}
+/* REQUESTS */
+.reqcard{border:1px solid #FAC775;border-radius:var(--rs);padding:14px;margin-bottom:10px;background:var(--amber-l)}
 
-/* NOTICE IN LIST */
-.notice-item{border-bottom:1px solid var(--border);padding:14px 0}
-.notice-item:last-child{border-bottom:none}
-.notice-item-title{font-size:15px;font-weight:700;margin-bottom:4px}
-.notice-item-meta{font-size:12px;color:var(--text2);margin-bottom:8px}
-.notice-reply-box{background:var(--bg);border-radius:8px;padding:10px;margin-bottom:8px;font-size:13px}
+/* DATE TAG */
+.dtag{display:inline-flex;align-items:center;background:var(--bg);border:1px solid var(--border);border-radius:var(--rs);padding:4px 10px;margin:3px;font-size:13px}
+.dtag .rm{margin-left:6px;cursor:pointer;color:var(--text3);font-size:15px}
+.dtag .rm:active{color:var(--red)}
 
 /* FILE LINK */
-.file-link{display:flex;align-items:center;gap:8px;font-size:13px;background:var(--blue-light);color:var(--blue-dark);border-radius:8px;padding:10px 12px;margin-bottom:8px;text-decoration:none}
-.file-link i{font-size:18px;flex-shrink:0}
+.flink{display:flex;align-items:center;gap:8px;font-size:13px;background:var(--blue-l);color:var(--blue-d);border-radius:8px;padding:10px 12px;margin-bottom:8px;text-decoration:none}
+
+/* SECTION DIVIDER */
+.sdiv{font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;margin:18px 0 10px;padding-bottom:6px;border-bottom:1px solid var(--border)}
 
 /* TOAST */
-.toast{position:fixed;bottom:calc(var(--nav-h)+12px);left:16px;right:16px;color:#fff;padding:13px 16px;border-radius:var(--radius-sm);font-size:14px;opacity:0;transition:opacity .3s;pointer-events:none;z-index:9999;text-align:center;font-weight:600;box-shadow:0 4px 20px rgba(0,0,0,.25)}
+.toast{position:fixed;bottom:calc(var(--bh)+10px);left:14px;right:14px;color:#fff;padding:12px 16px;border-radius:var(--rs);font-size:14px;opacity:0;transition:opacity .3s;pointer-events:none;z-index:9999;text-align:center;font-weight:600;box-shadow:0 4px 20px rgba(0,0,0,.25)}
 
 /* LOADING */
-.loading{display:flex;align-items:center;justify-content:center;padding:40px;color:var(--text3);font-size:14px;gap:8px}
-.spinner{width:18px;height:18px;border:2px solid var(--border);border-top-color:var(--blue);border-radius:50%;animation:spin .6s linear infinite;flex-shrink:0}
-@keyframes spin{to{transform:rotate(360deg)}}
+.loading{display:flex;align-items:center;justify-content:center;padding:32px;color:var(--text3);font-size:14px;gap:8px}
+.spin{width:18px;height:18px;border:2px solid var(--border);border-top-color:var(--blue);border-radius:50%;animation:sp .6s linear infinite;flex-shrink:0}
+@keyframes sp{to{transform:rotate(360deg)}}
+
+/* INFO BOX */
+.infobox{background:var(--bg);border-radius:var(--rs);padding:11px 13px;margin-bottom:12px;font-size:13px;line-height:1.7;border-left:3px solid var(--blue)}
+
+/* NOTICE COMMENT */
+.cmt-box{background:var(--bg);border-radius:8px;padding:10px;margin-bottom:8px;font-size:13px}
 </style>
 </head>
 <body>
-
 <script>
-const SUPABASE_URL = 'https://gdsrcbqmzcakzldizsrv.supabase.co'
-const SUPABASE_ANON_KEY = 'sb_publishable_1kvfIoWeos6iH0N1N3W15g_gqf-Z8Aj'
-const TEACHER_PASSWORD = null
+const SUPABASE_URL='https://gdsrcbqmzcakzldizsrv.supabase.co'
+const SUPABASE_ANON_KEY='sb_publishable_1kvfIoWeos6iH0N1N3W15g_gqf-Z8Aj'
+const TEACHER_PASSWORD=null
 </script>
 
 <div id="toast" class="toast"></div>
 
 <div class="app">
-  <!-- HEADER -->
-  <div class="header">
-    <div class="header-logo"><i class="ti ti-shield-check"></i></div>
-    <div class="header-title">レッスン管理（講師）</div>
-    <span id="req-header-badge" style="display:none" class="header-badge">!</span>
+<div class="hdr">
+  <div class="hdr-logo"><i class="ti ti-shield-check"></i></div>
+  <div class="hdr-title">レッスン管理（講師）</div>
+  <span id="req-badge" class="hdr-badge" style="display:none">!</span>
+</div>
+
+<div class="content" id="main-content">
+
+<!-- LOGIN -->
+<div class="page active" id="page-login">
+<div class="lwrap"><div class="lcard">
+  <div class="licon"><i class="ti ti-shield-check"></i></div>
+  <div style="text-align:center;font-size:19px;font-weight:700;margin-bottom:5px">講師ログイン</div>
+  <div style="text-align:center;font-size:13px;color:var(--text2);margin-bottom:20px">パスワードを入力してください</div>
+  <div class="fg"><label class="lbl">パスワード</label>
+  <input type="password" id="teacher-pw" placeholder="••••••••" onkeydown="if(event.key==='Enter')doTLogin()"></div>
+  <button class="btn btn-p btn-bl" onclick="doTLogin()"><i class="ti ti-login"></i> ログイン</button>
+  <div id="pw-err" style="margin-top:10px;font-size:13px;color:var(--red);text-align:center;display:none"><i class="ti ti-alert-circle"></i> パスワードが違います</div>
+</div></div>
+</div>
+
+<!-- DASHBOARD -->
+<div class="page" id="page-dashboard">
+  <div class="sgrid" id="t-stats"></div>
+  <div class="card">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+      <div class="ctitle" style="margin:0">生徒状況</div>
+      <input id="dash-q" placeholder="名前で検索" oninput="tRenderDash()" style="width:130px;font-size:13px;padding:8px 10px">
+    </div>
+    <div id="t-dash-list"><div class="loading"><div class="spin"></div>読み込み中...</div></div>
   </div>
+</div>
 
-  <!-- CONTENT -->
-  <div class="content" id="main-content">
+<!-- SCHEDULE -->
+<div class="page" id="page-schedule">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+    <div class="ctitle" style="margin:0">レッスン表</div>
+    <select id="sched-day-sel" onchange="tRenderSchedule()" style="width:110px;font-size:13px;padding:7px 10px">
+      <option value="木">木曜日</option><option value="金">金曜日</option>
+      <option value="土">土曜日</option><option value="日">日曜日</option>
+    </select>
+  </div>
+  <div id="t-sched-content"></div>
+</div>
 
-    <!-- LOGIN -->
-    <div class="page active" id="page-login">
-      <div class="login-wrap">
-        <div class="login-card">
-          <div class="login-icon"><i class="ti ti-shield-check"></i></div>
-          <div style="text-align:center;font-size:20px;font-weight:700;margin-bottom:6px">講師ログイン</div>
-          <div style="text-align:center;font-size:13px;color:var(--text2);margin-bottom:22px">パスワードを入力してください</div>
-          <div class="form-group">
-            <label class="lbl">パスワード</label>
-            <input type="password" id="teacher-pw" placeholder="••••••••" onkeydown="if(event.key==='Enter')doTeacherLogin()">
-          </div>
-          <button class="btn btn-primary btn-block" onclick="doTeacherLogin()">
-            <i class="ti ti-login"></i> ログイン
-          </button>
-          <div id="pw-error" style="margin-top:10px;font-size:13px;color:var(--red);text-align:center;display:none">
-            <i class="ti ti-alert-circle"></i> パスワードが違います
-          </div>
-        </div>
-      </div>
+<!-- LESSON DATES -->
+<div class="page" id="page-dates">
+  <div class="card">
+    <div class="ctitle">日程設定</div>
+    <div class="infobox">各曜日のレッスン日を設定し、「保存・反映」してください。月3回・金・日の生徒には自動で反映されます。</div>
+    <div id="t-date-blocks"></div>
+    <button class="btn btn-p btn-bl" style="margin-top:6px" onclick="tSaveDates()"><i class="ti ti-device-floppy"></i> 保存・生徒へ反映する</button>
+  </div>
+</div>
+
+<!-- REQUESTS -->
+<div class="page" id="page-requests">
+  <div class="card">
+    <div class="ctitle">振替相談一覧</div>
+    <div class="infobox">振替は原則なし。前月以内の相談のみ受付可能。</div>
+    <div id="t-req-list"><div class="loading"><div class="spin"></div>読み込み中...</div></div>
+  </div>
+</div>
+
+<!-- NOTICES -->
+<div class="page" id="page-notices">
+  <div class="card">
+    <div class="ctitle">お知らせを送信</div>
+    <div class="fg"><label class="lbl">タイトル</label>
+    <input id="n-title" placeholder="例）6月のレッスン資料について"></div>
+    <div class="fg"><label class="lbl">本文・URL</label>
+    <textarea id="n-body" placeholder="例）今月のレッスン資料はこちらです。&#10;https://drive.google.com/..."></textarea></div>
+    <div class="fg"><label class="lbl">ファイル添付（PDF・mp3、各20MBまで）</label>
+    <input type="file" id="n-file" accept=".pdf,.mp3,audio/mpeg,application/pdf" multiple style="font-size:13px;padding:9px">
+    <div id="n-file-prev" style="margin-top:8px"></div></div>
+    <div class="fg"><label class="lbl">送信先</label>
+    <div style="display:flex;gap:8px;margin-bottom:8px">
+      <button class="btn btn-sm" style="flex:1" onclick="tSelAll(true)">全員選択</button>
+      <button class="btn btn-sm" style="flex:1" onclick="tSelAll(false)">全員解除</button>
     </div>
+    <div id="n-stud-list" style="max-height:220px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--rs);padding:6px"></div>
+    <div id="n-sel-count" style="font-size:12px;color:var(--text2);margin-top:6px;text-align:right"></div></div>
+    <button class="btn btn-p btn-bl" onclick="tSendNotice()"><i class="ti ti-send"></i> 送信する</button>
+  </div>
+  <div class="card">
+    <div class="ctitle">送信済みお知らせ</div>
+    <div id="n-sent-list"><div class="loading"><div class="spin"></div>読み込み中...</div></div>
+  </div>
+</div>
 
-    <!-- DASHBOARD -->
-    <div class="page" id="page-dashboard">
-      <div class="stat-grid" id="stat-grid"></div>
-      <div class="card">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
-          <div class="card-title" style="margin-bottom:0">生徒状況</div>
-          <input id="dash-search" placeholder="名前で検索" oninput="renderMobileDash()" style="width:140px;font-size:13px;padding:8px 10px">
-        </div>
-        <div id="dash-list"><div class="loading"><div class="spinner"></div>読み込み中...</div></div>
-      </div>
+<!-- STUDENTS -->
+<div class="page" id="page-students">
+  <div class="card">
+    <div class="ctitle">新規生徒を登録</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div class="fg"><label class="lbl">氏名</label><input id="s-name" placeholder="山田 花子"></div>
+      <div class="fg"><label class="lbl">ふりがな</label><input id="s-kana" placeholder="やまだ はなこ"></div>
     </div>
-
-    <!-- REQUESTS (振替相談) -->
-    <div class="page" id="page-requests">
-      <div class="card">
-        <div class="card-title">振替相談一覧</div>
-        <div style="font-size:13px;color:var(--text2);background:var(--bg);border-radius:8px;padding:10px 12px;margin-bottom:14px;border-left:3px solid var(--blue)">振替は原則なし。前月以内の相談のみ受付可能。確実な振替をお約束するものではありません。</div>
-        <div id="requests-list"><div class="loading"><div class="spinner"></div>読み込み中...</div></div>
-      </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div class="fg"><label class="lbl">曜日</label>
+      <select id="s-day" onchange="tUpdateTimeOpts()">
+        <option value="木">木曜日</option><option value="金">金曜日</option>
+        <option value="土">土曜日</option><option value="日">日曜日</option>
+      </select></div>
+      <div class="fg"><label class="lbl">時間</label><select id="s-time"></select></div>
     </div>
-
-    <!-- NOTICES -->
-    <div class="page" id="page-notices">
-      <!-- 送信フォーム -->
-      <div class="card">
-        <div class="card-title">お知らせを送信</div>
-        <div class="form-group">
-          <label class="lbl">タイトル</label>
-          <input id="notice-title" placeholder="例）6月のレッスン資料について">
-        </div>
-        <div class="form-group">
-          <label class="lbl">本文・URL</label>
-          <textarea id="notice-body" placeholder="例）今月のレッスン資料はこちらです。&#10;https://drive.google.com/..."></textarea>
-        </div>
-        <div class="form-group">
-          <label class="lbl">ファイル添付（PDF・mp3）</label>
-          <input type="file" id="notice-file-input" accept=".pdf,.mp3,audio/mpeg,application/pdf" multiple style="font-size:13px;padding:10px">
-          <div id="notice-file-preview" style="margin-top:8px"></div>
-        </div>
-        <div class="form-group">
-          <label class="lbl">送信先</label>
-          <div style="display:flex;gap:8px;margin-bottom:8px">
-            <button class="btn btn-sm" style="flex:1" onclick="selectAllStudents(true)">全員選択</button>
-            <button class="btn btn-sm" style="flex:1" onclick="selectAllStudents(false)">全員解除</button>
-          </div>
-          <div id="notice-student-list" style="max-height:240px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--radius-sm);padding:8px"></div>
-          <div id="notice-count" style="font-size:12px;color:var(--text2);margin-top:6px;text-align:right"></div>
-        </div>
-        <button class="btn btn-primary btn-block" onclick="sendMobileNotice()">
-          <i class="ti ti-send"></i> 送信する
-        </button>
-      </div>
-      <!-- 送信済みリスト -->
-      <div class="card">
-        <div class="card-title">送信済みお知らせ</div>
-        <div id="notices-sent-list"><div class="loading"><div class="spinner"></div>読み込み中...</div></div>
-      </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div class="fg"><label class="lbl">コース</label><select id="s-course"></select></div>
+      <div class="fg"><label class="lbl">連絡先</label><input id="s-tel" placeholder="090-0000-0000"></div>
     </div>
-
-    <!-- STUDENTS -->
-    <div class="page" id="page-students">
-      <div class="card">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
-          <div class="card-title" style="margin-bottom:0">登録済み生徒</div>
-          <input id="student-search" placeholder="名前で検索" oninput="renderMobileStudents()" style="width:130px;font-size:13px;padding:8px 10px">
-        </div>
-        <div id="students-list"><div class="loading"><div class="spinner"></div>読み込み中...</div></div>
-      </div>
+    <div id="s-note" style="font-size:12px;color:var(--text2);margin-bottom:10px"></div>
+    <button class="btn btn-p" onclick="tAddStudent()"><i class="ti ti-plus"></i> 登録する</button>
+  </div>
+  <div class="card">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+      <div class="ctitle" style="margin:0">登録済み生徒</div>
+      <input id="s-q" placeholder="名前で検索" oninput="tRenderStudents()" style="width:130px;font-size:13px;padding:8px 10px">
     </div>
+    <div id="t-stud-list"><div class="loading"><div class="spin"></div>読み込み中...</div></div>
+  </div>
+</div>
 
-  </div><!-- /content -->
+<!-- MORE (生徒ページ閲覧) -->
+<div class="page" id="page-more">
+  <div class="card">
+    <div class="ctitle">生徒ページを見る（講師）</div>
+    <div class="infobox"><i class="ti ti-shield-check" style="color:var(--blue)"></i> 講師モード — 全生徒のページにアクセスできます</div>
+    <div class="fg"><label class="lbl">閲覧する生徒</label>
+    <select id="tsv-sel" onchange="tLoadStudentView()"><option value="">— 選択してください —</option></select></div>
+    <div id="tsv-content" style="display:none">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+        <div class="avt" id="tsv-avatar" style="width:42px;height:42px;font-size:14px"></div>
+        <div><div style="font-size:16px;font-weight:700" id="tsv-name"></div><div style="font-size:12px;color:var(--text2)" id="tsv-info"></div></div>
+      </div>
+      <div style="display:flex;gap:0;border-bottom:1px solid var(--border);margin-bottom:14px">
+        <div class="tsv-tab on" id="tsvt-sch" onclick="tsvTab('sch')" style="flex:1;text-align:center;padding:10px 0;font-size:14px;font-weight:600;cursor:pointer;color:var(--blue);border-bottom:2px solid var(--blue)">日程</div>
+        <div class="tsv-tab" id="tsvt-abs" onclick="tsvTab('abs')" style="flex:1;text-align:center;padding:10px 0;font-size:14px;font-weight:600;cursor:pointer;color:var(--text2);border-bottom:2px solid transparent">欠席相談</div>
+        <div class="tsv-tab" id="tsvt-ntc" onclick="tsvTab('ntc')" style="flex:1;text-align:center;padding:10px 0;font-size:14px;font-weight:600;cursor:pointer;color:var(--text2);border-bottom:2px solid transparent">お知らせ</div>
+      </div>
+      <div id="tsv-sch"></div>
+      <div id="tsv-abs" style="display:none"></div>
+      <div id="tsv-ntc" style="display:none"></div>
+    </div>
+  </div>
+</div>
 
-  <!-- BOTTOM NAV -->
-  <nav class="bottom-nav" id="bottom-nav" style="display:none">
-    <button class="nav-btn active" id="nav-dashboard" onclick="switchTeacherPage('dashboard')">
-      <i class="ti ti-layout-dashboard"></i><span>ダッシュ</span>
-    </button>
-    <button class="nav-btn" id="nav-requests" onclick="switchTeacherPage('requests')">
-      <i class="ti ti-switch-horizontal"></i><span>振替相談</span>
-      <span class="nav-badge" id="req-nav-badge" style="display:none"></span>
-    </button>
-    <button class="nav-btn" id="nav-notices" onclick="switchTeacherPage('notices')">
-      <i class="ti ti-bell-ringing"></i><span>お知らせ</span>
-      <span class="nav-badge" id="notice-nav-badge" style="display:none"></span>
-    </button>
-    <button class="nav-btn" id="nav-students" onclick="switchTeacherPage('students')">
-      <i class="ti ti-users"></i><span>生徒</span>
-    </button>
-  </nav>
+</div><!-- /content -->
+
+<nav class="bnav" id="bnav" style="display:none">
+  <button class="nb on" id="nb-dashboard" onclick="tPage('dashboard')"><i class="ti ti-layout-dashboard"></i><span>ダッシュ</span></button>
+  <button class="nb" id="nb-schedule" onclick="tPage('schedule')"><i class="ti ti-layout-grid"></i><span>時間割</span></button>
+  <button class="nb" id="nb-requests" onclick="tPage('requests')"><i class="ti ti-switch-horizontal"></i><span>振替相談</span><span class="nb-dot" id="req-dot" style="display:none"></span></button>
+  <button class="nb" id="nb-notices" onclick="tPage('notices')"><i class="ti ti-bell-ringing"></i><span>お知らせ</span><span class="nb-dot" id="ntc-dot" style="display:none"></span></button>
+  <button class="nb" id="nb-more" onclick="tPage('more')"><i class="ti ti-dots"></i><span>その他</span></button>
+</nav>
+</div>
+
+<!-- EDIT MODAL -->
+<div id="edit-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:500;align-items:flex-end;justify-content:center">
+  <div style="background:var(--surface);border-radius:16px 16px 0 0;padding:20px 18px calc(20px + env(safe-area-inset-bottom));width:100%;max-height:85vh;overflow-y:auto">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+      <div style="font-size:16px;font-weight:700">生徒情報を編集</div>
+      <button onclick="closeEdit()" style="background:none;border:none;font-size:22px;color:var(--text2);cursor:pointer">×</button>
+    </div>
+    <input type="hidden" id="e-id">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div class="fg"><label class="lbl">氏名</label><input id="e-name"></div>
+      <div class="fg"><label class="lbl">ふりがな</label><input id="e-kana"></div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div class="fg"><label class="lbl">曜日</label>
+      <select id="e-day" onchange="tUpdateEditOpts()">
+        <option value="木">木曜日</option><option value="金">金曜日</option>
+        <option value="土">土曜日</option><option value="日">日曜日</option>
+      </select></div>
+      <div class="fg"><label class="lbl">時間</label><select id="e-time"></select></div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div class="fg"><label class="lbl">コース</label><select id="e-course"></select></div>
+      <div class="fg"><label class="lbl">連絡先</label><input id="e-tel"></div>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:6px">
+      <button class="btn btn-p" style="flex:1" onclick="tSaveEdit()"><i class="ti ti-check"></i> 保存</button>
+      <button class="btn" onclick="closeEdit()">キャンセル</button>
+    </div>
+  </div>
 </div>
 
 <script>
-const isConfigured = SUPABASE_URL !== 'YOUR_SUPABASE_URL'
-const sb = isConfigured ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null
+const isConfigured=SUPABASE_URL!=='YOUR_SUPABASE_URL'
+const sb=isConfigured?window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY):null
 
-let students=[], lessonDates={}, notices=[], requests=[], approvedAbsences=[], manualTransfers=[]
+/* ===== STATE ===== */
+let students=[],lessonDates={木:[],金:[],土:[],日:[]},tempDates={木:[],金:[],土:[],日:[]},manualTransfers=[],approvedAbsences=[],notices=[],trialLessons=[]
 let selectedMonth=new Date().getMonth()+1
-let noticeSelectedFiles=[]
+let nFiles=[]
 
-const AVATAR_COLORS=[['#DBEAFE','#1E40AF'],['#D1FAE5','#065F46'],['#FEF3C7','#92400E'],['#EDE9FE','#4C1D95'],['#FCE7F3','#9D174D'],['#E0F2FE','#0C447C']]
-function initials(n){const p=n.trim().split(/\s+/);return p.length>=2?p[0][0]+p[1][0]:n.slice(0,2)}
+const DAY_LIST=['木','金','土','日']
+const DAY_LABEL={木:'木曜日',金:'金曜日',土:'土曜日',日:'日曜日'}
+const AVATAR_COLORS=[['#E6F1FB','#0C447C'],['#EAF3DE','#27500A'],['#FAEEDA','#633806'],['#EEEDFE','#3C3489'],['#FCEBEB','#791F1F'],['#E0F2FE','#0C4A6E']]
+function ini(n){return n.replace(/\s/g,'').substring(0,2)}
+function sortD(a){return[...a].sort((x,y)=>{const px=x.split('/').map(Number),py=y.split('/').map(Number);return px[0]!==py[0]?px[0]-py[0]:px[1]-py[1]})}
+function canSel(s){return(s.day==='木'||s.day==='土')&&s.course===2}
+function getCourseOpts(day){
+  if(day==='木'||day==='土')return[{v:3,l:'月3回（固定）'},{v:2,l:'月2回（3回から選択）'}]
+  return[{v:2,l:'月2回（固定）'}]
+}
+function pad(n){return String(n).padStart(2,'0')}
+function genThuSat(){const s=[];let h=12,m=30;while(h<20||(h===20&&m===0)){const eh=m+30>=60?h+1:h,em=(m+30)%60;s.push(`${pad(h)}:${pad(m)}〜${pad(eh)}:${pad(em)}`);m+=30;if(m>=60){m-=60;h++;}}return s}
+function genFri(){const s=[];let h=12,m=30;while(true){const tot=h*60+m+45;if(tot>20*60)break;const eh=Math.floor((h*60+m+45)/60),em=(h*60+m+45)%60;s.push(`${pad(h)}:${pad(m)}〜${pad(eh)}:${pad(em)}`);m+=30;if(m>=60){m-=60;h++;}}return s}
+const THU_SAT_SLOTS=genThuSat(),FRI_SLOTS=genFri()
+const SUN_SLOTS=[{slot:'10:00〜10:30'},{slot:'10:30〜11:00'},{slot:'11:00〜11:30'},{slot:'11:30〜12:00'},{slot:'12:00〜12:30'},{slot:'12:30〜13:00'},{slot:'休憩',isBreak:true},{slot:'14:00〜14:30'},{slot:'14:30〜15:00'},{slot:'15:00〜15:30'},{slot:'15:30〜16:00'},{slot:'16:00〜16:30'},{slot:'16:30〜17:00'}]
+function buildMonthSelect(){return[1,2,3,4,5,6,7,8,9,10,11,12].map(m=>`<option value="${m}" ${selectedMonth==m?'selected':''}>${m}月</option>`).join('')}
 
-function toast(msg,isError=false){
-  const el=document.getElementById('toast')
-  el.textContent=msg
-  el.style.background=isError?'#B91C1C':'#185FA5'
-  el.style.opacity='1'
-  clearTimeout(el._t)
-  el._t=setTimeout(()=>el.style.opacity='0',2800)
+function toast(msg,isErr=false){
+  const t=document.getElementById('toast')
+  t.textContent=msg;t.style.background=isErr?'#B91C1C':'#185FA5';t.style.opacity='1'
+  clearTimeout(t._t);t._t=setTimeout(()=>t.style.opacity='0',2800)
 }
 
-// ===== DATA =====
-async function loadAll(){
-  if(!sb) return
-  const [studs,dates,reqs,approved,trs,notcs]=await Promise.all([
+/* ===== DATA ===== */
+async function tLoadAll(){
+  if(!sb)return
+  const[s,d,r,apr,tr,n,trl,sel]=await Promise.all([
     sb.from('students').select('*').order('day').order('time'),
     sb.from('lesson_dates').select('*').eq('month',selectedMonth),
     sb.from('requests').select('*').eq('status','pending'),
-    sb.from('requests').select('*').eq('status','approved').eq('month',selectedMonth),
+    sb.from('requests').select('*,students(name,day,time)').eq('status','approved').eq('month',selectedMonth),
     sb.from('manual_transfers').select('*').eq('month',selectedMonth),
-    sb.from('notices').select('*').order('created_at',{ascending:false})
+    sb.from('notices').select('*').order('created_at',{ascending:false}),
+    sb.from('trial_lessons').select('*').eq('month',selectedMonth),
+    sb.from('student_selections').select('*').eq('month',selectedMonth)
   ])
-  const sels=await sb.from('student_selections').select('*').eq('month',selectedMonth)
-
-  students=(studs.data||[]).map(s=>({
-    ...s,
-    selected:(sels.data||[]).filter(x=>x.student_id===s.id).map(x=>x.date),
-    requests:(reqs.data||[]).filter(x=>x.student_id===s.id)
+  students=(s.data||[]).map(st=>({...st,
+    selected:(sel.data||[]).filter(x=>x.student_id===st.id).map(x=>x.date),
+    requests:(r.data||[]).filter(x=>x.student_id===st.id)
   }))
-  lessonDates={}
-  ;(dates.data||[]).forEach(r=>{if(!lessonDates[r.day])lessonDates[r.day]=[];lessonDates[r.day].push(r.date)})
-  requests=reqs.data||[]
-  approvedAbsences=(approved.data||[]).map(r=>({id:r.id,studentId:r.student_id,date:r.date,day:r.day||'',time:r.time||'',type:r.type,note:r.note,month:r.month}))
-  manualTransfers=trs.data||[]
-  notices=notcs.data||[]
-  updateBadges()
-}
-function updateBadges(){
-  const reqCount=requests.length
-  document.getElementById('req-header-badge').style.display=reqCount>0?'inline':'none'
-  document.getElementById('req-nav-badge').style.display=reqCount>0?'block':'none'
-  const unreplied=notices.reduce((s,n)=>s+(n.comments||[]).filter(c=>!c.reply).length,0)
-  document.getElementById('notice-nav-badge').style.display=unreplied>0?'block':'none'
+  lessonDates={木:[],金:[],土:[],日:[]};(d.data||[]).forEach(x=>{if(lessonDates[x.day])lessonDates[x.day].push(x.date)});DAY_LIST.forEach(day=>{lessonDates[day]=sortD(lessonDates[day])})
+  tempDates={木:[...lessonDates['木']],金:[...lessonDates['金']],土:[...lessonDates['土']],日:[...lessonDates['日']]}
+  approvedAbsences=(apr.data||[]).map(x=>({id:x.id,studentId:x.student_id,studentName:x.students?.name||'',date:x.date,day:x.students?.day||'',time:x.students?.time||'',type:x.type||'欠席',note:x.note||'',month:selectedMonth}))
+  manualTransfers=(tr.data||[]).map(x=>({id:x.id,studentName:x.student_name,fromDate:x.from_date,fromTime:x.from_time,fromDay:x.from_day,toDate:x.to_date,toTime:x.to_time,toDay:x.to_day,month:x.month}))
+  notices=n.data||[]
+  trialLessons=(trl.data||[])
+  tUpdateBadges()
 }
 
-// ===== LOGIN =====
-async function doTeacherLogin(){
+function tUpdateBadges(){
+  const rc=students.reduce((a,s)=>a+s.requests.length,0)
+  document.getElementById('req-badge').style.display=rc>0?'inline':'none'
+  document.getElementById('req-dot').style.display=rc>0?'block':'none'
+  const uc=notices.reduce((a,n)=>a+(n.comments||[]).filter(c=>!c.reply).length,0)
+  document.getElementById('ntc-dot').style.display=uc>0?'block':'none'
+}
+
+/* ===== LOGIN ===== */
+async function doTLogin(){
   const pw=document.getElementById('teacher-pw').value
   if(!pw){toast('パスワードを入力してください',true);return}
-  document.getElementById('pw-error').style.display='none'
-
+  document.getElementById('pw-err').style.display='none'
   if(!sb){
-    // Supabase未設定時はデモ用
-    if(pw==='demo1234'){
-      document.getElementById('bottom-nav').style.display='flex'
-      switchTeacherPage('dashboard')
-    } else {
-      document.getElementById('pw-error').style.display='block'
-    }
+    if(pw==='demo1234'){tAfterLogin()}else{document.getElementById('pw-err').style.display='block'}
     return
   }
-
-  // 元のindex_url.htmlと同じ：Supabase RPC関数でパスワード照合
-  try {
-    const btn=document.querySelector('#page-login .btn-primary')
-    btn.textContent='確認中...'
-    btn.disabled=true
+  const btn=document.querySelector('#page-login .btn-p')
+  btn.textContent='確認中...'
+  btn.disabled=true
+  try{
     const{data,error}=await sb.rpc('check_teacher_password',{input_password:pw})
     btn.innerHTML='<i class="ti ti-login"></i> ログイン'
     btn.disabled=false
-    if(error) throw error
-    if(data===true||data==='t'||data==='true'||data==true){
-      document.getElementById('bottom-nav').style.display='flex'
-      await loadAll()
-      renderMobileNoticeStudentList()
-      switchTeacherPage('dashboard')
-    } else {
-      document.getElementById('pw-error').style.display='block'
-    }
-  } catch(e){
-    console.error('Auth error:',e)
-    document.getElementById('pw-error').style.display='block'
-    const btn=document.querySelector('#page-login .btn-primary')
-    if(btn){btn.innerHTML='<i class="ti ti-login"></i> ログイン';btn.disabled=false}
+    if(error)throw error
+    if(data===true||data==='t'||data==='true'||data==true){tAfterLogin()}
+    else{document.getElementById('pw-err').style.display='block'}
+  }catch(e){
+    btn.innerHTML='<i class="ti ti-login"></i> ログイン'
+    btn.disabled=false
+    document.getElementById('pw-err').style.display='block'
   }
 }
+async function tAfterLogin(){
+  document.getElementById('bnav').style.display='flex'
+  await tLoadAll()
+  tRenderNoticeStudentList()
+  tUpdateTimeOpts()
+  tPage('dashboard')
+}
 
-// ===== PAGES =====
-function switchTeacherPage(name){
-  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'))
-  document.getElementById('nav-'+name)?.classList.add('active')
+/* ===== PAGE SWITCH ===== */
+function tPage(name){
+  document.querySelectorAll('.nb').forEach(b=>b.classList.remove('on'))
+  document.getElementById('nb-'+name)?.classList.add('on')
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'))
   document.getElementById('page-'+name)?.classList.add('active')
   document.getElementById('main-content').scrollTop=0
-  if(name==='dashboard') renderMobileDash()
-  if(name==='requests') renderMobileRequests()
-  if(name==='notices') renderMobileNoticesSent()
-  if(name==='students') renderMobileStudents()
+  if(name==='dashboard')tRenderDash()
+  if(name==='schedule')tRenderSchedule()
+  if(name==='dates')tRenderDateBlocks()
+  if(name==='requests')tRenderRequests()
+  if(name==='notices')tRenderNoticesSent()
+  if(name==='students'){tRenderStudents();tUpdateTimeOpts()}
+  if(name==='more')tSetupStudentViewSel()
 }
 
-// ===== DASHBOARD =====
-function renderMobileDash(){
-  const total=students.length
-  const x3=students.filter(s=>s.course===3||s.day==='金'||s.day==='日').length
+/* ===== DASHBOARD ===== */
+function tRenderDash(){
+  const t=students.length,x3=students.filter(s=>s.course===3||s.day==='金'||s.day==='日').length
   const x2=students.filter(s=>s.course===2&&s.day!=='金'&&s.day!=='日').length
-  const reqCount=requests.length
-  document.getElementById('stat-grid').innerHTML=`
-    <div class="stat"><div class="stat-label"><i class="ti ti-users"></i> 生徒数</div><div class="stat-val">${total}</div></div>
-    <div class="stat"><div class="stat-label"><i class="ti ti-calendar-repeat"></i> 月3回</div><div class="stat-val">${x3}</div></div>
-    <div class="stat"><div class="stat-label"><i class="ti ti-calendar"></i> 月2回</div><div class="stat-val">${x2}</div></div>
-    <div class="stat"><div class="stat-label"><i class="ti ti-bell"></i> 振替相談</div><div class="stat-val" style="color:var(--red)">${reqCount}</div></div>`
-
-  const query=(document.getElementById('dash-search')?.value||'').toLowerCase()
+  const rc=students.reduce((a,s)=>a+s.requests.length,0)
+  document.getElementById('t-stats').innerHTML=`
+    <div class="stat"><div class="slbl"><i class="ti ti-users"></i> 生徒数</div><div class="sval">${t}</div></div>
+    <div class="stat"><div class="slbl"><i class="ti ti-calendar-repeat"></i> 月3回</div><div class="sval">${x3}</div></div>
+    <div class="stat"><div class="slbl"><i class="ti ti-calendar"></i> 月2回</div><div class="sval">${x2}</div></div>
+    <div class="stat"><div class="slbl"><i class="ti ti-bell"></i> 振替相談</div><div class="sval" style="color:var(--red)">${rc}</div></div>`
+  const q=(document.getElementById('dash-q')?.value||'').toLowerCase()
   const DAY_ORDER={木:0,金:1,土:2,日:3}
   let list=[...students].sort((a,b)=>DAY_ORDER[a.day]-DAY_ORDER[b.day]||a.time.localeCompare(b.time))
-  if(query) list=list.filter(s=>s.name.toLowerCase().includes(query)||(s.kana&&s.kana.toLowerCase().includes(query)))
-
-  if(!list.length){document.getElementById('dash-list').innerHTML='<div style="color:var(--text3);font-size:14px;padding:20px 0;text-align:center">生徒が見つかりません</div>';return}
-
-  document.getElementById('dash-list').innerHTML=list.map((s,i)=>{
+  if(q)list=list.filter(s=>s.name.toLowerCase().includes(q)||(s.kana&&s.kana.toLowerCase().includes(q)))
+  if(!list.length){document.getElementById('t-dash-list').innerHTML='<div style="color:var(--text3);font-size:14px;padding:20px 0;text-align:center">生徒が見つかりません</div>';return}
+  document.getElementById('t-dash-list').innerHTML=list.map(s=>{
     const [bg,fg]=AVATAR_COLORS[students.indexOf(s)%AVATAR_COLORS.length]
-    const hasReq=(s.requests||[]).length>0
-    const selDone=s.day==='土'&&s.course===2?s.selected.length>=2:true
-    const absCnt=approvedAbsences.filter(a=>a.studentId===s.id&&a.month===selectedMonth).length
-    return `<div class="student-row">
-      <div class="student-avatar" style="background:${bg};color:${fg}">${initials(s.name)}</div>
+    const hasReq=s.requests.length>0
+    const sel=canSel(s)
+    const status=s.course===3||s.day==='金'||s.day==='日'?'<span class="bdg b-green">固定</span>'
+      :sel&&s.selected.length>=2?'<span class="bdg b-blue">日程確定</span>'
+      :sel&&!(lessonDates[s.day]||[]).length?'<span class="bdg b-gray">日程未設定</span>'
+      :sel?'<span class="bdg b-amber">未選択</span>'
+      :'<span class="bdg b-purple">固定</span>'
+    const abs=approvedAbsences.filter(a=>a.studentId===s.id&&a.month===selectedMonth).length
+    return `<div class="srow">
+      <div class="avt" style="background:${bg};color:${fg}">${ini(s.name)}</div>
       <div style="flex:1;min-width:0">
-        <div class="student-name">${s.name}${hasReq?'<span style="margin-left:6px;font-size:10px;background:var(--red);color:#fff;border-radius:4px;padding:1px 5px;font-weight:600">申請</span>':''}</div>
-        <div class="student-info">${s.day}曜 ${s.time} / 月${s.course}回</div>
+        <div style="font-weight:700;font-size:14px">${s.name}${hasReq?'<span style="margin-left:6px;font-size:10px;background:var(--red);color:#fff;border-radius:4px;padding:1px 5px">申請</span>':''}</div>
+        <div style="font-size:12px;color:var(--text2)">${s.day}曜 ${s.time} / 月${s.course}回</div>
       </div>
-      <div style="text-align:right;flex-shrink:0">
-        ${absCnt?`<div class="badge b-red" style="font-size:10px;margin-bottom:3px">欠席${absCnt}回</div>`:''}
-        ${s.day==='土'&&s.course===2?`<div class="badge ${selDone?'b-green':'b-amber'}" style="font-size:10px">${selDone?'選択済':'未選択'}</div>`:`<div class="badge b-gray" style="font-size:10px">固定</div>`}
+      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0">
+        ${status}
+        ${abs?`<span class="bdg b-red" style="font-size:10px">欠席${abs}回</span>`:''}
       </div>
     </div>`
   }).join('')
 }
 
-// ===== REQUESTS =====
-function renderMobileRequests(){
-  if(!requests.length){
-    document.getElementById('requests-list').innerHTML='<div style="text-align:center;color:var(--text3);font-size:14px;padding:28px">振替相談はありません</div>'
-    return
+/* ===== SCHEDULE ===== */
+function tRenderSchedule(){
+  const day=document.getElementById('sched-day-sel')?.value||'木'
+  const dates=sortD(lessonDates[day]||[])
+  const el=document.getElementById('t-sched-content')
+  if(!dates.length){el.innerHTML='<div class="card" style="text-align:center;color:var(--text3);padding:24px">「日程設定」で日程を登録してください</div>';return}
+  const slots=day==='日'?SUN_SLOTS:day==='金'?FRI_SLOTS.map(s=>({slot:s})):THU_SAT_SLOTS.map(s=>({slot:s}))
+  let html=''
+  dates.forEach(date=>{
+    html+=`<div class="card"><div style="font-weight:700;font-size:15px;margin-bottom:12px;color:var(--blue)">${date}（${day}）</div>`
+    slots.forEach(({slot,isBreak})=>{
+      if(isBreak){html+=`<div style="text-align:center;font-size:12px;color:var(--text3);padding:6px 0;border-bottom:1px solid var(--border)">— 休憩 —</div>`;return}
+      const normal=students.filter(s=>s.day===day&&s.time===slot&&(s.course===3||s.day==='金'||s.day==='日'||(lessonDates[s.day]||[]).includes(date))).filter(s=>{
+        if(canSel(s))return s.selected.includes(date)
+        return(lessonDates[s.day]||[]).includes(date)
+      }).filter(s=>{
+        const absD=approvedAbsences.filter(a=>a.studentId===s.id&&a.month===selectedMonth).map(a=>a.date)
+        return!absD.includes(date)
+      }).map(s=>({name:s.name,studentId:s.id}))
+      const transfers=manualTransfers.filter(t=>t.toDay===day&&t.toDate===date&&t.toTime===slot&&t.month===selectedMonth)
+      const trials=trialLessons.filter(t=>t.day===day&&t.date===date&&t.time===slot&&t.month===selectedMonth)
+      const all=[...normal,...transfers.map(t=>({name:t.studentName+'（振替）',isTransfer:true,id:t.id})),...trials.map(t=>({name:'体験'+(t.memo?'：'+t.memo.substring(0,6):''),isTrial:true,id:t.id}))]
+      html+=`<div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--border)">
+        <div style="font-size:12px;color:var(--text2);width:80px;flex-shrink:0">${slot}</div>
+        <div style="flex:1;display:flex;flex-wrap:wrap;gap:4px">`
+      if(all.length){
+        all.forEach(e=>{
+          const bg=e.isTransfer?'#D1D5DB':e.isTrial?'#7DD3FC':'var(--green-l)'
+          const cl=e.isTransfer?'#374151':e.isTrial?'#0C4A6E':'var(--green)'
+          html+=`<span style="background:${bg};color:${cl};font-size:12px;font-weight:600;padding:3px 8px;border-radius:5px">${e.name}</span>`
+        })
+      }else{
+        html+='<span style="font-size:12px;color:var(--text3)">空き</span>'
+      }
+      html+=`</div></div>`
+    })
+    html+=`</div>`
+  })
+  el.innerHTML=html
+}
+
+/* ===== LESSON DATES ===== */
+function tRenderDateBlocks(){
+  document.getElementById('t-date-blocks').innerHTML=DAY_LIST.map(day=>`
+    <div style="margin-bottom:16px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+        <div style="font-weight:700;font-size:14px">${DAY_LABEL[day]}</div>
+        <span class="bdg b-blue" id="dcnt-${day}">${tempDates[day].length}日設定済</span>
+      </div>
+      <div id="dtags-${day}">${tRenderTags(day)}</div>
+      <div style="display:flex;gap:8px;margin-top:8px">
+        <input id="dinp-${day}" placeholder="例：6/5" style="flex:1;font-size:14px;padding:9px 12px">
+        <button class="btn btn-sm btn-p" onclick="tAddDate('${day}')"><i class="ti ti-plus"></i> 追加</button>
+      </div>
+    </div>`).join('')
+}
+function tRenderTags(day){
+  return(tempDates[day]||[]).map((d,i)=>`<span class="dtag">${d}（${day}）<span class="rm" onclick="tRemDate('${day}',${i})">×</span></span>`).join('')||'<span style="font-size:13px;color:var(--text3)">未設定</span>'
+}
+function tAddDate(day){
+  const inp=document.getElementById('dinp-'+day),val=inp.value.trim();if(!val)return
+  if(tempDates[day].includes(val)){toast('すでに追加済みです',true);return}
+  tempDates[day].push(val);inp.value=''
+  document.getElementById('dtags-'+day).innerHTML=tRenderTags(day)
+  document.getElementById('dcnt-'+day).textContent=tempDates[day].length+'日設定済'
+}
+function tRemDate(day,i){
+  tempDates[day].splice(i,1)
+  document.getElementById('dtags-'+day).innerHTML=tRenderTags(day)
+  document.getElementById('dcnt-'+day).textContent=tempDates[day].length+'日設定済'
+}
+async function tSaveDates(){
+  if(!sb){toast('Supabaseが未設定です',true);return}
+  await sb.from('lesson_dates').delete().eq('month',selectedMonth)
+  const rows=[];DAY_LIST.forEach(day=>tempDates[day].forEach(date=>rows.push({day,date,month:selectedMonth})))
+  if(rows.length)await sb.from('lesson_dates').insert(rows)
+  for(const s of students){
+    if(s.course===3||s.day==='金'||s.day==='日'){
+      await sb.from('student_selections').delete().eq('student_id',s.id).eq('month',selectedMonth)
+      const ns=(tempDates[s.day]||[]).map(date=>({student_id:s.id,date,month:selectedMonth}))
+      if(ns.length)await sb.from('student_selections').insert(ns)
+      s.selected=tempDates[s.day]||[]
+    }
   }
-  document.getElementById('requests-list').innerHTML=requests.map(r=>`
-    <div class="req-card">
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">
-        <div style="font-size:16px;font-weight:700">${r.student_name}</div>
-        <span class="badge b-amber">${r.type}</span>
+  DAY_LIST.forEach(day=>{lessonDates[day]=[...tempDates[day]]})
+  toast('日程を保存しました。生徒ページに反映されました。')
+}
+
+/* ===== REQUESTS ===== */
+function tRenderRequests(){
+  const pending=students.flatMap(s=>s.requests.map(r=>({...r,sname:s.name,sid:s.id})))
+  const approved=approvedAbsences.filter(a=>a.month===selectedMonth)
+  if(!pending.length&&!approved.length){document.getElementById('t-req-list').innerHTML='<div style="text-align:center;color:var(--text3);font-size:14px;padding:24px">相談はまだありません</div>';return}
+  let html=''
+  if(pending.length){
+    html+=`<div class="sdiv">未対応（${pending.length}件）</div>`
+    html+=pending.map(r=>`<div class="reqcard">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px">
+        <div style="font-size:16px;font-weight:700">${r.sname}</div>
+        <span class="bdg b-amber">${r.type}</span>
       </div>
       <div style="font-size:14px;font-weight:600;margin-bottom:4px">${r.date}</div>
       <div style="font-size:13px;color:var(--amber);margin-bottom:12px">「${r.note}」</div>
       <div style="display:flex;gap:8px">
-        <button class="btn btn-primary btn-sm" style="flex:1;background:var(--green);border-color:var(--green)" onclick="approveRequest('${r.id}','${r.student_id}')">
-          <i class="ti ti-check"></i> 承認
-        </button>
-        <button class="btn btn-sm btn-danger" style="flex:1" onclick="rejectRequest('${r.id}','${r.student_id}')">
-          <i class="ti ti-x"></i> 却下
-        </button>
+        <button class="btn btn-g btn-sm" style="flex:1" onclick="tApprove('${r.id}','${r.sid}')"><i class="ti ti-check"></i> 承認</button>
+        <button class="btn btn-r btn-sm" style="flex:1" onclick="tReject('${r.id}','${r.sid}')"><i class="ti ti-x"></i> 却下</button>
       </div>
     </div>`).join('')
+  }
+  if(approved.length){
+    html+=`<div class="sdiv">承認済み（${approved.length}件）</div>`
+    html+=approved.map(a=>`<div style="border:1px solid var(--green-l);border-radius:var(--rs);padding:12px;margin-bottom:8px;background:var(--green-l)">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+        <span style="font-size:14px;font-weight:700">${a.studentName}</span>
+        <span class="bdg b-green">承認済み</span>
+      </div>
+      <div style="font-size:14px;font-weight:600;margin-bottom:3px">${a.date}</div>
+      <div style="font-size:13px;color:var(--green)">${a.type}</div>
+      <button class="btn btn-sm" style="margin-top:8px;font-size:12px" onclick="tCancelApprove('${a.id}')"><i class="ti ti-x"></i> 取り消す</button>
+    </div>`).join('')
+  }
+  document.getElementById('t-req-list').innerHTML=html
 }
 
-async function approveRequest(id, studentId){
-  const r=requests.find(x=>x.id===id); if(!r) return
-  if(sb) await sb.from('requests').update({status:'approved'}).eq('id',id)
-  requests=requests.filter(x=>x.id!==id)
-  const s=students.find(x=>x.id===studentId)
-  if(s){s.requests=s.requests.filter(x=>x.id!==id)}
-  approvedAbsences.push({id,studentId,date:r.date,day:r.day||s?.day||'',time:r.time||s?.time||'',type:r.type,note:r.note,month:selectedMonth})
-  toast('承認しました')
-  updateBadges()
-  renderMobileRequests()
+async function tApprove(id,sid){
+  const s=students.find(x=>x.id===sid);const r=s?.requests.find(x=>x.id===id);if(!r)return
+  if(sb)await sb.from('requests').update({status:'approved',month:selectedMonth}).eq('id',id)
+  s.requests=s.requests.filter(x=>x.id!==id)
+  approvedAbsences.push({id,studentId:sid,studentName:s.name,date:r.date,day:s.day,time:s.time,type:r.type,note:r.note||'',month:selectedMonth})
+  toast('承認しました');tUpdateBadges();tRenderRequests();tRenderDash()
 }
-async function rejectRequest(id, studentId){
-  if(sb) await sb.from('requests').delete().eq('id',id)
-  requests=requests.filter(x=>x.id!==id)
-  const s=students.find(x=>x.id===studentId)
-  if(s) s.requests=s.requests.filter(x=>x.id!==id)
-  toast('却下しました')
-  updateBadges()
-  renderMobileRequests()
+async function tReject(id,sid){
+  if(sb)await sb.from('requests').delete().eq('id',id)
+  const s=students.find(x=>x.id===sid);if(s)s.requests=s.requests.filter(x=>x.id!==id)
+  toast('却下しました');tUpdateBadges();tRenderRequests();tRenderDash()
+}
+async function tCancelApprove(id){
+  approvedAbsences=approvedAbsences.filter(a=>a.id!==id)
+  if(sb)await sb.from('requests').update({status:'pending'}).eq('id',id)
+  await tLoadAll();tRenderRequests();toast('取り消しました')
 }
 
-// ===== NOTICES =====
-function renderMobileNoticeStudentList(){
-  const el=document.getElementById('notice-student-list'); if(!el) return
+/* ===== NOTICES ===== */
+function tRenderNoticeStudentList(){
+  const el=document.getElementById('n-stud-list');if(!el)return
   const DAY_ORDER={木:0,金:1,土:2,日:3}
   const list=[...students].sort((a,b)=>DAY_ORDER[a.day]-DAY_ORDER[b.day]||a.time.localeCompare(b.time))
-  el.innerHTML=list.map(s=>`
-    <label style="display:flex;align-items:center;gap:10px;padding:10px 4px;border-bottom:1px solid var(--border);cursor:pointer">
-      <input type="checkbox" class="notice-cb" value="${s.id}" data-name="${s.name}" checked style="width:20px;height:20px;cursor:pointer">
-      <span style="font-size:14px;font-weight:600">${s.name}</span>
-      <span style="font-size:12px;color:var(--text2);margin-left:auto">${s.day}曜 ${s.time}</span>
-    </label>`).join('')
-  updateNoticeCount()
+  el.innerHTML=list.map(s=>`<label style="display:flex;align-items:center;gap:10px;padding:9px 4px;border-bottom:1px solid var(--border);cursor:pointer">
+    <input type="checkbox" class="ncb" value="${s.id}" data-name="${s.name}" checked style="width:18px;height:18px;cursor:pointer">
+    <span style="font-size:14px;font-weight:600">${s.name}</span>
+    <span style="font-size:12px;color:var(--text2);margin-left:auto">${s.day}曜 ${s.time}</span>
+  </label>`).join('')
+  tUpdateNCount()
 }
-function selectAllStudents(checked){
-  document.querySelectorAll('.notice-cb').forEach(cb=>cb.checked=checked)
-  updateNoticeCount()
-}
-function updateNoticeCount(){
-  const total=document.querySelectorAll('.notice-cb').length
-  const sel=document.querySelectorAll('.notice-cb:checked').length
-  document.getElementById('notice-count').textContent=`${sel} / ${total} 名選択中`
+function tSelAll(v){document.querySelectorAll('.ncb').forEach(c=>c.checked=v);tUpdateNCount()}
+function tUpdateNCount(){
+  const t=document.querySelectorAll('.ncb').length,s=document.querySelectorAll('.ncb:checked').length
+  document.getElementById('n-sel-count').textContent=`${s} / ${t} 名選択中`
 }
 
-document.getElementById('notice-file-input')?.addEventListener('change',function(){
-  const newFiles=Array.from(this.files||[])
-  newFiles.forEach(f=>{
-    const valid=f.name.toLowerCase().endsWith('.pdf')||f.name.toLowerCase().endsWith('.mp3')
-    if(!valid){toast(f.name+'はPDF/mp3のみ対応',true);return}
-    if(f.size>20*1024*1024){toast(f.name+'は20MB超えです',true);return}
-    if(!noticeSelectedFiles.find(x=>x.name===f.name)) noticeSelectedFiles.push(f)
-  })
-  renderNoticeFilePreview()
-})
-function renderNoticeFilePreview(){
-  const el=document.getElementById('notice-file-preview'); if(!el) return
-  if(!noticeSelectedFiles.length){el.innerHTML='';return}
-  el.innerHTML=noticeSelectedFiles.map((f,i)=>`
-    <div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--bg);border-radius:6px;margin-bottom:6px">
-      <i class="ti ${f.name.endsWith('.mp3')?'ti-music':'ti-file-type-pdf'}" style="color:var(--blue);font-size:18px"></i>
-      <span style="flex:1;font-size:13px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${f.name}</span>
-      <button onclick="removeNoticeFile(${i})" style="background:none;border:none;color:var(--red);font-size:16px;cursor:pointer;flex-shrink:0">×</button>
-    </div>`).join('')
-}
-function removeNoticeFile(i){noticeSelectedFiles.splice(i,1);renderNoticeFilePreview()}
-
-async function uploadNoticeFiles(noticeId){
-  const uploaded=[]
-  for(const file of noticeSelectedFiles){
-    const path=noticeId+'/'+Date.now()+'_'+file.name
-    const{error}=await sb.storage.from('notice-files').upload(path,file)
-    if(error){toast(file.name+'のアップロードに失敗しました',true);continue}
-    const{data:urlData}=sb.storage.from('notice-files').getPublicUrl(path)
-    uploaded.push({name:file.name,path,url:urlData.publicUrl,size:file.size})
+async function tUploadFiles(nid){
+  const up=[]
+  for(const f of nFiles){
+    const p=nid+'/'+Date.now()+'_'+f.name
+    const{error}=await sb.storage.from('notice-files').upload(p,f)
+    if(error){toast(f.name+'のアップロードに失敗しました',true);continue}
+    const{data:u}=sb.storage.from('notice-files').getPublicUrl(p)
+    up.push({name:f.name,path:p,url:u.publicUrl,size:f.size})
   }
-  return uploaded
+  return up
 }
 
-async function sendMobileNotice(){
-  const title=document.getElementById('notice-title').value.trim()
-  const body=document.getElementById('notice-body').value.trim()
+function tRenderFilePrev(){
+  const el=document.getElementById('n-file-prev');if(!el)return
+  if(!nFiles.length){el.innerHTML='';return}
+  el.innerHTML=nFiles.map((f,i)=>`<div style="display:flex;align-items:center;gap:8px;padding:7px 10px;background:var(--bg);border-radius:6px;margin-bottom:5px">
+    <i class="ti ${f.name.endsWith('.mp3')?'ti-music':'ti-file-type-pdf'}" style="color:var(--blue);font-size:17px"></i>
+    <span style="flex:1;font-size:13px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${f.name}</span>
+    <button onclick="nFiles.splice(${i},1);tRenderFilePrev()" style="background:none;border:none;color:var(--red);font-size:18px;cursor:pointer">×</button>
+  </div>`).join('')
+}
+
+async function tSendNotice(){
+  const title=document.getElementById('n-title').value.trim()
+  const body=document.getElementById('n-body').value.trim()
   if(!title||!body){toast('タイトルと本文を入力してください',true);return}
-  const cbs=document.querySelectorAll('.notice-cb:checked')
+  const cbs=document.querySelectorAll('.ncb:checked')
   if(!cbs.length){toast('送信先を選択してください',true);return}
-  const targetIds=Array.from(cbs).map(c=>c.value)
-  const targetNames=Array.from(cbs).map(c=>c.dataset.name)
-  const expiresAt=new Date(Date.now()+14*24*60*60*1000).toISOString()
-  const notice={title,body,month:selectedMonth,target_ids:targetIds,target_names:targetNames,confirmed_by:[],comments:[],files:[],expires_at:expiresAt}
+  const tids=Array.from(cbs).map(c=>c.value),tnms=Array.from(cbs).map(c=>c.dataset.name)
+  const exAt=new Date(Date.now()+14*24*60*60*1000).toISOString()
+  const notice={title,body,month:selectedMonth,target_ids:tids,target_names:tnms,confirmed_by:[],comments:[],files:[],expires_at:exAt}
   if(sb){
     const{data,error}=await sb.from('notices').insert([notice]).select().single()
     if(error){toast('送信に失敗しました',true);return}
-    if(data) notice.id=data.id
-    if(noticeSelectedFiles.length){
+    if(data)notice.id=data.id
+    if(nFiles.length){
       toast('ファイルをアップロード中...')
-      const files=await uploadNoticeFiles(notice.id)
+      const files=await tUploadFiles(notice.id)
       notice.files=files
       await sb.from('notices').update({files}).eq('id',notice.id)
-      const{data:fresh}=await sb.from('notices').select('*').eq('id',notice.id).single()
-      if(fresh) Object.assign(notice,fresh)
+      const{data:fr}=await sb.from('notices').select('*').eq('id',notice.id).single()
+      if(fr)Object.assign(notice,fr)
     }
-  } else {
-    notice.id='n_'+Date.now()
-  }
+  }else{notice.id='n_'+Date.now()}
   notices.unshift(notice)
-  document.getElementById('notice-title').value=''
-  document.getElementById('notice-body').value=''
-  noticeSelectedFiles=[]
-  renderNoticeFilePreview()
-  toast(targetNames.length+'名にお知らせを送信しました')
-  renderMobileNoticesSent()
-  updateBadges()
+  document.getElementById('n-title').value=''
+  document.getElementById('n-body').value=''
+  nFiles=[];tRenderFilePrev()
+  toast(tnms.length+'名にお知らせを送信しました')
+  tRenderNoticesSent();tUpdateBadges()
 }
 
-function renderMobileNoticesSent(){
-  if(!notices.length){
-    document.getElementById('notices-sent-list').innerHTML='<div style="text-align:center;color:var(--text3);font-size:14px;padding:20px">まだお知らせはありません</div>'
-    return
-  }
-  document.getElementById('notices-sent-list').innerHTML=notices.map(n=>{
-    const unread=n.target_names?.filter(name=>{
-      const s=students.find(x=>x.name===name)
-      return s&&!(n.confirmed_by||[]).includes(s.id)
-    }).length||0
-    const unreplied=(n.comments||[]).filter(c=>!c.reply).length
-    const commentsHtml=(n.comments||[]).map(c=>{
+function tRenderNoticesSent(){
+  if(!notices.length){document.getElementById('n-sent-list').innerHTML='<div style="text-align:center;color:var(--text3);font-size:14px;padding:20px">まだお知らせはありません</div>';return}
+  document.getElementById('n-sent-list').innerHTML=notices.map(n=>{
+    const unread=n.target_names?.filter(name=>{const s=students.find(x=>x.name===name);return s&&!(n.confirmed_by||[]).includes(s.id)}).length||0
+    const ur=(n.comments||[]).filter(c=>!c.reply).length
+    const filesHtml=(n.files&&n.files.length)?n.files.map(f=>`<a href="${f.url}" target="_blank" class="flink"><i class="ti ${f.name.endsWith('.mp3')?'ti-music':'ti-file-type-pdf'}"></i><span style="flex:1;font-size:13px;font-weight:600">${f.name}</span><i class="ti ti-external-link" style="font-size:13px"></i></a>`).join(''):''
+    const cmtsHtml=(n.comments||[]).map(c=>{
       const s=students.find(x=>x.id===c.student_id)
-      return `<div class="notice-reply-box" style="margin-bottom:8px">
-        <div style="font-weight:700;font-size:13px;margin-bottom:4px">${s?.name||'生徒'}</div>
+      return `<div class="cmt-box">
+        <div style="font-weight:700;font-size:13px;margin-bottom:3px">${s?.name||'生徒'}</div>
         <div style="font-size:13px">${c.text}</div>
         ${c.reply
-          ?`<div style="margin-top:6px;padding:8px;background:var(--blue-light);border-radius:6px;font-size:13px"><span style="font-weight:700;color:var(--blue-dark)">返信：</span>${c.reply}</div>`
+          ?`<div style="margin-top:6px;padding:8px;background:var(--blue-l);border-radius:6px;font-size:13px"><span style="font-weight:700;color:var(--blue-d)">返信：</span>${c.reply}
+              <button onclick="tDelReply('${n.id}','${c.student_id}')" style="background:none;border:none;color:var(--red);font-size:11px;cursor:pointer;margin-left:6px">取消</button>
+            </div>`
           :`<div style="display:flex;gap:6px;margin-top:8px">
-              <input id="reply-${n.id}-${c.student_id}" placeholder="返信を入力..." style="flex:1;font-size:13px;padding:8px 10px">
-              <button class="btn btn-sm btn-primary" onclick="sendReplyMobile('${n.id}','${c.student_id}')">返信</button>
+              <input id="rp-${n.id}-${c.student_id}" placeholder="返信を入力..." style="flex:1;font-size:13px;padding:8px 10px">
+              <button class="btn btn-sm btn-p" onclick="tSendReply('${n.id}','${c.student_id}')">返信</button>
             </div>`
         }
       </div>`
     }).join('')
-    const filesHtml=(n.files&&n.files.length)?n.files.map(f=>`
-      <a href="${f.url}" target="_blank" class="file-link">
-        <i class="ti ${f.name.endsWith('.mp3')?'ti-music':'ti-file-type-pdf'}"></i>
-        <span style="flex:1;font-size:13px;font-weight:600">${f.name}</span>
-        <i class="ti ti-external-link" style="font-size:14px"></i>
-      </a>`).join(''):''
-
-    return `<div class="notice-item">
-      <div class="notice-item-title">${n.title}</div>
-      <div class="notice-item-meta">
-        ${n.target_names?.length}名に送信
-        ${unread>0?`<span class="badge b-amber" style="margin-left:6px">${unread}名未確認</span>`:'<span class="badge b-green" style="margin-left:6px">全員確認済み</span>'}
-        ${unreplied>0?`<span class="badge b-red" style="margin-left:4px">${unreplied}件未返信</span>`:''}
+    return `<div style="border-bottom:1px solid var(--border);padding-bottom:14px;margin-bottom:14px">
+      <div style="font-size:15px;font-weight:700;margin-bottom:4px">${n.title}</div>
+      <div style="font-size:12px;color:var(--text2);margin-bottom:8px">
+        ${n.target_names?.length||0}名に送信
+        ${unread>0?`<span class="bdg b-amber" style="margin-left:6px">${unread}名未確認</span>`:'<span class="bdg b-green" style="margin-left:6px">全員確認済み</span>'}
+        ${ur>0?`<span class="bdg b-red" style="margin-left:4px">${ur}件未返信</span>`:''}
       </div>
       ${filesHtml}
-      ${commentsHtml}
-      <button class="btn btn-sm" style="color:var(--red);border-color:#F7C1C1;font-size:12px;margin-top:6px" onclick="deleteMobileNotice('${n.id}')">
-        <i class="ti ti-trash"></i> 削除
-      </button>
+      ${cmtsHtml}
+      <button class="btn btn-sm" style="color:var(--red);border-color:#F7C1C1;font-size:12px" onclick="tDelNotice('${n.id}')"><i class="ti ti-trash"></i> 削除</button>
     </div>`
   }).join('')
 }
 
-async function sendReplyMobile(noticeId, studentId){
-  const input=document.getElementById(`reply-${noticeId}-${studentId}`)
-  const text=input?.value.trim(); if(!text) return
-  const n=notices.find(x=>x.id===noticeId); if(!n) return
-  const c=n.comments.find(x=>x.student_id===studentId); if(!c) return
+async function tSendReply(nid,sid){
+  const inp=document.getElementById(`rp-${nid}-${sid}`)
+  const text=inp?.value.trim();if(!text){toast('返信内容を入力してください',true);return}
+  const n=notices.find(x=>x.id===nid);if(!n)return
+  const c=(n.comments||[]).find(x=>x.student_id===sid);if(!c)return
   c.reply=text
-  if(sb) await sb.from('notices').update({comments:n.comments}).eq('id',noticeId)
-  toast('返信しました')
-  updateBadges()
-  renderMobileNoticesSent()
+  if(sb)await sb.from('notices').update({comments:n.comments}).eq('id',nid)
+  toast('返信しました');tUpdateBadges();tRenderNoticesSent()
 }
-async function deleteMobileNotice(id){
-  if(!confirm('このお知らせを削除しますか？')) return
+async function tDelReply(nid,sid){
+  const n=notices.find(x=>x.id===nid);if(!n)return
+  const c=(n.comments||[]).find(x=>x.student_id===sid);if(!c)return
+  delete c.reply
+  if(sb)await sb.from('notices').update({comments:n.comments}).eq('id',nid)
+  toast('返信を取り消しました');tRenderNoticesSent()
+}
+async function tDelNotice(id){
+  if(!confirm('このお知らせを削除しますか？'))return
   notices=notices.filter(n=>n.id!==id)
-  if(sb) await sb.from('notices').delete().eq('id',id)
-  toast('削除しました')
-  renderMobileNoticesSent()
+  if(sb)await sb.from('notices').delete().eq('id',id)
+  toast('削除しました');tRenderNoticesSent()
 }
 
-// ===== STUDENTS =====
-function renderMobileStudents(){
-  const query=(document.getElementById('student-search')?.value||'').toLowerCase()
+/* ===== STUDENTS ===== */
+function tUpdateTimeOpts(){
+  const day=document.getElementById('s-day')?.value||'木'
+  const slots=day==='日'?SUN_SLOTS.filter(x=>!x.isBreak).map(x=>x.slot):day==='金'?FRI_SLOTS:THU_SAT_SLOTS
+  const sel=document.getElementById('s-time');if(sel)sel.innerHTML=slots.map(s=>`<option>${s}</option>`).join('')
+  const csel=document.getElementById('s-course');if(csel)csel.innerHTML=getCourseOpts(day).map(o=>`<option value="${o.v}">${o.l}</option>`).join('')
+  const note=document.getElementById('s-note');if(note)note.textContent=(day==='金'||day==='日')?'※ 金・日は月2回固定です。':'※ 木・土の月3回は全日程固定。月2回は候補から2日選択。'
+}
+function tRenderStudents(){
+  const q=(document.getElementById('s-q')?.value||'').toLowerCase()
   const DAY_ORDER={木:0,金:1,土:2,日:3}
   let list=[...students].sort((a,b)=>DAY_ORDER[a.day]-DAY_ORDER[b.day]||a.time.localeCompare(b.time))
-  if(query) list=list.filter(s=>s.name.toLowerCase().includes(query)||(s.kana&&s.kana.toLowerCase().includes(query)))
-  if(!list.length){document.getElementById('students-list').innerHTML='<div style="color:var(--text3);font-size:14px;padding:20px 0;text-align:center">生徒が見つかりません</div>';return}
-  document.getElementById('students-list').innerHTML=list.map((s,i)=>{
-    const [bg,fg]=AVATAR_COLORS[students.indexOf(s)%AVATAR_COLORS.length]
-    return `<div class="student-row">
-      <div class="student-avatar" style="background:${bg};color:${fg}">${initials(s.name)}</div>
+  if(q)list=list.filter(s=>s.name.toLowerCase().includes(q)||(s.kana&&s.kana.toLowerCase().includes(q)))
+  if(!list.length){document.getElementById('t-stud-list').innerHTML='<div style="color:var(--text3);font-size:14px;padding:20px 0;text-align:center">生徒が見つかりません</div>';return}
+  document.getElementById('t-stud-list').innerHTML=list.map(s=>{
+    const[bg,fg]=AVATAR_COLORS[students.indexOf(s)%AVATAR_COLORS.length]
+    return`<div class="srow">
+      <div class="avt" style="background:${bg};color:${fg}">${ini(s.name)}</div>
       <div style="flex:1;min-width:0">
-        <div class="student-name">${s.name}</div>
-        <div class="student-info">${s.kana||''}</div>
-        <div class="student-info">${s.day}曜日 ${s.time} / 月${s.course}回</div>
+        <div style="font-weight:700;font-size:14px">${s.name}<span style="font-size:12px;color:var(--text2);font-weight:400;margin-left:6px">${s.kana||''}</span></div>
+        <div style="font-size:12px;color:var(--text2)">${s.day}曜 ${s.time} / 月${s.course}回${s.tel?' / '+s.tel:''}</div>
       </div>
-      <div style="text-align:right;flex-shrink:0">
-        <div style="font-size:12px;color:var(--text2)">${s.tel||''}</div>
+      <div style="display:flex;gap:6px;flex-shrink:0">
+        <button class="btn btn-sm" onclick="tOpenEdit('${s.id}')"><i class="ti ti-edit"></i></button>
+        <button class="btn btn-sm" style="color:var(--red);border-color:#F7C1C1" onclick="tDeleteStudent('${s.id}')"><i class="ti ti-trash"></i></button>
       </div>
     </div>`
   }).join('')
 }
+async function tAddStudent(){
+  const name=document.getElementById('s-name').value.trim()
+  if(!name){toast('氏名を入力してください',true);return}
+  if(students.find(s=>s.name===name)){toast('同名の生徒が既に登録されています',true);return}
+  const kana=document.getElementById('s-kana').value.trim()
+  const day=document.getElementById('s-day').value
+  const time=document.getElementById('s-time').value
+  const course=parseInt(document.getElementById('s-course').value)
+  const tel=document.getElementById('s-tel').value.trim()
+  if(!sb){toast('Supabaseが未設定です',true);return}
+  const{data,error}=await sb.from('students').insert([{name,kana,day,time,course,tel}]).select().single()
+  if(error){toast('登録に失敗しました',true);return}
+  if(course===3||day==='金'||day==='日'){
+    const sel=(lessonDates[day]||[]).map(date=>({student_id:data.id,date,month:selectedMonth}))
+    if(sel.length)await sb.from('student_selections').insert(sel)
+    data.selected=lessonDates[day]||[]
+  }else{data.selected=[]}
+  data.requests=[]
+  students.push(data)
+  ;['s-name','s-kana','s-tel'].forEach(i=>document.getElementById(i).value='')
+  tRenderStudents();toast(name+'さんを登録しました')
+}
+async function tDeleteStudent(id){
+  if(!confirm('この生徒を削除しますか？'))return
+  if(sb)await sb.from('students').delete().eq('id',id)
+  students=students.filter(s=>s.id!==id)
+  tRenderStudents();toast('削除しました')
+}
+function tOpenEdit(id){
+  const s=students.find(x=>x.id===id);if(!s)return
+  document.getElementById('e-id').value=s.id
+  document.getElementById('e-name').value=s.name
+  document.getElementById('e-kana').value=s.kana||''
+  document.getElementById('e-day').value=s.day
+  document.getElementById('e-tel').value=s.tel||''
+  tUpdateEditOpts()
+  document.getElementById('e-time').value=s.time
+  document.getElementById('e-course').value=String(s.course)
+  document.getElementById('edit-modal').style.display='flex'
+}
+function tUpdateEditOpts(){
+  const day=document.getElementById('e-day')?.value||'木'
+  const slots=day==='日'?SUN_SLOTS.filter(x=>!x.isBreak).map(x=>x.slot):day==='金'?FRI_SLOTS:THU_SAT_SLOTS
+  const ct=document.getElementById('e-time');if(ct)ct.innerHTML=slots.map(s=>`<option>${s}</option>`).join('')
+  const cc=document.getElementById('e-course');if(cc)cc.innerHTML=getCourseOpts(day).map(o=>`<option value="${o.v}">${o.l}</option>`).join('')
+}
+function closeEdit(){document.getElementById('edit-modal').style.display='none'}
+async function tSaveEdit(){
+  const id=document.getElementById('e-id').value
+  const name=document.getElementById('e-name').value.trim()
+  const kana=document.getElementById('e-kana').value.trim()
+  const day=document.getElementById('e-day').value
+  const time=document.getElementById('e-time').value
+  const course=parseInt(document.getElementById('e-course').value)
+  const tel=document.getElementById('e-tel').value.trim()
+  if(!name){toast('氏名を入力してください',true);return}
+  const s=students.find(x=>x.id===id);if(!s)return
+  s.name=name;s.kana=kana;s.day=day;s.time=time;s.course=course;s.tel=tel
+  if(course===3||day==='金'||day==='日')s.selected=[...lessonDates[day]||[]]
+  if(sb)await sb.from('students').update({name,kana,day,time,course,tel}).eq('id',id)
+  closeEdit();tRenderStudents();toast(name+'さんの情報を更新しました')
+}
 
-// ===== INIT =====
-// notice-file-input イベントは DOM ロード後に付与
-window.addEventListener('DOMContentLoaded',()=>{
-  const fileInput=document.getElementById('notice-file-input')
-  if(fileInput){
-    fileInput.addEventListener('change',function(){
-      const newFiles=Array.from(this.files||[])
-      newFiles.forEach(f=>{
-        const valid=f.name.toLowerCase().endsWith('.pdf')||f.name.toLowerCase().endsWith('.mp3')
-        if(!valid){toast(f.name+'はPDF/mp3のみ対応',true);return}
-        if(f.size>20*1024*1024){toast(f.name+'は20MB超えです',true);return}
-        if(!noticeSelectedFiles.find(x=>x.name===f.name)) noticeSelectedFiles.push(f)
-      })
-      renderNoticeFilePreview()
+/* ===== STUDENT VIEW (more) ===== */
+function tSetupStudentViewSel(){
+  const sel=document.getElementById('tsv-sel');if(!sel)return
+  sel.innerHTML='<option value="">— 選択してください —</option>'+students.map(s=>`<option value="${s.id}">${s.name}（${s.day}曜 月${s.course}回）</option>`).join('')
+}
+function tLoadStudentView(){
+  const id=document.getElementById('tsv-sel').value
+  const cnt=document.getElementById('tsv-content');if(!id){cnt.style.display='none';return}
+  cnt.style.display='block'
+  const s=students.find(x=>x.id===id);if(!s)return
+  const si=students.indexOf(s)
+  const[bg,fg]=AVATAR_COLORS[si%AVATAR_COLORS.length]
+  const av=document.getElementById('tsv-avatar');if(av){av.textContent=ini(s.name);av.style.background=bg;av.style.color=fg}
+  document.getElementById('tsv-name').textContent=s.name
+  document.getElementById('tsv-info').textContent=`${s.day}曜日 ${s.time} / 月${s.course}回コース`
+  tsvTab('sch')
+}
+function tsvTab(name){
+  ['sch','abs','ntc'].forEach(t=>{
+    document.getElementById('tsv-'+t).style.display=t===name?'block':'none'
+    const tab=document.getElementById('tsvt-'+t)
+    if(tab){tab.style.color=t===name?'var(--blue)':'var(--text2)';tab.style.borderBottomColor=t===name?'var(--blue)':'transparent'}
+  })
+  const id=document.getElementById('tsv-sel').value
+  const s=students.find(x=>x.id===id);if(!s)return
+  if(name==='sch')tsvRenderSchedule(s)
+  if(name==='abs')tsvRenderAbsent(s)
+  if(name==='ntc')tsvRenderNotices(s)
+}
+function tsvRenderSchedule(s){
+  const dates=lessonDates[s.day]||[]
+  const absDates=approvedAbsences.filter(a=>a.studentId===s.id&&a.month===selectedMonth).map(a=>a.date)
+  const trDates=manualTransfers.filter(t=>t.studentName===s.name&&t.month===selectedMonth&&t.toDate).map(t=>({date:t.toDate,day:t.toDay,time:t.toTime}))
+  const sel=canSel(s)
+  let html='<div class="card"><div class="ctitle">'+selectedMonth+'月のレッスン</div>'
+  if(!dates.length&&!trDates.length){html+='<div style="color:var(--text3);font-size:14px">日程未設定</div>'
+  }else{
+    const active=dates.filter(d=>!absDates.includes(d))
+    active.forEach(d=>{
+      const parts=d.split('/');const isSel=sel?s.selected.includes(d):true
+      html+=`<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border)">
+        <div style="text-align:center;background:var(--bg);border-radius:8px;padding:5px 9px;min-width:48px">
+          <div style="font-size:10px;color:var(--text2)">${parts[0]}月</div>
+          <div style="font-size:19px;font-weight:800">${parts[1]}</div>
+        </div>
+        <div style="flex:1"><div style="font-size:14px;font-weight:600">${s.time}</div><div style="font-size:12px;color:var(--text2)">固定レッスン</div></div>
+        <span class="bdg b-green">固定</span>
+      </div>`
     })
+    trDates.forEach(t=>{
+      const parts=(t.date||'').split('/')
+      html+=`<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border)">
+        <div style="text-align:center;background:#F3F4F6;border-radius:8px;padding:5px 9px;min-width:48px">
+          <div style="font-size:10px;color:var(--text2)">${parts[0]}月</div>
+          <div style="font-size:19px;font-weight:800">${parts[1]}</div>
+        </div>
+        <div style="flex:1"><div style="font-size:14px;font-weight:600">${t.time||''}</div><div style="font-size:12px;color:var(--text2)">振替レッスン</div></div>
+        <span class="bdg b-gray">振替</span>
+      </div>`
+    })
+    if(absDates.length){html+=`<div style="margin-top:8px;font-size:12px;color:var(--text3)">欠席済み：${absDates.map(d=>`<span style="text-decoration:line-through;margin-right:6px">${d}</span>`).join('')}</div>`}
   }
+  document.getElementById('tsv-sch').innerHTML=html+'</div>'
+}
+function tsvRenderAbsent(s){
+  const pending=s.requests||[]
+  const approved=approvedAbsences.filter(a=>a.studentId===s.id&&a.month===selectedMonth)
+  let html=''
+  if(pending.length){
+    html+=`<div class="card"><div class="ctitle">申請中</div>`
+    html+=pending.map(r=>`<div class="reqcard"><div style="display:flex;justify-content:space-between"><span style="font-weight:700">${r.date}</span><span class="bdg b-amber">${r.type}</span></div><div style="font-size:13px;margin-top:4px">「${r.note}」</div></div>`).join('')
+    html+=`</div>`
+  }
+  if(approved.length){
+    html+=`<div class="card"><div class="ctitle">承認済み欠席</div>`
+    html+=approved.map(a=>`<div style="border:1px solid var(--green-l);border-radius:var(--rs);padding:10px;margin-bottom:8px;background:var(--green-l)"><div style="display:flex;justify-content:space-between"><span style="font-weight:700">${a.date}</span><span class="bdg b-green">承認済み</span></div><div style="font-size:13px;color:var(--green)">${a.type}</div></div>`).join('')
+    html+=`</div>`
+  }
+  if(!pending.length&&!approved.length)html='<div class="card" style="text-align:center;color:var(--text3);padding:24px">申請・欠席情報はありません</div>'
+  document.getElementById('tsv-abs').innerHTML=html
+}
+function tsvRenderNotices(s){
+  const myN=notices.filter(n=>n.month===selectedMonth&&(!n.target_ids||!n.target_ids.length||n.target_ids.includes(s.id)))
+  if(!myN.length){document.getElementById('tsv-ntc').innerHTML='<div class="card" style="text-align:center;color:var(--text3);padding:24px">お知らせはありません</div>';return}
+  document.getElementById('tsv-ntc').innerHTML=myN.map(n=>{
+    const confirmed=(n.confirmed_by||[]).includes(s.id)
+    const myC=(n.comments||[]).find(c=>c.student_id===s.id)
+    return `<div class="card">
+      <div style="display:flex;justify-content:space-between;margin-bottom:8px">
+        <div style="font-size:15px;font-weight:700">${n.title}</div>
+        ${confirmed?'<span class="bdg b-green">確認済み</span>':'<span class="bdg b-amber">未確認</span>'}
+      </div>
+      <div style="font-size:13px;color:var(--text2);line-height:1.6;white-space:pre-wrap;margin-bottom:10px">${n.body}</div>
+      ${myC?`<div class="cmt-box"><div style="font-weight:700;font-size:12px;margin-bottom:3px">生徒のコメント</div><div>${myC.text}</div>${myC.reply?`<div style="margin-top:6px;padding:7px;background:var(--blue-l);border-radius:6px;font-size:13px"><span style="font-weight:700;color:var(--blue-d)">返信済：</span>${myC.reply}</div>`:'<div style="font-size:12px;color:var(--text3);margin-top:4px">未返信</div>'}</div>`:''}
+    </div>`
+  }).join('')
+}
+
+/* ===== FILE INPUT ===== */
+window.addEventListener('DOMContentLoaded',()=>{
+  const fi=document.getElementById('n-file');if(!fi)return
+  fi.addEventListener('change',function(){
+    Array.from(this.files||[]).forEach(f=>{
+      if(!f.name.toLowerCase().match(/\.(pdf|mp3)$/)){toast(f.name+'はPDF/mp3のみ対応',true);return}
+      if(f.size>20*1024*1024){toast(f.name+'は20MB超えです',true);return}
+      if(!nFiles.find(x=>x.name===f.name))nFiles.push(f)
+    })
+    tRenderFilePrev()
+  })
 })
 </script>
 </body>
