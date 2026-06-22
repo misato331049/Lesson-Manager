@@ -437,8 +437,31 @@ async function tLoadAll(){
   }))
   lessonDates={木:[],金:[],土:[],日:[]};(d.data||[]).forEach(x=>{if(lessonDates[x.day])lessonDates[x.day].push(x.date)});DAY_LIST.forEach(k=>{lessonDates[k]=sortD(lessonDates[k])})
   tempDates={木:[...lessonDates['木']],金:[...lessonDates['金']],土:[...lessonDates['土']],日:[...lessonDates['日']]}
-  approvedAbsences=(apr.data||[]).map(x=>({id:x.id,studentId:x.student_id,studentName:x.students?.name||'',date:x.date,day:x.students?.day||'',time:x.students?.time||'',type:x.type||'欠席',note:x.note||'',month:selectedMonth,transfer_date:x.transfer_date||'',transfer_day:x.transfer_day||'',transfer_time:x.transfer_time||''}))
-  manualTransfers=(tr.data||[]).map(x=>({id:x.id,studentName:x.student_name,fromDate:x.from_date,fromTime:x.from_time,fromDay:x.from_day,toDate:x.to_date,toTime:x.to_time,toDay:x.to_day,month:x.month}))
+  approvedAbsences=(apr.data||[]).map(x=>{
+    // PC版と同じく students join から day/time を取得
+    const s=students.find(st=>st.id===x.student_id)
+    return {
+      id:x.id,
+      studentId:x.student_id,
+      studentName:x.students?.name||s?.name||'',
+      date:(x.date||'').split('（')[0].trim(),
+      day:x.students?.day||s?.day||'',
+      time:x.students?.time||s?.time||'',
+      type:x.type||'欠席',
+      note:x.note||'',
+      month:selectedMonth,
+      transfer_date:x.transfer_date||'',
+      transfer_day:x.transfer_day||'',
+      transfer_time:x.transfer_time||''
+    }
+  })
+  manualTransfers=(tr.data||[]).map(x=>({
+    id:x.id,
+    studentName:x.student_name,
+    fromDate:x.from_date, fromTime:x.from_time, fromDay:x.from_day,
+    toDate:x.to_date, toTime:x.to_time, toDay:x.to_day,
+    month:x.month
+  }))
   notices=n.data||[]
   trialLessons=trl.data||[]
   updBadges()
@@ -557,25 +580,27 @@ function tSched(){
     html+=`<div class="card"><div style="font-weight:700;font-size:15px;margin-bottom:12px;color:var(--blue)">${date}（${day}）</div>`
     slots.forEach(({slot,isBreak})=>{
       if(isBreak){html+=`<div style="text-align:center;font-size:12px;color:var(--tx3);padding:5px 0;border-bottom:1px solid var(--bd)">— 休憩 —</div>`;return}
-      // 通常レッスン：絞り込みロジック修正版
+      // PC版 getEntries と同じロジック
       const normal=students.filter(s=>{
-        if(s.day!==day)return false          // 曜日が違う
-        if(s.time!==slot)return false         // 時間が違う
-        // この日にレッスンがあるか
-        const hasDayLesson=(lessonDates[s.day]||[]).includes(date)
-        if(!hasDayLesson)return false
-        // 月2回選択制の場合、この日を選んでいるか
-        if(canSel(s)&&!s.selected.includes(date))return false
-        // 欠席
-        const isAbs=approvedAbsences.some(a=>a.studentId===s.id&&a.date===date&&a.month===selectedMonth)
+        if(s.day!==day) return false   // 曜日チェック
+        if(s.time!==slot) return false  // 時間チェック
+        // この生徒のレッスン対象日を取得（PC版と同じ）
+        const ds=canSel(s)?s.selected:(lessonDates[day]||[])
+        if(!ds.includes(date)) return false
+        // 欠席チェック（PC版と同じ3条件）
+        const isAbs=approvedAbsences.some(a=>
+          a.studentId===s.id && a.date===date && a.day===day && a.month===selectedMonth)
         return !isAbs
       })
-      const transfers=manualTransfers.filter(t=>t.toDay===day&&t.toDate===date&&t.toTime===slot&&t.month===selectedMonth)
-      const trials=trialLessons.filter(t=>t.day===day&&t.date===date&&t.time===slot&&t.month===selectedMonth)
+      const transfers=manualTransfers.filter(t=>
+        t.toDay===day && t.toDate===date && t.toTime===slot && t.month===selectedMonth)
+      const trials=trialLessons.filter(t=>
+        t.day===day && t.date===date && t.time===slot && t.month===selectedMonth)
       html+=`<div style="display:flex;align-items:flex-start;gap:8px;padding:8px 0;border-bottom:1px solid var(--bd)">
         <div style="font-size:11px;color:var(--tx2);width:78px;flex-shrink:0;padding-top:3px">${slot}</div>
         <div style="flex:1;display:flex;flex-wrap:wrap;gap:4px">`
       normal.forEach(s=>{
+        // 色分け：月3回=濃緑 / 金固定=紫 / 日固定=黄 / 月2回=青
         const cls=s.course===3?'sc-x3':s.day==='金'?'sc-fr':s.day==='日'?'sc-su':'sc-x2'
         html+=`<span class="sc-name ${cls}">${s.name}</span>`
       })
