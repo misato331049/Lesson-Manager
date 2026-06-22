@@ -399,7 +399,7 @@ function pad(n){return String(n).padStart(2,'0')}
 function genTS(){const s=[];let h=12,m=30;while(h<20||(h===20&&m===0)){const eh=m+30>=60?h+1:h,em=(m+30)%60;s.push(`${pad(h)}:${pad(m)}〜${pad(eh)}:${pad(em)}`);m+=30;if(m>=60){m-=60;h++;}}return s}
 function genFri(){const s=[];let h=12,m=30;while(true){const tot=h*60+m+45;if(tot>20*60)break;const eh=Math.floor(tot/60),em=tot%60;s.push(`${pad(h)}:${pad(m)}〜${pad(eh)}:${pad(em)}`);m+=45;if(m>=60){m-=60;h++;}}return s}
 const TS=genTS(),FS=genFri()
-const SS=[{s:'10:00〜10:30'},{s:'10:30〜11:00'},{s:'11:00〜11:30'},{s:'11:30〜12:00'},{s:'12:00〜12:30'},{s:'12:30〜13:00'},{s:'休憩',br:true},{s:'14:00〜14:30'},{s:'14:30〜15:00'},{s:'15:00〜15:30'},{s:'15:30〜16:00'},{s:'16:00〜16:30'},{s:'16:30〜17:00'}]
+const SS=[{s:'12:30〜13:30'},{s:'13:30〜14:15'},{s:'14:15〜15:00'},{s:'休憩',br:true},{s:'15:30〜16:15'},{s:'16:15〜17:00'},{s:'17:00〜17:45'},{s:'17:45〜18:30'},{s:'18:30〜19:15'},{s:'19:15〜20:00'}]
 function getSlots(day){return day==='日'?SS.map(x=>({slot:x.s,isBreak:x.br})):day==='金'?FS.map(s=>({slot:s})):TS.map(s=>({slot:s}))}
 function getCOpts(day){if(day==='木'||day==='土')return[{v:3,l:'月3回（固定）'},{v:2,l:'月2回（3回から選択）'}];return[{v:2,l:'月2回（固定）'}]}
 
@@ -718,8 +718,21 @@ async function tSaveTransferDate(id){
   const time=document.getElementById('trtm-'+id)?.value.trim()
   if(!date){toast('振替日付を入力してください',true);return}
   const a=approvedAbsences.find(x=>x.id===id);if(!a)return
+  if(sb){
+    const{error}=await sb.from('requests').update({transfer_date:date,transfer_day:day,transfer_time:time}).eq('id',id)
+    if(error){
+      // カラムが存在しない場合はnoteに追記して代替保存
+      if(error.message&&error.message.includes('transfer_date')){
+        const newNote=(a.note||'')+` [振替実施:${date}(${day})${time}]`
+        await sb.from('requests').update({note:newNote}).eq('id',id)
+        a.note=newNote
+        toast(`振替実施日を保存しました（代替）：${date}（${day}）${time}`)
+      } else {
+        toast('保存に失敗しました：'+error.message,true);return
+      }
+    }
+  }
   a.transfer_date=date;a.transfer_day=day;a.transfer_time=time
-  if(sb)await sb.from('requests').update({transfer_date:date,transfer_day:day,transfer_time:time}).eq('id',id)
   toast(`振替実施日を保存しました：${date}（${day}）${time}`)
   tRequests()
 }
