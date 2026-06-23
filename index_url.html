@@ -1615,7 +1615,7 @@ function switchMode(mode){
   document.getElementById('student-nav').style.display=mode==='student'?'block':'none'
   if(mode==='teacher'){
     if(!teacherLoggedIn){nav('teacher-login')}
-    else nav('schedule-thu-sat')
+    else nav('dashboard')
   } else {
     loggedInStudent?showStudentPortal(loggedInStudent):nav('student-login')
   }
