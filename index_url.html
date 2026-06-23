@@ -1130,24 +1130,23 @@ const TEACHER_PASSWORD = null
 
 <!-- DASHBOARD -->
 <div class="page" id="page-dashboard">
+  <div style="background:linear-gradient(135deg,#EAF3DE,#f8fdf4);border:1px solid #c5dba8;border-radius:var(--radius);padding:14px 16px;margin-bottom:16px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
+    <div>
+      <div style="font-size:14px;font-weight:700;color:var(--green);margin-bottom:3px"><i class="ti ti-database-export"></i> データバックアップ</div>
+      <div style="font-size:12px;color:var(--text2)">全データをCSVにまとめてダウンロード。月1回の実施を推奨します。</div>
+      <div style="font-size:11px;color:var(--text3);margin-top:2px">前回バックアップ：<span id="last-backup-date">未実施</span></div>
+    </div>
+    <button class="btn btn-primary" id="backup-btn" onclick="downloadAllBackup()" style="background:var(--green);border-color:var(--green);white-space:nowrap;flex-shrink:0">
+      <i class="ti ti-download"></i> 今すぐバックアップ
+    </button>
+  </div>
   <div class="stat-grid">
     <div class="stat"><div class="stat-label"><i class="ti ti-users"></i> 生徒数</div><div class="stat-val" id="d-total">—</div></div>
     <div class="stat"><div class="stat-label"><i class="ti ti-calendar-repeat"></i> 月3回</div><div class="stat-val" id="d-3x">—</div></div>
     <div class="stat"><div class="stat-label"><i class="ti ti-calendar"></i> 月2回</div><div class="stat-val" id="d-2x">—</div></div>
     <div class="stat"><div class="stat-label"><i class="ti ti-bell"></i> 振替相談</div><div class="stat-val" id="d-req" style="color:var(--red)">—</div></div>
   </div>
-  <div class="card" style="background:linear-gradient(135deg,#EAF3DE,#f8fdf4);border-color:#c5dba8">
-    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
-      <div>
-        <div style="font-size:14px;font-weight:700;color:var(--green);margin-bottom:4px"><i class="ti ti-database-export"></i> データバックアップ</div>
-        <div style="font-size:12px;color:var(--text2)">全データをCSVにまとめてダウンロード。月1回の実施を推奨します。</div>
-        <div style="font-size:11px;color:var(--text3);margin-top:3px">前回バックアップ：<span id="last-backup-date">未実施</span></div>
-      </div>
-      <button class="btn btn-primary" id="backup-btn" onclick="downloadAllBackup()" style="background:var(--green);border-color:var(--green);white-space:nowrap">
-        <i class="ti ti-download"></i> 今すぐバックアップ
-      </button>
-    </div>
-  </div>
+
   <div class="card">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
       <div class="card-title" style="margin-bottom:0">生徒状況</div>
