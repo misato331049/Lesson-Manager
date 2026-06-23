@@ -1917,6 +1917,7 @@ async function downloadAllBackup(){
     ])
 
     // 各テーブルをCSV化してダウンロード
+    const monthLabel=`${selectedMonth}月分バックアップ`
     const tables=[
       {name:'生徒一覧',       data:s.data,  headers:['id','name','kana','day','time','course','tel']},
       {name:'欠席振替申請',   data:r.data,  headers:['id','student_name','date','type','note','status','month','transfer_date','transfer_day','transfer_time','created_at']},
@@ -1932,7 +1933,7 @@ async function downloadAllBackup(){
       const t=tables[i]
       if(!t.data||!t.data.length) continue
       const csv=toCSV(t.headers,t.data)
-      setTimeout(()=>downloadCSV(`${dateStr}_${t.name}.csv`,csv),i*300)
+      setTimeout(()=>downloadCSV(`${monthLabel}_${t.name}.csv`,csv),i*300)
     }
 
     // 最終バックアップ日を記録（ローカル）
