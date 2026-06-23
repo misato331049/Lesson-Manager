@@ -1136,6 +1136,18 @@ const TEACHER_PASSWORD = null
     <div class="stat"><div class="stat-label"><i class="ti ti-calendar"></i> 月2回</div><div class="stat-val" id="d-2x">—</div></div>
     <div class="stat"><div class="stat-label"><i class="ti ti-bell"></i> 振替相談</div><div class="stat-val" id="d-req" style="color:var(--red)">—</div></div>
   </div>
+  <div class="card" style="background:linear-gradient(135deg,#EAF3DE,#f8fdf4);border-color:#c5dba8">
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
+      <div>
+        <div style="font-size:14px;font-weight:700;color:var(--green);margin-bottom:4px"><i class="ti ti-database-export"></i> データバックアップ</div>
+        <div style="font-size:12px;color:var(--text2)">全データをCSVにまとめてダウンロード。月1回の実施を推奨します。</div>
+        <div style="font-size:11px;color:var(--text3);margin-top:3px">前回バックアップ：<span id="last-backup-date">未実施</span></div>
+      </div>
+      <button class="btn btn-primary" id="backup-btn" onclick="downloadAllBackup()" style="background:var(--green);border-color:var(--green);white-space:nowrap">
+        <i class="ti ti-download"></i> 今すぐバックアップ
+      </button>
+    </div>
+  </div>
   <div class="card">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
       <div class="card-title" style="margin-bottom:0">生徒状況</div>
@@ -1676,7 +1688,10 @@ async function initApp(){
   await loadLessonDates()
   await loadStudents()
   renderNoticesAdmin()
-  nav('schedule-thu-sat')
+  nav('dashboard')
+  // 最終バックアップ日を表示
+  const last=localStorage.getItem('lastBackupDate')
+  if(last){const el=document.getElementById('last-backup-date');if(el)el.textContent=last}
 }
 
 /* =====================================================
@@ -1864,6 +1879,79 @@ function downloadExcel(){
 /* =====================================================
    ダッシュボード
    ===================================================== */
+/* =====================================================
+   バックアップ
+   ===================================================== */
+function toCSV(headers, rows){
+  const esc=v=>{
+    if(v===null||v===undefined)return ''
+    const s=String(v)
+    return s.includes(',')||s.includes('"')||s.includes('\n')?`"${s.replace(/"/g,'""')}"`:s
+  }
+  return [headers.join(','),...rows.map(r=>headers.map(h=>esc(r[h])).join(','))].join('\n')
+}
+function downloadCSV(filename,csv){
+  const bom='\uFEFF' // Excel用BOM
+  const blob=new Blob([bom+csv],{type:'text/csv;charset=utf-8;'})
+  const url=URL.createObjectURL(blob)
+  const a=document.createElement('a');a.href=url;a.download=filename;a.click()
+  URL.revokeObjectURL(url)
+}
+async function downloadAllBackup(){
+  const btn=document.getElementById('backup-btn')
+  btn.innerHTML='<i class="ti ti-loader-2"></i> 取得中...'
+  btn.disabled=true
+  try{
+    if(!sb){toast('Supabaseが未設定です',true);return}
+    const now=new Date()
+    const dateStr=`${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}`
+
+    // 全テーブルを並行取得
+    const[s,r,n,sel,ld,mt,tl]=await Promise.all([
+      sb.from('students').select('*').order('day').order('time'),
+      sb.from('requests').select('*').order('created_at',{ascending:false}),
+      sb.from('notices').select('id,title,body,month,target_names,created_at,expires_at'),
+      sb.from('student_selections').select('*'),
+      sb.from('lesson_dates').select('*').order('month').order('day'),
+      sb.from('manual_transfers').select('*').order('month'),
+      sb.from('trial_lessons').select('*').order('month')
+    ])
+
+    // 各テーブルをCSV化してダウンロード
+    const tables=[
+      {name:'生徒一覧',       data:s.data,  headers:['id','name','kana','day','time','course','tel']},
+      {name:'欠席振替申請',   data:r.data,  headers:['id','student_name','date','type','note','status','month','transfer_date','transfer_day','transfer_time','created_at']},
+      {name:'お知らせ',       data:n.data,  headers:['id','title','body','month','target_names','created_at','expires_at']},
+      {name:'日程選択',       data:sel.data,headers:['id','student_id','date','month']},
+      {name:'レッスン日程',   data:ld.data, headers:['id','day','date','month']},
+      {name:'振替設定',       data:mt.data, headers:['id','student_name','from_date','from_time','from_day','to_date','to_time','to_day','month']},
+      {name:'体験レッスン',   data:tl.data, headers:['id','date','day','time','memo','month']},
+    ]
+
+    // 少し間隔をあけて順番にダウンロード（ブラウザのポップアップブロック回避）
+    for(let i=0;i<tables.length;i++){
+      const t=tables[i]
+      if(!t.data||!t.data.length) continue
+      const csv=toCSV(t.headers,t.data)
+      setTimeout(()=>downloadCSV(`${dateStr}_${t.name}.csv`,csv),i*300)
+    }
+
+    // 最終バックアップ日を記録（ローカル）
+    localStorage.setItem('lastBackupDate',now.toLocaleDateString('ja-JP'))
+    document.getElementById('last-backup-date').textContent=now.toLocaleDateString('ja-JP')
+    setTimeout(()=>{
+      btn.innerHTML='<i class="ti ti-download"></i> 今すぐバックアップ'
+      btn.disabled=false
+      toast('バックアップ完了！'+tables.filter(t=>t.data?.length).length+'ファイルをダウンロードしました')
+    },tables.length*300+200)
+  }catch(e){
+    btn.innerHTML='<i class="ti ti-download"></i> 今すぐバックアップ'
+    btn.disabled=false
+    toast('バックアップに失敗しました',true)
+    console.error(e)
+  }
+}
+
 function renderDashboard(){
   document.getElementById('d-total').textContent=students.length
   document.getElementById('d-3x').textContent=students.filter(s=>s.course===3).length
