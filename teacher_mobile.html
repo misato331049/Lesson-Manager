@@ -605,7 +605,7 @@ function tSched(){
         html+=`<span class="sc-name ${cls}">${s.name}</span>`
       })
       transfers.forEach(t=>{html+=`<span class="sc-name sc-tr">${t.studentName}（振替）</span>`})
-      trials.forEach(t=>{html+=`<span class="sc-name sc-tl">体験${t.memo?'：'+t.memo:''}</span>`})
+      trials.forEach(t=>{html+=`<span class="sc-name sc-tl" style="cursor:pointer" onclick="showTrialDetailM('${t.id}')">体験${t.memo?'：'+t.memo.substring(0,6)+'…':''}</span>`})
       if(!normal.length&&!transfers.length&&!trials.length)html+='<span style="font-size:12px;color:var(--tx3)">空き</span>'
       html+=`</div></div>`
     })
@@ -955,6 +955,36 @@ async function tAddTrial(){
   const row={date,day,time,memo,month:selectedMonth}
   if(sb){const{data,error}=await sb.from('trial_lessons').insert([row]).select().single();if(error){toast('保存に失敗しました',true);return};trialLessons.push({...data})}
   toast('体験レッスンを登録しました');tTrialList();document.getElementById('tl-date').value='';document.getElementById('tl-memo').value=''
+}
+function showTrialDetailM(id){
+  const t=trialLessons.find(x=>x.id===id)
+  if(!t)return
+  const ov=document.createElement('div')
+  ov.id='trial-detail-ov'
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:500;display:flex;align-items:flex-end;justify-content:center'
+  ov.innerHTML=`
+    <div style="background:var(--sf);border-radius:16px 16px 0 0;padding:20px 18px calc(20px + env(safe-area-inset-bottom));width:100%;max-height:80vh;overflow-y:auto">
+      <div style="width:40px;height:4px;background:var(--bd2);border-radius:2px;margin:0 auto 16px"></div>
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px">
+        <i class="ti ti-user-plus" style="color:#0284C7;font-size:22px"></i>
+        <div style="font-size:17px;font-weight:700;color:#0C4A6E">体験レッスン詳細</div>
+      </div>
+      <div style="background:#E0F2FE;border-radius:var(--rs);padding:12px;margin-bottom:14px;display:flex;gap:16px;flex-wrap:wrap">
+        <div><div style="font-size:10px;color:var(--tx2);font-weight:700;margin-bottom:3px">日付</div><div style="font-size:17px;font-weight:700">${t.date}（${t.day}）</div></div>
+        <div><div style="font-size:10px;color:var(--tx2);font-weight:700;margin-bottom:3px">時間</div><div style="font-size:17px;font-weight:700">${t.time}</div></div>
+        <div><div style="font-size:10px;color:var(--tx2);font-weight:700;margin-bottom:3px">月</div><div style="font-size:17px;font-weight:700">${t.month}月</div></div>
+      </div>
+      ${t.memo
+        ?`<div style="margin-bottom:14px"><div style="font-size:11px;font-weight:700;color:var(--tx2);margin-bottom:6px">メモ</div><div style="font-size:14px;line-height:1.8;white-space:pre-wrap;background:var(--bg);border-radius:var(--rs);padding:12px">${t.memo}</div></div>`
+        :'<div style="color:var(--tx3);font-size:13px;margin-bottom:14px">メモはありません</div>'
+      }
+      <div style="display:flex;gap:8px">
+        <button class="btn bp" style="flex:1" onclick="document.getElementById('trial-detail-ov').remove()">閉じる</button>
+        <button class="btn br bsm" onclick="document.getElementById('trial-detail-ov').remove();tDelTrial('${t.id}')"><i class="ti ti-trash"></i> 削除</button>
+      </div>
+    </div>`
+  ov.addEventListener('click',e=>{if(e.target===ov)ov.remove()})
+  document.body.appendChild(ov)
 }
 function tTrialList(){
   const list=trialLessons.filter(t=>t.month===selectedMonth)
