@@ -1828,6 +1828,8 @@ function renderScheduleTable_orig(){
           if(e.type==='transfer'){
             cellHtml+=`<span class="cell-name cell-transfer" title="振替">${e.name}`
             if(isTeacher) cellHtml+=` <span style="cursor:pointer;margin-left:2px" onclick="removeTransfer('${e.transferId}')">×</span>`
+            cellHtml+=`</span>`
+          } else if(e.type==='trial'){
             const _idx2 = trialLessons.findIndex(x=>x.id===e.trialId)
             const _del2 = isTeacher ? '<span style="cursor:pointer;margin-left:2px;font-size:10px" onclick="event.stopPropagation();removeTrial(\'' + e.trialId + '\')">×</span>' : ''
             cellHtml+='<span class="cell-name cell-trial" style="cursor:pointer" title="クリックで詳細を見る" onclick="showTrialDetailByIndex(' + _idx2 + ')">' + e.name + _del2 + '</span>'
