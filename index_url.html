@@ -1767,7 +1767,7 @@ function renderScheduleByPage(pageId){
           } else if(e.type==='trial'){
             const tl=trialLessons.find(x=>x.id===e.trialId)
             const tlMemo=tl?.memo||''
-            cellHtml += `<span class="cell-name cell-trial" style="cursor:pointer" onclick="showTrialDetail('${e.trialId}')" title="クリックで詳細を見る">${e.name}`
+            cellHtml += `<span class="cell-name cell-trial" style="cursor:pointer" onclick="showTrialDetail(this.dataset.id)" data-id="${e.trialId}" title="クリックで詳細を見る">${e.name}`
             if(isTeacher) cellHtml += ` <span style="cursor:pointer;margin-left:2px" onclick="event.stopPropagation();removeTrial('${e.trialId}')">×</span>`
             cellHtml += `</span>`
           } else {
@@ -1832,7 +1832,7 @@ function renderScheduleTable_orig(){
             if(isTeacher) cellHtml+=` <span style="cursor:pointer;margin-left:2px" onclick="removeTransfer('${e.transferId}')">×</span>`
             cellHtml+=`</span>`
           } else if(e.type==='trial'){
-            cellHtml+=`<span class="cell-name cell-trial" style="cursor:pointer" onclick="showTrialDetail('${e.trialId}')" title="クリックで詳細を見る">${e.name}`
+            cellHtml+=`<span class="cell-name cell-trial" style="cursor:pointer" onclick="showTrialDetail(this.dataset.id)" data-id="${e.trialId}" title="クリックで詳細を見る">${e.name}`
             if(isTeacher) cellHtml+=` <span style="cursor:pointer;margin-left:2px" onclick="event.stopPropagation();removeTrial('${e.trialId}')">×</span>`
             cellHtml+=`</span>`
           } else {
