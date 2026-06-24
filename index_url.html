@@ -1765,8 +1765,10 @@ function renderScheduleByPage(pageId){
             if(isTeacher) cellHtml += ` <span style="cursor:pointer;margin-left:2px" onclick="removeTransfer('${e.transferId}')">×</span>`
             cellHtml += `</span>`
           } else if(e.type==='trial'){
-            cellHtml += `<span class="cell-name cell-trial">${e.name}`
-            if(isTeacher) cellHtml += ` <span style="cursor:pointer;margin-left:2px" onclick="removeTrial('${e.trialId}')">×</span>`
+            const tl=trialLessons.find(x=>x.id===e.trialId)
+            const tlMemo=tl?.memo||''
+            cellHtml += `<span class="cell-name cell-trial" style="cursor:pointer" onclick="showTrialDetail('${e.trialId}')" title="クリックで詳細を見る">${e.name}`
+            if(isTeacher) cellHtml += ` <span style="cursor:pointer;margin-left:2px" onclick="event.stopPropagation();removeTrial('${e.trialId}')">×</span>`
             cellHtml += `</span>`
           } else {
             if(isTeacher){
@@ -1830,8 +1832,8 @@ function renderScheduleTable_orig(){
             if(isTeacher) cellHtml+=` <span style="cursor:pointer;margin-left:2px" onclick="removeTransfer('${e.transferId}')">×</span>`
             cellHtml+=`</span>`
           } else if(e.type==='trial'){
-            cellHtml+=`<span class="cell-name cell-trial" title="体験">${e.name}`
-            if(isTeacher) cellHtml+=` <span style="cursor:pointer;margin-left:2px" onclick="removeTrial('${e.trialId}')">×</span>`
+            cellHtml+=`<span class="cell-name cell-trial" style="cursor:pointer" onclick="showTrialDetail('${e.trialId}')" title="クリックで詳細を見る">${e.name}`
+            if(isTeacher) cellHtml+=` <span style="cursor:pointer;margin-left:2px" onclick="event.stopPropagation();removeTrial('${e.trialId}')">×</span>`
             cellHtml+=`</span>`
           } else {
             if(isTeacher){
@@ -2726,6 +2728,25 @@ async function confirmTrialModal(day, date, slot){
   renderScheduleByPage('schedule-fri')
   renderScheduleByPage('schedule-sun')
   toast('体験レッスンを'+date+'（'+day+'）'+slot+'に登録しました')
+}
+function showTrialDetail(id){
+  const t=trialLessons.find(x=>x.id===id)
+  if(!t) return
+  showModal('trial-detail-modal',`
+    <div class="modal-title" style="color:#0C4A6E"><i class="ti ti-user-plus" style="color:#7DD3FC"></i> 体験レッスン詳細</div>
+    <div style="background:#E0F2FE;border-radius:var(--radius-sm);padding:12px;margin-bottom:14px">
+      <div style="display:flex;gap:16px;flex-wrap:wrap">
+        <div><div style="font-size:10px;color:var(--text2);font-weight:700;margin-bottom:3px">日付</div><div style="font-size:16px;font-weight:700">${t.date}（${t.day}）</div></div>
+        <div><div style="font-size:10px;color:var(--text2);font-weight:700;margin-bottom:3px">時間</div><div style="font-size:16px;font-weight:700">${t.time}</div></div>
+        <div><div style="font-size:10px;color:var(--text2);font-weight:700;margin-bottom:3px">月</div><div style="font-size:16px;font-weight:700">${t.month}月</div></div>
+      </div>
+    </div>
+    ${t.memo?`<div><div style="font-size:11px;font-weight:700;color:var(--text2);margin-bottom:6px">メモ</div><div style="font-size:14px;line-height:1.8;white-space:pre-wrap;background:var(--bg);border-radius:var(--radius-sm);padding:12px">${t.memo}</div></div>`:'<div style="color:var(--text3);font-size:13px">メモはありません</div>'}
+    <div style="display:flex;gap:8px;margin-top:16px">
+      <button class="btn btn-primary" style="flex:1" onclick="closeModal('trial-detail-modal')">閉じる</button>
+      <button class="btn" style="color:var(--red);border-color:var(--red)" onclick="closeModal('trial-detail-modal');removeTrial('${t.id}')"><i class="ti ti-trash"></i> 削除</button>
+    </div>
+  `)
 }
 async function removeTrial(id){
   trialLessons = trialLessons.filter(t=>t.id!==id)
