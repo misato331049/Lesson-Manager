@@ -1767,7 +1767,7 @@ function renderScheduleByPage(pageId){
           } else if(e.type==='trial'){
             const tl=trialLessons.find(x=>x.id===e.trialId)
             const tlMemo=tl?.memo||''
-            cellHtml += `<span class="cell-name cell-trial" style="cursor:pointer" onclick="showTrialDetail(this.dataset.id)" data-id="${e.trialId}" title="クリックで詳細を見る">${e.name}`+(isTeacher?` <span style="cursor:pointer;margin-left:2px" onclick="event.stopPropagation();removeTrial(this.parentElement.dataset.id)">×</span>`:'')+`</span>`
+            cellHtml += `<span class="cell-name cell-trial" style="cursor:pointer" title="クリックで詳細を見る" onclick="showTrialDetailByIndex(${trialLessons.findIndex(x=>x.id===e.trialId)})">${e.name}`+(isTeacher?` <span style="cursor:pointer;margin-left:2px" onclick="event.stopPropagation();removeTrial(e.trialId)">×</span>`:'')+`</span>`
           } else {
             if(isTeacher){
               // 振替申請があれば名前クリックで詳細表示
@@ -1828,7 +1828,7 @@ function renderScheduleTable_orig(){
           if(e.type==='transfer'){
             cellHtml+=`<span class="cell-name cell-transfer" title="振替">${e.name}`
             if(isTeacher) cellHtml+=` <span style="cursor:pointer;margin-left:2px" onclick="removeTransfer('${e.transferId}')">×</span>`
-            cellHtml+=`<span class="cell-name cell-trial" style="cursor:pointer" onclick="showTrialDetail(this.dataset.id)" data-id="${e.trialId}" title="クリックで詳細を見る">${e.name}`+(isTeacher?` <span style="cursor:pointer;margin-left:2px" onclick="event.stopPropagation();removeTrial(this.parentElement.dataset.id)">×</span>`:'')+`</span>`
+            cellHtml+=`<span class="cell-name cell-trial" style="cursor:pointer" title="クリックで詳細を見る" onclick="showTrialDetailByIndex(${trialLessons.findIndex(x=>x.id===e.trialId)})">${e.name}`+(isTeacher?` <span style="cursor:pointer;margin-left:2px" onclick="event.stopPropagation();removeTrial(e.trialId)">×</span>`:'')+`</span>`
           } else {
             if(isTeacher){
               cellHtml+=`<span class="cell-name cell-${e.type} draggable" draggable="true" ondragstart="onDragStart(event,'${e.studentId||''}','${e.name}','${day}','${d}','${slot}')">${e.name}</span>`
@@ -2723,6 +2723,12 @@ async function confirmTrialModal(day, date, slot){
   renderScheduleByPage('schedule-sun')
   toast('体験レッスンを'+date+'（'+day+'）'+slot+'に登録しました')
 }
+function showTrialDetailByIndex(idx){
+  const t = trialLessons[idx]
+  if(!t){ toast('体験レッスンが見つかりません', true); return }
+  showTrialDetail(t.id)
+}
+
 function showTrialDetail(id){
   console.log('showTrialDetail called, id=', id, 'trialLessons=', trialLessons.length)
   const t=trialLessons.find(x=>x.id===id)
