@@ -1765,9 +1765,9 @@ function renderScheduleByPage(pageId){
             if(isTeacher) cellHtml += ` <span style="cursor:pointer;margin-left:2px" onclick="removeTransfer('${e.transferId}')">×</span>`
             cellHtml += `</span>`
           } else if(e.type==='trial'){
-            const tl=trialLessons.find(x=>x.id===e.trialId)
-            const tlMemo=tl?.memo||''
-            cellHtml += `<span class="cell-name cell-trial" style="cursor:pointer" title="クリックで詳細を見る" onclick="showTrialDetailByIndex(${trialLessons.findIndex(x=>x.id===e.trialId)})">${e.name}`+(isTeacher?` <span style="cursor:pointer;margin-left:2px" onclick="event.stopPropagation();removeTrial(e.trialId)">×</span>`:'')+`</span>`
+            const _idx1 = trialLessons.findIndex(x=>x.id===e.trialId)
+            const _del1 = isTeacher ? '<span style="cursor:pointer;margin-left:2px;font-size:10px" onclick="event.stopPropagation();removeTrial(\'' + e.trialId + '\')">×</span>' : ''
+            cellHtml += '<span class="cell-name cell-trial" style="cursor:pointer" title="クリックで詳細を見る" onclick="showTrialDetailByIndex(' + _idx1 + ')">' + e.name + _del1 + '</span>'
           } else {
             if(isTeacher){
               // 振替申請があれば名前クリックで詳細表示
@@ -1828,7 +1828,9 @@ function renderScheduleTable_orig(){
           if(e.type==='transfer'){
             cellHtml+=`<span class="cell-name cell-transfer" title="振替">${e.name}`
             if(isTeacher) cellHtml+=` <span style="cursor:pointer;margin-left:2px" onclick="removeTransfer('${e.transferId}')">×</span>`
-            cellHtml+=`<span class="cell-name cell-trial" style="cursor:pointer" title="クリックで詳細を見る" onclick="showTrialDetailByIndex(${trialLessons.findIndex(x=>x.id===e.trialId)})">${e.name}`+(isTeacher?` <span style="cursor:pointer;margin-left:2px" onclick="event.stopPropagation();removeTrial(e.trialId)">×</span>`:'')+`</span>`
+            const _idx2 = trialLessons.findIndex(x=>x.id===e.trialId)
+            const _del2 = isTeacher ? '<span style="cursor:pointer;margin-left:2px;font-size:10px" onclick="event.stopPropagation();removeTrial(\'' + e.trialId + '\')">×</span>' : ''
+            cellHtml+='<span class="cell-name cell-trial" style="cursor:pointer" title="クリックで詳細を見る" onclick="showTrialDetailByIndex(' + _idx2 + ')">' + e.name + _del2 + '</span>'
           } else {
             if(isTeacher){
               cellHtml+=`<span class="cell-name cell-${e.type} draggable" draggable="true" ondragstart="onDragStart(event,'${e.studentId||''}','${e.name}','${day}','${d}','${slot}')">${e.name}</span>`
@@ -2730,9 +2732,8 @@ function showTrialDetailByIndex(idx){
 }
 
 function showTrialDetail(id){
-  console.log('showTrialDetail called, id=', id, 'trialLessons=', trialLessons.length)
   const t=trialLessons.find(x=>x.id===id)
-  if(!t){toast('体験レッスンが見つかりません（id:'+id+'）',true);return}
+  if(!t){toast('体験レッスンが見つかりません',true);return}
   const memoHtml=t.memo
     ?'<div><div style="font-size:11px;font-weight:700;color:var(--text2);margin-bottom:6px;text-transform:uppercase;letter-spacing:.05em">メモ</div><div style="font-size:14px;line-height:1.8;white-space:pre-wrap;background:var(--bg);border-radius:var(--radius-sm);padding:12px">'+t.memo+'</div></div>'
     :'<div style="color:var(--text3);font-size:13px">メモはありません</div>'
