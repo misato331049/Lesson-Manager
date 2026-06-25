@@ -1627,7 +1627,7 @@ function nav(id){
   if(pg)pg.classList.add('active')
   if(nv)nv.classList.add('active')
   setTopbar(id)
-  if(id==='schedule-thu-sat'||id==='schedule-fri'||id==='schedule-sun'){setupWarning('setup-warning-sched');renderScheduleTable()}
+  if(id==='schedule-thu-sat'||id==='schedule-fri'||id==='schedule-sun'){window.__trialMap={};window.__transferMap={};setupWarning('setup-warning-sched');renderScheduleTable()}
   if(id==='dashboard')renderDashboard()
   if(id==='lesson-dates')renderDayBlocks()
   if(id==='students'){renderStudentList();updateCourseOptions()}
@@ -1717,8 +1717,6 @@ function getEntries(day,date,slotKey){
 }
 
 function renderScheduleByPage(pageId){
-  window.__trialMap = {} // 毎回リセット
-  window.__transferMap = {} // 毎回リセット
   const dayMap = {
     'schedule-thu-sat': ['木','土'],
     'schedule-fri':     ['金'],
@@ -1806,6 +1804,8 @@ function renderScheduleByPage(pageId){
 
 // 後方互換用（他の場所から呼ばれる場合）
 function renderScheduleTable(){
+  window.__trialMap = {}
+  window.__transferMap = {}
   renderScheduleByPage('schedule-thu-sat')
   renderScheduleByPage('schedule-fri')
   renderScheduleByPage('schedule-sun')
@@ -3386,7 +3386,6 @@ document.addEventListener('click', function(e){
     e.stopPropagation()
     const key = btn.dataset.tkey
     const id = window.__trialMap && window.__trialMap[key]
-    alert('ボタンが押されました。key='+key+' id='+id+' mapSize='+Object.keys(window.__trialMap||{}).length)
     if(id) showTrialDetail(id)
     return
   }
