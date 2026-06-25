@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="ja">
-<head>
+<head>あ
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>レッスン管理システム</title>
@@ -1717,6 +1717,7 @@ function getEntries(day,date,slotKey){
 }
 
 function renderScheduleByPage(pageId){
+  window.__trialMap = {} // 毎回リセット
   const dayMap = {
     'schedule-thu-sat': ['木','土'],
     'schedule-fri':     ['金'],
@@ -1765,9 +1766,12 @@ function renderScheduleByPage(pageId){
             if(isTeacher) cellHtml += ` <span style="cursor:pointer;margin-left:2px" onclick="removeTransfer('${e.transferId}')">×</span>`
             cellHtml += `</span>`
           } else if(e.type==='trial'){
-            const _idx1 = trialLessons.findIndex(x=>x.id===e.trialId)
-            const _del1 = isTeacher ? '<span style="cursor:pointer;margin-left:2px;font-size:10px" onclick="event.stopPropagation();removeTrial(\'' + e.trialId + '\')">×</span>' : ''
-            cellHtml += '<span class="cell-name cell-trial" style="cursor:pointer" title="クリックで詳細を見る" onclick="showTrialDetailByIndex(' + _idx1 + ')">' + e.name + _del1 + '</span>'
+            if(!window.__trialMap) window.__trialMap={}
+            const _tkey = Object.keys(window.__trialMap).length
+            window.__trialMap[_tkey] = e.trialId
+            cellHtml += '<span class="cell-name cell-trial">'+e.name+'</span>'
+            if(isTeacher) cellHtml += '<button class="trial-detail-btn" data-tkey="'+_tkey+'" style="font-size:10px;padding:1px 5px;margin-left:3px;cursor:pointer;background:#BAE6FD;border:none;border-radius:3px;color:#0C4A6E">詳細</button>'
+            if(isTeacher) cellHtml += '<span style="cursor:pointer;margin-left:2px;font-size:10px;color:#666" data-tkey-del="'+_tkey+'">&times;</span>'
           } else {
             if(isTeacher){
               // 振替申請があれば名前クリックで詳細表示
@@ -1830,9 +1834,12 @@ function renderScheduleTable_orig(){
             if(isTeacher) cellHtml+=` <span style="cursor:pointer;margin-left:2px" onclick="removeTransfer('${e.transferId}')">×</span>`
             cellHtml+=`</span>`
           } else if(e.type==='trial'){
-            const _idx2 = trialLessons.findIndex(x=>x.id===e.trialId)
-            const _del2 = isTeacher ? '<span style="cursor:pointer;margin-left:2px;font-size:10px" onclick="event.stopPropagation();removeTrial(\'' + e.trialId + '\')">×</span>' : ''
-            cellHtml+='<span class="cell-name cell-trial" style="cursor:pointer" title="クリックで詳細を見る" onclick="showTrialDetailByIndex(' + _idx2 + ')">' + e.name + _del2 + '</span>'
+            if(!window.__trialMap) window.__trialMap={}
+            const _tkey2 = Object.keys(window.__trialMap).length
+            window.__trialMap[_tkey2] = e.trialId
+            cellHtml += '<span class="cell-name cell-trial">'+e.name+'</span>'
+            if(isTeacher) cellHtml += '<button class="trial-detail-btn" data-tkey="'+_tkey2+'" style="font-size:10px;padding:1px 5px;margin-left:3px;cursor:pointer;background:#BAE6FD;border:none;border-radius:3px;color:#0C4A6E">詳細</button>'
+            if(isTeacher) cellHtml += '<span style="cursor:pointer;margin-left:2px;font-size:10px;color:#666" data-tkey-del="'+_tkey2+'">&times;</span>'
           } else {
             if(isTeacher){
               cellHtml+=`<span class="cell-name cell-${e.type} draggable" draggable="true" ondragstart="onDragStart(event,'${e.studentId||''}','${e.name}','${day}','${d}','${slot}')">${e.name}</span>`
@@ -2727,12 +2734,6 @@ async function confirmTrialModal(day, date, slot){
   renderScheduleByPage('schedule-sun')
   toast('体験レッスンを'+date+'（'+day+'）'+slot+'に登録しました')
 }
-function showTrialDetailByIndex(idx){
-  const t = trialLessons[idx]
-  if(!t){ toast('体験レッスンが見つかりません', true); return }
-  showTrialDetail(t.id)
-}
-
 function showTrialDetail(id){
   const t=trialLessons.find(x=>x.id===id)
   if(!t){toast('体験レッスンが見つかりません',true);return}
@@ -3346,6 +3347,28 @@ function spTab(name){
 updateCourseOptions()
 
 // URLパラメータを確認して初期画面を決定
+// 体験レッスン「詳細」ボタンと「×」ボタンのイベント委譲
+document.addEventListener('click', function(e){
+  // 詳細ボタン
+  const btn = e.target.closest('.trial-detail-btn')
+  if(btn){
+    e.stopPropagation()
+    const key = btn.dataset.tkey
+    const id = window.__trialMap && window.__trialMap[key]
+    if(id) showTrialDetail(id)
+    return
+  }
+  // ×ボタン
+  const delBtn = e.target.closest('[data-tkey-del]')
+  if(delBtn){
+    e.stopPropagation()
+    const key = delBtn.dataset.tkeyDel
+    const id = window.__trialMap && window.__trialMap[key]
+    if(id) removeTrial(id)
+    return
+  }
+})
+
 const urlParams = new URLSearchParams(window.location.search)
 const isStudentMode = urlParams.has('student')
 
