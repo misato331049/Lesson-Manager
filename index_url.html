@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="ja">
-<head>あ
+<head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>レッスン管理システム</title>
@@ -1718,6 +1718,7 @@ function getEntries(day,date,slotKey){
 
 function renderScheduleByPage(pageId){
   window.__trialMap = {} // 毎回リセット
+  window.__transferMap = {} // 毎回リセット
   const dayMap = {
     'schedule-thu-sat': ['木','土'],
     'schedule-fri':     ['金'],
@@ -1762,9 +1763,12 @@ function renderScheduleByPage(pageId){
         cellHtml += `>`
         entries.forEach(e=>{
           if(e.type==='transfer'){
-            cellHtml += `<span class="cell-name cell-transfer">${e.name}`
-            if(isTeacher) cellHtml += ` <span style="cursor:pointer;margin-left:2px" onclick="removeTransfer('${e.transferId}')">×</span>`
-            cellHtml += `</span>`
+            if(!window.__transferMap) window.__transferMap={}
+            const _trk1 = Object.keys(window.__transferMap).length
+            window.__transferMap[_trk1] = e.transferId
+            cellHtml += `<span class="cell-name cell-transfer">${e.name}</span>`
+            if(isTeacher) cellHtml += `<button class="transfer-detail-btn" data-trkey="${_trk1}" style="font-size:10px;padding:1px 5px;margin-left:3px;cursor:pointer;background:#F1EFE8;border:none;border-radius:3px;color:#5F5E5A">詳細</button>`
+            if(isTeacher) cellHtml += ` <span class="transfer-del-btn" data-trkey-del="${_trk1}" style="cursor:pointer;margin-left:2px;font-size:10px;color:#666">×</span>`
           } else if(e.type==='trial'){
             if(!window.__trialMap) window.__trialMap={}
             const _tkey = Object.keys(window.__trialMap).length
@@ -1830,9 +1834,12 @@ function renderScheduleTable_orig(){
         cellHtml+=`>`
         entries.forEach(e=>{
           if(e.type==='transfer'){
-            cellHtml+=`<span class="cell-name cell-transfer" title="振替">${e.name}`
-            if(isTeacher) cellHtml+=` <span style="cursor:pointer;margin-left:2px" onclick="removeTransfer('${e.transferId}')">×</span>`
-            cellHtml+=`</span>`
+            if(!window.__transferMap) window.__transferMap={}
+            const _trk2 = Object.keys(window.__transferMap).length
+            window.__transferMap[_trk2] = e.transferId
+            cellHtml+=`<span class="cell-name cell-transfer">${e.name}</span>`
+            if(isTeacher) cellHtml+=`<button class="transfer-detail-btn" data-trkey="${_trk2}" style="font-size:10px;padding:1px 5px;margin-left:3px;cursor:pointer;background:#F1EFE8;border:none;border-radius:3px;color:#5F5E5A">詳細</button>`
+            if(isTeacher) cellHtml+=` <span class="transfer-del-btn" data-trkey-del="${_trk2}" style="cursor:pointer;margin-left:2px;font-size:10px;color:#666">×</span>`
           } else if(e.type==='trial'){
             if(!window.__trialMap) window.__trialMap={}
             const _tkey2 = Object.keys(window.__trialMap).length
@@ -2737,25 +2744,49 @@ async function confirmTrialModal(day, date, slot){
 function showTrialDetail(id){
   const t=trialLessons.find(x=>x.id===id)
   if(!t){toast('体験レッスンが見つかりません',true);return}
-  const memoHtml=t.memo
-    ?'<div><div style="font-size:11px;font-weight:700;color:var(--text2);margin-bottom:6px;text-transform:uppercase;letter-spacing:.05em">メモ</div><div style="font-size:14px;line-height:1.8;white-space:pre-wrap;background:var(--bg);border-radius:var(--radius-sm);padding:12px">'+t.memo+'</div></div>'
-    :'<div style="color:var(--text3);font-size:13px">メモはありません</div>'
-  const html=
-    '<div class="modal-title" style="color:#0C4A6E"><i class="ti ti-user-plus" style="color:#7DD3FC"></i> 体験レッスン詳細</div>'+
-    '<div style="background:#E0F2FE;border-radius:var(--radius-sm);padding:12px;margin-bottom:14px">'+
-      '<div style="display:flex;gap:16px;flex-wrap:wrap">'+
-        '<div><div style="font-size:10px;color:var(--text2);font-weight:700;margin-bottom:3px">日付</div><div style="font-size:16px;font-weight:700">'+t.date+'（'+t.day+'）</div></div>'+
-        '<div><div style="font-size:10px;color:var(--text2);font-weight:700;margin-bottom:3px">時間</div><div style="font-size:16px;font-weight:700">'+t.time+'</div></div>'+
-        '<div><div style="font-size:10px;color:var(--text2);font-weight:700;margin-bottom:3px">月</div><div style="font-size:16px;font-weight:700">'+t.month+'月</div></div>'+
-      '</div>'+
-    '</div>'+
-    memoHtml+
-    '<div style="display:flex;gap:8px;margin-top:16px">'+
-      '<button class="btn btn-primary" style="flex:1" onclick="closeModal()">閉じる</button>'+
-      '<button class="btn" style="color:var(--red);border-color:var(--red)" onclick="closeModal();removeTrial(''+t.id+'')"><i class="ti ti-trash"></i> 削除</button>'+
-    '</div>'
-  showModal('trial-detail-modal', html)
+  showModal('trial-detail-modal',`
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+      <div style="width:36px;height:36px;border-radius:50%;background:#E0F2FE;color:#0C4A6E;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">
+        <i class="ti ti-user-plus"></i>
+      </div>
+      <div>
+        <div style="font-size:15px;font-weight:600">体験レッスン</div>
+        <div style="font-size:12px;color:var(--text2)">${t.date}（${t.day}）${t.time} / ${t.month}月</div>
+      </div>
+    </div>
+    ${t.memo ? `<div style="background:var(--bg);border-radius:4px;padding:8px 10px;margin-bottom:12px;font-size:13px;line-height:1.7;white-space:pre-wrap">${t.memo}</div>` : '<div style="font-size:12px;color:var(--text3);margin-bottom:12px">メモはありません</div>'}
+    <div style="display:flex;gap:8px">
+      <button class="btn" style="flex:1;justify-content:center" onclick="closeModal()">閉じる</button>
+      <button class="btn" style="color:var(--red);border-color:var(--red)" onclick="closeModal();removeTrial('${t.id}')"><i class="ti ti-trash"></i> 削除</button>
+    </div>
+  `)
 }
+
+function showTransferDetail(transferId){
+  const t=manualTransfers.find(x=>x.id===transferId)
+  if(!t){toast('振替情報が見つかりません',true);return}
+  showModal('transfer-detail-modal',`
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+      <div style="width:36px;height:36px;border-radius:50%;background:#F1EFE8;color:#5F5E5A;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">
+        <i class="ti ti-replace"></i>
+      </div>
+      <div>
+        <div style="font-size:15px;font-weight:600">${t.studentName}</div>
+        <div style="font-size:12px;color:var(--text2)">振替レッスン</div>
+      </div>
+    </div>
+    <div style="background:var(--bg);border-radius:4px;padding:8px 10px;margin-bottom:12px;font-size:13px">
+      <div style="margin-bottom:4px"><span style="color:var(--text2)">元の日程：</span>${t.fromDate||'—'}（${t.fromDay||'—'}）${t.fromTime||'—'}</div>
+      <div><span style="color:var(--text2)">振替先：</span><span style="font-weight:600;color:var(--green)">${t.toDate}（${t.toDay}）${t.toTime}</span></div>
+    </div>
+    <div style="display:flex;gap:8px">
+      <button class="btn" style="flex:1;justify-content:center" onclick="closeModal()">閉じる</button>
+      <button class="btn" style="color:var(--red);border-color:var(--red)" onclick="closeModal();removeTransfer('${t.id}')"><i class="ti ti-trash"></i> 削除</button>
+    </div>
+  `)
+}
+
+
 async function removeTrial(id){
   trialLessons = trialLessons.filter(t=>t.id!==id)
   if(sb) await sb.from('trial_lessons').delete().eq('id',id)
@@ -3349,7 +3380,7 @@ updateCourseOptions()
 // URLパラメータを確認して初期画面を決定
 // 体験レッスン「詳細」ボタンと「×」ボタンのイベント委譲
 document.addEventListener('click', function(e){
-  // 詳細ボタン
+  // 体験レッスン詳細ボタン
   const btn = e.target.closest('.trial-detail-btn')
   if(btn){
     e.stopPropagation()
@@ -3358,13 +3389,31 @@ document.addEventListener('click', function(e){
     if(id) showTrialDetail(id)
     return
   }
-  // ×ボタン
+  // 体験レッスン×ボタン
   const delBtn = e.target.closest('[data-tkey-del]')
   if(delBtn){
     e.stopPropagation()
     const key = delBtn.dataset.tkeyDel
     const id = window.__trialMap && window.__trialMap[key]
     if(id) removeTrial(id)
+    return
+  }
+  // 振替詳細ボタン
+  const trBtn = e.target.closest('.transfer-detail-btn')
+  if(trBtn){
+    e.stopPropagation()
+    const key = trBtn.dataset.trkey
+    const id = window.__transferMap && window.__transferMap[key]
+    if(id) showTransferDetail(id)
+    return
+  }
+  // 振替×ボタン
+  const trDelBtn = e.target.closest('.transfer-del-btn')
+  if(trDelBtn){
+    e.stopPropagation()
+    const key = trDelBtn.dataset.trkeyDel
+    const id = window.__transferMap && window.__transferMap[key]
+    if(id) removeTransfer(id)
     return
   }
 })
