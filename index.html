@@ -317,14 +317,36 @@ function closeSlotMenu(){
 /* ===== TRANSFER MODAL ===== */
 function openTransferModal(day, date, slot){
   const studentOpts = students.map(s=>`<option value="${s.name}" data-day="${s.day}" data-time="${s.time}">${s.name}（${s.day}曜 ${s.time}）</option>`).join('')
+  const dayOpts = ['木','金','土','日'].map(d=>`<option value="${d}">${d}曜日</option>`).join('')
   showModal('transfer-modal',`
     <div class="modal-title" style="color:var(--text)"><i class="ti ti-switch-horizontal" style="color:#6B7280"></i> 振替設定</div>
-    <div style="font-size:12px;color:var(--text2);margin-bottom:12px">振替先：${date}（${day}）${slot}</div>
+    <div style="background:var(--bg);border-radius:6px;padding:8px 12px;margin-bottom:14px;font-size:13px">
+      <span style="color:var(--text2)">振替先：</span><strong>${date}（${day}）${slot}</strong>
+    </div>
     <div class="form-group" style="margin-bottom:10px">
       <div class="lbl">生徒名</div>
       <select id="tr-modal-student">${studentOpts}</select>
     </div>
-    <div style="font-size:11px;color:var(--text2);margin-bottom:10px">
+    <div class="lbl" style="margin-bottom:6px;color:var(--text2);font-size:12px;font-weight:700">元の日程（何月何日分の振替か）</div>
+    <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap">
+      <div style="flex:1;min-width:80px">
+        <div class="lbl">日付</div>
+        <input id="tr-modal-from-date" placeholder="例：6/11" style="font-size:13px;padding:7px 10px">
+      </div>
+      <div style="flex:1;min-width:80px">
+        <div class="lbl">曜日</div>
+        <select id="tr-modal-from-day" style="font-size:13px;padding:7px 10px">${dayOpts}</select>
+      </div>
+      <div style="flex:2;min-width:130px">
+        <div class="lbl">時間</div>
+        <input id="tr-modal-from-time" placeholder="例：14:00〜14:30" style="font-size:13px;padding:7px 10px">
+      </div>
+    </div>
+    <div class="form-group" style="margin-bottom:10px">
+      <div class="lbl">メモ（任意）</div>
+      <input id="tr-modal-memo" placeholder="例）体調不良のため振替" style="font-size:13px;padding:7px 10px">
+    </div>
+    <div style="font-size:11px;color:var(--text2);margin-bottom:12px">
       ※ 選択した生徒のマイページにも振替日程が表示されます
     </div>
     <div class="modal-actions">
@@ -336,36 +358,34 @@ function openTransferModal(day, date, slot){
 async function confirmTransferModal(day, date, slot){
   const name = document.getElementById('tr-modal-student')?.value
   if(!name) return
+  const fromDate = document.getElementById('tr-modal-from-date')?.value.trim()||''
+  const fromDay  = document.getElementById('tr-modal-from-day')?.value||''
+  const fromTime = document.getElementById('tr-modal-from-time')?.value.trim()||''
+  const memo     = document.getElementById('tr-modal-memo')?.value.trim()||''
   const transfer = {
     student_name: name,
-    from_date:'', from_time:'', from_day:'',
+    from_date: fromDate, from_time: fromTime, from_day: fromDay,
     to_date: date, to_time: slot, to_day: day,
+    memo: memo,
     month: selectedMonth
   }
   if(sb){
     const{data}=await sb.from('manual_transfers').insert([transfer]).select().single()
     if(data){
       transfer.id=data.id
-      transfer.studentName=name
-      transfer.toDate=date
-      transfer.toTime=slot
-      transfer.toDay=day
     } else {
       transfer.id='tr_'+Date.now()
-      transfer.studentName=name
-      transfer.toDate=date
-      transfer.toTime=slot
-      transfer.toDay=day
     }
   } else {
     transfer.id='tr_'+Date.now()
-    transfer.studentName=name
-    transfer.toDate=date
-    transfer.toTime=slot
-    transfer.toDay=day
   }
+  transfer.studentName=name
+  transfer.toDate=date; transfer.toTime=slot; transfer.toDay=day
+  transfer.fromDate=fromDate; transfer.fromTime=fromTime; transfer.fromDay=fromDay
+  transfer.memo=memo
   manualTransfers.push(transfer)
   closeModal()
+  window.__trialMap={}; window.__transferMap={}
   renderScheduleByPage('schedule-thu-sat')
   renderScheduleByPage('schedule-fri')
   renderScheduleByPage('schedule-sun')
@@ -374,6 +394,7 @@ async function confirmTransferModal(day, date, slot){
 async function removeTransfer(id){
   manualTransfers = manualTransfers.filter(t=>t.id!==id)
   if(sb) await sb.from('manual_transfers').delete().eq('id',id)
+  window.__trialMap={}; window.__transferMap={}
   renderScheduleByPage('schedule-thu-sat')
   renderScheduleByPage('schedule-fri')
   renderScheduleByPage('schedule-sun')
@@ -1414,6 +1435,7 @@ async function loadStudents(){
       studentName:t.student_name,
       fromDate:t.from_date, fromTime:t.from_time, fromDay:t.from_day,
       toDate:t.to_date, toTime:t.to_time, toDay:t.to_day,
+      memo:t.memo||'',
       month:t.month
     }))
     // 体験レッスンを取得
@@ -2647,14 +2669,36 @@ function closeSlotMenu(){
 /* ===== TRANSFER MODAL ===== */
 function openTransferModal(day, date, slot){
   const studentOpts = students.map(s=>`<option value="${s.name}" data-day="${s.day}" data-time="${s.time}">${s.name}（${s.day}曜 ${s.time}）</option>`).join('')
+  const dayOpts = ['木','金','土','日'].map(d=>`<option value="${d}">${d}曜日</option>`).join('')
   showModal('transfer-modal',`
     <div class="modal-title" style="color:var(--text)"><i class="ti ti-switch-horizontal" style="color:#6B7280"></i> 振替設定</div>
-    <div style="font-size:12px;color:var(--text2);margin-bottom:12px">振替先：${date}（${day}）${slot}</div>
+    <div style="background:var(--bg);border-radius:6px;padding:8px 12px;margin-bottom:14px;font-size:13px">
+      <span style="color:var(--text2)">振替先：</span><strong>${date}（${day}）${slot}</strong>
+    </div>
     <div class="form-group" style="margin-bottom:10px">
       <div class="lbl">生徒名</div>
       <select id="tr-modal-student">${studentOpts}</select>
     </div>
-    <div style="font-size:11px;color:var(--text2);margin-bottom:10px">
+    <div class="lbl" style="margin-bottom:6px;color:var(--text2);font-size:12px;font-weight:700">元の日程（何月何日分の振替か）</div>
+    <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap">
+      <div style="flex:1;min-width:80px">
+        <div class="lbl">日付</div>
+        <input id="tr-modal-from-date" placeholder="例：6/11" style="font-size:13px;padding:7px 10px">
+      </div>
+      <div style="flex:1;min-width:80px">
+        <div class="lbl">曜日</div>
+        <select id="tr-modal-from-day" style="font-size:13px;padding:7px 10px">${dayOpts}</select>
+      </div>
+      <div style="flex:2;min-width:130px">
+        <div class="lbl">時間</div>
+        <input id="tr-modal-from-time" placeholder="例：14:00〜14:30" style="font-size:13px;padding:7px 10px">
+      </div>
+    </div>
+    <div class="form-group" style="margin-bottom:10px">
+      <div class="lbl">メモ（任意）</div>
+      <input id="tr-modal-memo" placeholder="例）体調不良のため振替" style="font-size:13px;padding:7px 10px">
+    </div>
+    <div style="font-size:11px;color:var(--text2);margin-bottom:12px">
       ※ 選択した生徒のマイページにも振替日程が表示されます
     </div>
     <div class="modal-actions">
@@ -2666,36 +2710,34 @@ function openTransferModal(day, date, slot){
 async function confirmTransferModal(day, date, slot){
   const name = document.getElementById('tr-modal-student')?.value
   if(!name) return
+  const fromDate = document.getElementById('tr-modal-from-date')?.value.trim()||''
+  const fromDay  = document.getElementById('tr-modal-from-day')?.value||''
+  const fromTime = document.getElementById('tr-modal-from-time')?.value.trim()||''
+  const memo     = document.getElementById('tr-modal-memo')?.value.trim()||''
   const transfer = {
     student_name: name,
-    from_date:'', from_time:'', from_day:'',
+    from_date: fromDate, from_time: fromTime, from_day: fromDay,
     to_date: date, to_time: slot, to_day: day,
+    memo: memo,
     month: selectedMonth
   }
   if(sb){
     const{data}=await sb.from('manual_transfers').insert([transfer]).select().single()
     if(data){
       transfer.id=data.id
-      transfer.studentName=name
-      transfer.toDate=date
-      transfer.toTime=slot
-      transfer.toDay=day
     } else {
       transfer.id='tr_'+Date.now()
-      transfer.studentName=name
-      transfer.toDate=date
-      transfer.toTime=slot
-      transfer.toDay=day
     }
   } else {
     transfer.id='tr_'+Date.now()
-    transfer.studentName=name
-    transfer.toDate=date
-    transfer.toTime=slot
-    transfer.toDay=day
   }
+  transfer.studentName=name
+  transfer.toDate=date; transfer.toTime=slot; transfer.toDay=day
+  transfer.fromDate=fromDate; transfer.fromTime=fromTime; transfer.fromDay=fromDay
+  transfer.memo=memo
   manualTransfers.push(transfer)
   closeModal()
+  window.__trialMap={}; window.__transferMap={}
   renderScheduleByPage('schedule-thu-sat')
   renderScheduleByPage('schedule-fri')
   renderScheduleByPage('schedule-sun')
@@ -2704,6 +2746,7 @@ async function confirmTransferModal(day, date, slot){
 async function removeTransfer(id){
   manualTransfers = manualTransfers.filter(t=>t.id!==id)
   if(sb) await sb.from('manual_transfers').delete().eq('id',id)
+  window.__trialMap={}; window.__transferMap={}
   renderScheduleByPage('schedule-thu-sat')
   renderScheduleByPage('schedule-fri')
   renderScheduleByPage('schedule-sun')
@@ -2775,9 +2818,10 @@ function showTransferDetail(transferId){
         <div style="font-size:12px;color:var(--text2)">振替レッスン</div>
       </div>
     </div>
-    <div style="background:var(--bg);border-radius:4px;padding:8px 10px;margin-bottom:12px;font-size:13px">
-      <div style="margin-bottom:4px"><span style="color:var(--text2)">元の日程：</span>${t.fromDate||'—'}（${t.fromDay||'—'}）${t.fromTime||'—'}</div>
+    <div style="background:var(--bg);border-radius:6px;padding:10px 12px;margin-bottom:12px;font-size:13px;line-height:1.8">
+      <div><span style="color:var(--text2)">元の日程：</span><strong>${t.fromDate||'—'}（${t.fromDay||'—'}）${t.fromTime||'—'}</strong></div>
       <div><span style="color:var(--text2)">振替先：</span><span style="font-weight:600;color:var(--green)">${t.toDate}（${t.toDay}）${t.toTime}</span></div>
+      ${t.memo ? '<div style="margin-top:4px"><span style="color:var(--text2)">メモ：</span>'+t.memo+'</div>' : ''}
     </div>
     <div style="display:flex;gap:8px">
       <button class="btn" style="flex:1;justify-content:center" onclick="closeModal()">閉じる</button>
