@@ -3386,6 +3386,7 @@ document.addEventListener('click', function(e){
     e.stopPropagation()
     const key = btn.dataset.tkey
     const id = window.__trialMap && window.__trialMap[key]
+    alert('ボタンが押されました。key='+key+' id='+id+' mapSize='+Object.keys(window.__trialMap||{}).length)
     if(id) showTrialDetail(id)
     return
   }
