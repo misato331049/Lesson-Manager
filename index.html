@@ -645,6 +645,9 @@ async function sendNotice(){
       const files=await uploadNoticeFiles(notice.id)
       notice.files=files
       await sb.from('notices').update({files}).eq('id',notice.id)
+      // ★修正: アップロード後にSupabaseから最新データを再取得してfilesを確実に同期
+      const{data:fresh}=await sb.from('notices').select('*').eq('id',notice.id).single()
+      if(fresh) Object.assign(notice,fresh)
     }
   } else {
     notice.id='n_'+Date.now()
@@ -1127,12 +1130,23 @@ const TEACHER_PASSWORD = null
 
 <!-- DASHBOARD -->
 <div class="page" id="page-dashboard">
+  <div style="background:linear-gradient(135deg,#EAF3DE,#f8fdf4);border:1px solid #c5dba8;border-radius:var(--radius);padding:14px 16px;margin-bottom:16px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
+    <div>
+      <div style="font-size:14px;font-weight:700;color:var(--green);margin-bottom:3px"><i class="ti ti-database-export"></i> データバックアップ</div>
+      <div style="font-size:12px;color:var(--text2)">全データをCSVにまとめてダウンロード。月1回の実施を推奨します。</div>
+      <div style="font-size:11px;color:var(--text3);margin-top:2px">前回バックアップ：<span id="last-backup-date">未実施</span></div>
+    </div>
+    <button class="btn btn-primary" id="backup-btn" onclick="downloadAllBackup()" style="background:var(--green);border-color:var(--green);white-space:nowrap;flex-shrink:0">
+      <i class="ti ti-download"></i> 今すぐバックアップ
+    </button>
+  </div>
   <div class="stat-grid">
     <div class="stat"><div class="stat-label"><i class="ti ti-users"></i> 生徒数</div><div class="stat-val" id="d-total">—</div></div>
     <div class="stat"><div class="stat-label"><i class="ti ti-calendar-repeat"></i> 月3回</div><div class="stat-val" id="d-3x">—</div></div>
     <div class="stat"><div class="stat-label"><i class="ti ti-calendar"></i> 月2回</div><div class="stat-val" id="d-2x">—</div></div>
     <div class="stat"><div class="stat-label"><i class="ti ti-bell"></i> 振替相談</div><div class="stat-val" id="d-req" style="color:var(--red)">—</div></div>
   </div>
+
   <div class="card">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
       <div class="card-title" style="margin-bottom:0">生徒状況</div>
@@ -1381,7 +1395,10 @@ async function loadStudents(){
         day:r.students?.day||'',
         note:r.note||'',
         type:r.type||'欠席',
-        month:selectedMonth
+        month:selectedMonth,
+        transfer_date:r.transfer_date||'',
+        transfer_day:r.transfer_day||'',
+        transfer_time:r.transfer_time||''
       }))
     }
     // お知らせを取得
@@ -1597,7 +1614,7 @@ function switchMode(mode){
   document.getElementById('student-nav').style.display=mode==='student'?'block':'none'
   if(mode==='teacher'){
     if(!teacherLoggedIn){nav('teacher-login')}
-    else nav('schedule-thu-sat')
+    else nav('dashboard')
   } else {
     loggedInStudent?showStudentPortal(loggedInStudent):nav('student-login')
   }
@@ -1670,7 +1687,10 @@ async function initApp(){
   await loadLessonDates()
   await loadStudents()
   renderNoticesAdmin()
-  nav('schedule-thu-sat')
+  nav('dashboard')
+  // 最終バックアップ日を表示
+  const last=localStorage.getItem('lastBackupDate')
+  if(last){const el=document.getElementById('last-backup-date');if(el)el.textContent=last}
 }
 
 /* =====================================================
@@ -1697,6 +1717,8 @@ function getEntries(day,date,slotKey){
 }
 
 function renderScheduleByPage(pageId){
+  window.__trialMap = {} // 毎回リセット
+  window.__transferMap = {} // 毎回リセット
   const dayMap = {
     'schedule-thu-sat': ['木','土'],
     'schedule-fri':     ['金'],
@@ -1741,13 +1763,19 @@ function renderScheduleByPage(pageId){
         cellHtml += `>`
         entries.forEach(e=>{
           if(e.type==='transfer'){
-            cellHtml += `<span class="cell-name cell-transfer">${e.name}`
-            if(isTeacher) cellHtml += ` <span style="cursor:pointer;margin-left:2px" onclick="removeTransfer('${e.transferId}')">×</span>`
-            cellHtml += `</span>`
+            if(!window.__transferMap) window.__transferMap={}
+            const _trk1 = Object.keys(window.__transferMap).length
+            window.__transferMap[_trk1] = e.transferId
+            cellHtml += `<span class="cell-name cell-transfer">${e.name}</span>`
+            if(isTeacher) cellHtml += `<button class="transfer-detail-btn" data-trkey="${_trk1}" style="font-size:10px;padding:1px 5px;margin-left:3px;cursor:pointer;background:#F1EFE8;border:none;border-radius:3px;color:#5F5E5A">詳細</button>`
+            if(isTeacher) cellHtml += ` <span class="transfer-del-btn" data-trkey-del="${_trk1}" style="cursor:pointer;margin-left:2px;font-size:10px;color:#666">×</span>`
           } else if(e.type==='trial'){
-            cellHtml += `<span class="cell-name cell-trial">${e.name}`
-            if(isTeacher) cellHtml += ` <span style="cursor:pointer;margin-left:2px" onclick="removeTrial('${e.trialId}')">×</span>`
-            cellHtml += `</span>`
+            if(!window.__trialMap) window.__trialMap={}
+            const _tkey = Object.keys(window.__trialMap).length
+            window.__trialMap[_tkey] = e.trialId
+            cellHtml += '<span class="cell-name cell-trial">'+e.name+'</span>'
+            if(isTeacher) cellHtml += '<button class="trial-detail-btn" data-tkey="'+_tkey+'" style="font-size:10px;padding:1px 5px;margin-left:3px;cursor:pointer;background:#BAE6FD;border:none;border-radius:3px;color:#0C4A6E">詳細</button>'
+            if(isTeacher) cellHtml += '<span style="cursor:pointer;margin-left:2px;font-size:10px;color:#666" data-tkey-del="'+_tkey+'">&times;</span>'
           } else {
             if(isTeacher){
               // 振替申請があれば名前クリックで詳細表示
@@ -1806,13 +1834,19 @@ function renderScheduleTable_orig(){
         cellHtml+=`>`
         entries.forEach(e=>{
           if(e.type==='transfer'){
-            cellHtml+=`<span class="cell-name cell-transfer" title="振替">${e.name}`
-            if(isTeacher) cellHtml+=` <span style="cursor:pointer;margin-left:2px" onclick="removeTransfer('${e.transferId}')">×</span>`
-            cellHtml+=`</span>`
+            if(!window.__transferMap) window.__transferMap={}
+            const _trk2 = Object.keys(window.__transferMap).length
+            window.__transferMap[_trk2] = e.transferId
+            cellHtml+=`<span class="cell-name cell-transfer">${e.name}</span>`
+            if(isTeacher) cellHtml+=`<button class="transfer-detail-btn" data-trkey="${_trk2}" style="font-size:10px;padding:1px 5px;margin-left:3px;cursor:pointer;background:#F1EFE8;border:none;border-radius:3px;color:#5F5E5A">詳細</button>`
+            if(isTeacher) cellHtml+=` <span class="transfer-del-btn" data-trkey-del="${_trk2}" style="cursor:pointer;margin-left:2px;font-size:10px;color:#666">×</span>`
           } else if(e.type==='trial'){
-            cellHtml+=`<span class="cell-name cell-trial" title="体験">${e.name}`
-            if(isTeacher) cellHtml+=` <span style="cursor:pointer;margin-left:2px" onclick="removeTrial('${e.trialId}')">×</span>`
-            cellHtml+=`</span>`
+            if(!window.__trialMap) window.__trialMap={}
+            const _tkey2 = Object.keys(window.__trialMap).length
+            window.__trialMap[_tkey2] = e.trialId
+            cellHtml += '<span class="cell-name cell-trial">'+e.name+'</span>'
+            if(isTeacher) cellHtml += '<button class="trial-detail-btn" data-tkey="'+_tkey2+'" style="font-size:10px;padding:1px 5px;margin-left:3px;cursor:pointer;background:#BAE6FD;border:none;border-radius:3px;color:#0C4A6E">詳細</button>'
+            if(isTeacher) cellHtml += '<span style="cursor:pointer;margin-left:2px;font-size:10px;color:#666" data-tkey-del="'+_tkey2+'">&times;</span>'
           } else {
             if(isTeacher){
               cellHtml+=`<span class="cell-name cell-${e.type} draggable" draggable="true" ondragstart="onDragStart(event,'${e.studentId||''}','${e.name}','${day}','${d}','${slot}')">${e.name}</span>`
@@ -1858,6 +1892,80 @@ function downloadExcel(){
 /* =====================================================
    ダッシュボード
    ===================================================== */
+/* =====================================================
+   バックアップ
+   ===================================================== */
+function toCSV(headers, rows){
+  const esc=v=>{
+    if(v===null||v===undefined)return ''
+    const s=String(v)
+    return s.includes(',')||s.includes('"')||s.includes('\n')?`"${s.replace(/"/g,'""')}"`:s
+  }
+  return [headers.join(','),...rows.map(r=>headers.map(h=>esc(r[h])).join(','))].join('\n')
+}
+function downloadCSV(filename,csv){
+  const bom='\uFEFF' // Excel用BOM
+  const blob=new Blob([bom+csv],{type:'text/csv;charset=utf-8;'})
+  const url=URL.createObjectURL(blob)
+  const a=document.createElement('a');a.href=url;a.download=filename;a.click()
+  URL.revokeObjectURL(url)
+}
+async function downloadAllBackup(){
+  const btn=document.getElementById('backup-btn')
+  btn.innerHTML='<i class="ti ti-loader-2"></i> 取得中...'
+  btn.disabled=true
+  try{
+    if(!sb){toast('Supabaseが未設定です',true);return}
+    const now=new Date()
+    const dateStr=`${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}`
+
+    // 全テーブルを並行取得
+    const[s,r,n,sel,ld,mt,tl]=await Promise.all([
+      sb.from('students').select('*').order('day').order('time'),
+      sb.from('requests').select('*').order('created_at',{ascending:false}),
+      sb.from('notices').select('id,title,body,month,target_names,created_at,expires_at'),
+      sb.from('student_selections').select('*'),
+      sb.from('lesson_dates').select('*').order('month').order('day'),
+      sb.from('manual_transfers').select('*').order('month'),
+      sb.from('trial_lessons').select('*').order('month')
+    ])
+
+    // 各テーブルをCSV化してダウンロード
+    const monthLabel=`${selectedMonth}月分バックアップ`
+    const tables=[
+      {name:'生徒一覧',       data:s.data,  headers:['id','name','kana','day','time','course','tel']},
+      {name:'欠席振替申請',   data:r.data,  headers:['id','student_name','date','type','note','status','month','transfer_date','transfer_day','transfer_time','created_at']},
+      {name:'お知らせ',       data:n.data,  headers:['id','title','body','month','target_names','created_at','expires_at']},
+      {name:'日程選択',       data:sel.data,headers:['id','student_id','date','month']},
+      {name:'レッスン日程',   data:ld.data, headers:['id','day','date','month']},
+      {name:'振替設定',       data:mt.data, headers:['id','student_name','from_date','from_time','from_day','to_date','to_time','to_day','month']},
+      {name:'体験レッスン',   data:tl.data, headers:['id','date','day','time','memo','month']},
+    ]
+
+    // 少し間隔をあけて順番にダウンロード（ブラウザのポップアップブロック回避）
+    for(let i=0;i<tables.length;i++){
+      const t=tables[i]
+      if(!t.data||!t.data.length) continue
+      const csv=toCSV(t.headers,t.data)
+      setTimeout(()=>downloadCSV(`${monthLabel}_${t.name}.csv`,csv),i*300)
+    }
+
+    // 最終バックアップ日を記録（ローカル）
+    localStorage.setItem('lastBackupDate',now.toLocaleDateString('ja-JP'))
+    document.getElementById('last-backup-date').textContent=now.toLocaleDateString('ja-JP')
+    setTimeout(()=>{
+      btn.innerHTML='<i class="ti ti-download"></i> 今すぐバックアップ'
+      btn.disabled=false
+      toast('バックアップ完了！'+tables.filter(t=>t.data?.length).length+'ファイルをダウンロードしました')
+    },tables.length*300+200)
+  }catch(e){
+    btn.innerHTML='<i class="ti ti-download"></i> 今すぐバックアップ'
+    btn.disabled=false
+    toast('バックアップに失敗しました',true)
+    console.error(e)
+  }
+}
+
 function renderDashboard(){
   document.getElementById('d-total').textContent=students.length
   document.getElementById('d-3x').textContent=students.filter(s=>s.course===3).length
@@ -2026,15 +2134,42 @@ function renderTransferRequests(){
   // 承認済みの欠席
   if(approved.length){
     html+=`<div style="font-size:11px;font-weight:600;color:var(--text2);margin:12px 0 6px;text-transform:uppercase;letter-spacing:.05em">承認済み（${approved.length}件）</div>`
-    html+=approved.map(a=>`
+    html+=approved.map(a=>{
+      const hasTr=a.transfer_date
+      return `
       <div style="border:1px solid var(--green-light);border-radius:var(--radius-sm);padding:10px;margin-bottom:8px;background:var(--green-light)">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
           <span style="font-weight:600">${a.studentName} — ${a.date}（${a.day}）</span>
           <span class="badge b-green">承認済み</span>
         </div>
-        <div style="font-size:12px;color:var(--green);margin-bottom:6px">${a.type}${a.note?` — 「${a.note}」`:''}</div>
+        <div style="font-size:12px;color:var(--green);margin-bottom:8px">${a.type}${a.note?` — 「${a.note}」`:''}</div>
+        <div style="background:rgba(255,255,255,.65);border-radius:6px;padding:8px 10px;margin-bottom:8px;border:1px solid rgba(59,109,17,.2)">
+          <div style="font-size:10px;font-weight:700;color:var(--green);margin-bottom:6px;letter-spacing:.04em;text-transform:uppercase"><i class="ti ti-replace"></i> 振替実施日</div>
+          ${hasTr
+            ? `<div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:4px">${a.transfer_date}（${a.transfer_day}）${a.transfer_time}</div>
+               <button class="btn btn-sm" style="font-size:10px;padding:2px 8px" onclick="pcClearTransferDate('${a.id}')"><i class="ti ti-edit"></i> 変更する</button>`
+            : `<div style="display:flex;gap:6px;align-items:flex-end;flex-wrap:wrap">
+                 <div>
+                   <div style="font-size:10px;color:var(--text2);margin-bottom:3px">日付（例：7/3）</div>
+                   <input id="pctrdt-${a.id}" placeholder="7/3" value="" style="width:80px;font-size:12px;padding:4px 7px">
+                 </div>
+                 <div>
+                   <div style="font-size:10px;color:var(--text2);margin-bottom:3px">曜日</div>
+                   <select id="pctrdw-${a.id}" style="font-size:12px;padding:4px 7px;width:60px">
+                     <option value="木">木</option><option value="金">金</option><option value="土">土</option><option value="日">日</option>
+                   </select>
+                 </div>
+                 <div>
+                   <div style="font-size:10px;color:var(--text2);margin-bottom:3px">時間</div>
+                   <input id="pctrtm-${a.id}" placeholder="14:00〜14:30" value="" style="width:130px;font-size:12px;padding:4px 7px">
+                 </div>
+                 <button class="btn btn-primary btn-sm" style="font-size:11px;padding:4px 10px" onclick="pcSaveTransferDate('${a.id}')"><i class="ti ti-check"></i> 保存</button>
+               </div>`
+          }
+        </div>
         <button class="btn btn-sm" style="font-size:11px" onclick="cancelAbsence('${a.id}')"><i class="ti ti-x"></i> 取り消す</button>
-      </div>`).join('')
+      </div>`
+    }).join('')
   }
 
   el.innerHTML=html
@@ -2109,6 +2244,7 @@ async function doLogin(){
   loggedInStudent = s
   // レッスン日程もロード
   await loadLessonDates()
+  await loadNotices() // ★修正: ログイン時にお知らせデータを必ず取得
   showStudentPortal(s)
 }
 function showStudentPortal(s){
@@ -2373,6 +2509,35 @@ function showStudentInfo(e, studentId){
   `)
 }
 
+async function pcSaveTransferDate(id){
+  const date=document.getElementById('pctrdt-'+id)?.value.trim()
+  const day=document.getElementById('pctrdw-'+id)?.value
+  const time=document.getElementById('pctrtm-'+id)?.value.trim()
+  if(!date){toast('振替日付を入力してください',true);return}
+  const a=approvedAbsences.find(x=>x.id===id);if(!a)return
+  if(sb){
+    const{error}=await sb.from('requests').update({transfer_date:date,transfer_day:day,transfer_time:time}).eq('id',id)
+    if(error){
+      if(error.message&&error.message.includes('transfer_date')){
+        const newNote=(a.note||'')+` [振替実施:${date}(${day})${time}]`
+        await sb.from('requests').update({note:newNote}).eq('id',id)
+        a.note=newNote
+        toast(`振替実施日を保存しました（代替）：${date}（${day}）${time}`)
+      } else {
+        toast('保存に失敗しました：'+error.message,true);return
+      }
+    }
+  }
+  a.transfer_date=date;a.transfer_day=day;a.transfer_time=time
+  toast(`振替実施日を保存しました：${date}（${day}）${time}`)
+  renderTransferRequests()
+}
+async function pcClearTransferDate(id){
+  const a=approvedAbsences.find(x=>x.id===id);if(!a)return
+  a.transfer_date='';a.transfer_day='';a.transfer_time=''
+  if(sb)await sb.from('requests').update({transfer_date:null,transfer_day:null,transfer_time:null}).eq('id',id)
+  renderTransferRequests()
+}
 async function cancelAbsence(id){
   approvedAbsences = approvedAbsences.filter(a=>a.id!==id)
   if(sb) await sb.from('requests').update({status:'pending'}).eq('id',id)
@@ -2576,6 +2741,52 @@ async function confirmTrialModal(day, date, slot){
   renderScheduleByPage('schedule-sun')
   toast('体験レッスンを'+date+'（'+day+'）'+slot+'に登録しました')
 }
+function showTrialDetail(id){
+  const t=trialLessons.find(x=>x.id===id)
+  if(!t){toast('体験レッスンが見つかりません',true);return}
+  showModal('trial-detail-modal',`
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+      <div style="width:36px;height:36px;border-radius:50%;background:#E0F2FE;color:#0C4A6E;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">
+        <i class="ti ti-user-plus"></i>
+      </div>
+      <div>
+        <div style="font-size:15px;font-weight:600">体験レッスン</div>
+        <div style="font-size:12px;color:var(--text2)">${t.date}（${t.day}）${t.time} / ${t.month}月</div>
+      </div>
+    </div>
+    ${t.memo ? `<div style="background:var(--bg);border-radius:4px;padding:8px 10px;margin-bottom:12px;font-size:13px;line-height:1.7;white-space:pre-wrap">${t.memo}</div>` : '<div style="font-size:12px;color:var(--text3);margin-bottom:12px">メモはありません</div>'}
+    <div style="display:flex;gap:8px">
+      <button class="btn" style="flex:1;justify-content:center" onclick="closeModal()">閉じる</button>
+      <button class="btn" style="color:var(--red);border-color:var(--red)" onclick="closeModal();removeTrial('${t.id}')"><i class="ti ti-trash"></i> 削除</button>
+    </div>
+  `)
+}
+
+function showTransferDetail(transferId){
+  const t=manualTransfers.find(x=>x.id===transferId)
+  if(!t){toast('振替情報が見つかりません',true);return}
+  showModal('transfer-detail-modal',`
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+      <div style="width:36px;height:36px;border-radius:50%;background:#F1EFE8;color:#5F5E5A;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">
+        <i class="ti ti-replace"></i>
+      </div>
+      <div>
+        <div style="font-size:15px;font-weight:600">${t.studentName}</div>
+        <div style="font-size:12px;color:var(--text2)">振替レッスン</div>
+      </div>
+    </div>
+    <div style="background:var(--bg);border-radius:4px;padding:8px 10px;margin-bottom:12px;font-size:13px">
+      <div style="margin-bottom:4px"><span style="color:var(--text2)">元の日程：</span>${t.fromDate||'—'}（${t.fromDay||'—'}）${t.fromTime||'—'}</div>
+      <div><span style="color:var(--text2)">振替先：</span><span style="font-weight:600;color:var(--green)">${t.toDate}（${t.toDay}）${t.toTime}</span></div>
+    </div>
+    <div style="display:flex;gap:8px">
+      <button class="btn" style="flex:1;justify-content:center" onclick="closeModal()">閉じる</button>
+      <button class="btn" style="color:var(--red);border-color:var(--red)" onclick="closeModal();removeTransfer('${t.id}')"><i class="ti ti-trash"></i> 削除</button>
+    </div>
+  `)
+}
+
+
 async function removeTrial(id){
   trialLessons = trialLessons.filter(t=>t.id!==id)
   if(sb) await sb.from('trial_lessons').delete().eq('id',id)
@@ -2809,6 +3020,9 @@ async function sendNotice(){
       const files=await uploadNoticeFiles(notice.id)
       notice.files=files
       await sb.from('notices').update({files}).eq('id',notice.id)
+      // ★修正: アップロード後にSupabaseから最新データを再取得してfilesを確実に同期
+      const{data:fresh}=await sb.from('notices').select('*').eq('id',notice.id).single()
+      if(fresh) Object.assign(notice,fresh)
     }
   } else {
     notice.id='n_'+Date.now()
@@ -3153,7 +3367,8 @@ function spTab(name){
     renderStudentCalendar(loggedInStudent.id)
   }
   if(name==='notices' && loggedInStudent){
-    renderPortalNotices(loggedInStudent,'sp')
+    // ★修正: タブ切り替え時にSupabaseから最新のお知らせを再取得
+    loadNotices().then(()=>renderPortalNotices(loggedInStudent,'sp'))
   }
 }
 
@@ -3163,6 +3378,46 @@ function spTab(name){
 updateCourseOptions()
 
 // URLパラメータを確認して初期画面を決定
+// 体験レッスン「詳細」ボタンと「×」ボタンのイベント委譲
+document.addEventListener('click', function(e){
+  // 体験レッスン詳細ボタン
+  const btn = e.target.closest('.trial-detail-btn')
+  if(btn){
+    e.stopPropagation()
+    const key = btn.dataset.tkey
+    const id = window.__trialMap && window.__trialMap[key]
+    if(id) showTrialDetail(id)
+    return
+  }
+  // 体験レッスン×ボタン
+  const delBtn = e.target.closest('[data-tkey-del]')
+  if(delBtn){
+    e.stopPropagation()
+    const key = delBtn.dataset.tkeyDel
+    const id = window.__trialMap && window.__trialMap[key]
+    if(id) removeTrial(id)
+    return
+  }
+  // 振替詳細ボタン
+  const trBtn = e.target.closest('.transfer-detail-btn')
+  if(trBtn){
+    e.stopPropagation()
+    const key = trBtn.dataset.trkey
+    const id = window.__transferMap && window.__transferMap[key]
+    if(id) showTransferDetail(id)
+    return
+  }
+  // 振替×ボタン
+  const trDelBtn = e.target.closest('.transfer-del-btn')
+  if(trDelBtn){
+    e.stopPropagation()
+    const key = trDelBtn.dataset.trkeyDel
+    const id = window.__transferMap && window.__transferMap[key]
+    if(id) removeTransfer(id)
+    return
+  }
+})
+
 const urlParams = new URLSearchParams(window.location.search)
 const isStudentMode = urlParams.has('student')
 
