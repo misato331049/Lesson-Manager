@@ -2371,6 +2371,11 @@ function renderPortalSchedule(s,p){
     }
     html+=`<div style="margin-top:9px;font-size:11px;color:var(--text3)">日程の選択・変更はありません</div>`
   } else {
+    // 現在の日程に存在しない古い選択を除去
+    const validSelected = s.selected.filter(d=>dates.includes(d))
+    if(validSelected.length !== s.selected.length){
+      s.selected = validSelected
+    }
     html+=`<div class="card-title">${s.day}曜日（${dates.length}回から2回を選択）</div>`
     html+=dates.map(d=>`<label class="check-item" style="cursor:${locked?'not-allowed':'pointer'}">
       <input type="checkbox" ${s.selected.includes(d)?'checked':''} ${locked?'disabled':''} style="width:14px;height:14px" onchange="toggleDate('${s.id}','${d}',this,'${p}')">
