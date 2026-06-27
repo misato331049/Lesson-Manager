@@ -107,7 +107,7 @@ input:disabled,select:disabled,textarea:disabled{opacity:.5;cursor:not-allowed;b
 
 /* ===== SCHEDULE TABLE ===== */
 .sched-outer{overflow-x:auto;padding-bottom:4px}
-.sched-days-row{display:flex;min-width:max-content;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;background:var(--surface)}
+.sched-days-row{display:flex;min-width:max-content;border:1px solid #b0aaa0;border-radius:var(--radius);overflow:hidden;background:var(--surface)}
 .day-col{display:flex;flex-direction:column;border-right:2px solid var(--border2)}
 .day-col:last-child{border-right:none}
 .day-col-header{padding:8px 12px;font-size:12px;font-weight:600;text-align:center;white-space:nowrap;border-bottom:1px solid var(--border2)}
@@ -115,19 +115,19 @@ input:disabled,select:disabled,textarea:disabled{opacity:.5;cursor:not-allowed;b
 .fri-col .day-col-header{background:var(--green-light);color:var(--green)}
 .sat-col .day-col-header{background:var(--blue-light);color:var(--blue-dark)}
 .sun-col .day-col-header{background:var(--purple-light);color:var(--purple)}
-.day-dates-row{display:flex;border-bottom:1px solid var(--border)}
+.day-dates-row{display:flex;border-bottom:1px solid #b0aaa0}
 .date-th{padding:5px 8px;font-size:11px;font-weight:600;text-align:center;border-right:1px solid var(--border);min-width:88px}
 .date-th:last-child{border-right:none}
 .thu-col .date-th{background:#FFF9F3;color:#854F0B}
 .fri-col .date-th{background:#F5FAF0;color:var(--green)}
 .sat-col .date-th{background:#F0F7FD;color:var(--blue)}
 .sun-col .date-th{background:#F8F4FF;color:var(--purple)}
-.time-row{display:flex;border-bottom:1px solid var(--border)}
+.time-row{display:flex;border-bottom:1px solid #b0aaa0}
 .time-row:last-child{border-bottom:none}
-.time-label{font-size:10px;color:var(--text2);padding:4px 8px;white-space:nowrap;min-width:86px;display:flex;align-items:center;flex-direction:column;justify-content:center;border-right:1px solid var(--border);background:var(--bg);gap:1px}
+.time-label{font-size:10px;color:var(--text2);padding:4px 8px;white-space:nowrap;min-width:86px;display:flex;align-items:center;flex-direction:column;justify-content:center;border-right:1px solid #b0aaa0;background:var(--bg);gap:1px}
 .time-label.break-label{background:#F5F3ED;justify-content:center;font-size:9px;font-style:italic}
 .time-row-note{font-size:9px;color:var(--purple)}
-.cell-slot{min-width:88px;padding:3px 5px;border-right:1px solid var(--border);min-height:28px;display:flex;align-items:center;flex-wrap:wrap;gap:2px}
+.cell-slot{min-width:88px;padding:3px 5px;border-right:1px solid #b0aaa0;min-height:28px;display:flex;align-items:center;flex-wrap:wrap;gap:2px}
 .cell-slot:last-child{border-right:none}
 .cell-slot.break-slot{background:#F5F3ED;justify-content:center;font-size:9px;color:var(--text3);font-style:italic}
 .cell-name{font-size:10px;padding:2px 6px;border-radius:4px;white-space:nowrap;font-weight:600}
@@ -1805,7 +1805,7 @@ function renderScheduleByPage(pageId){
     const cls = DAY_CLS[day]
     const slots = day==='日' ? SUN_SLOTS : day==='金' ? FRI_SLOTS.map(s=>({slot:s,label:s})) : THU_SAT_SLOTS.map(s=>({slot:s,label:s}))
     html += `<div class="day-col ${cls}"><div class="day-col-header">${DAY_LABEL[day]} <span style="font-size:10px;opacity:.6;font-weight:400">${dates.length}日間</span></div>`
-    html += `<div class="day-dates-row"><div style="min-width:86px;background:var(--bg);border-right:1px solid var(--border)"></div>`
+    html += `<div class="day-dates-row"><div style="min-width:86px;background:var(--bg);border-right:1px solid #b0aaa0"></div>`
     dates.forEach(d=>{html += `<div class="date-th">${d}</div>`}); html += `</div><div>`
     slots.forEach(({slot,label,note,isBreak})=>{
       html += `<div class="time-row"><div class="time-label${isBreak?' break-label':''}">${label}${note&&!isBreak?`<span class="time-row-note">（${note}）</span>`:''}</div>`
@@ -1878,7 +1878,7 @@ function renderScheduleTable_orig(){
     const cls=DAY_CLS[day]
     const slots=day==='日'?SUN_SLOTS:day==='金'?FRI_SLOTS.map(s=>({slot:s,label:s})):THU_SAT_SLOTS.map(s=>({slot:s,label:s}))
     html+=`<div class="day-col ${cls}"><div class="day-col-header">${DAY_LABEL[day]} <span style="font-size:10px;opacity:.6;font-weight:400">${dates.length}日間</span></div>`
-    html+=`<div class="day-dates-row"><div style="min-width:86px;background:var(--bg);border-right:1px solid var(--border)"></div>`
+    html+=`<div class="day-dates-row"><div style="min-width:86px;background:var(--bg);border-right:1px solid #b0aaa0"></div>`
     dates.forEach(d=>{html+=`<div class="date-th">${d}</div>`});html+=`</div><div>`
     slots.forEach(({slot,label,note,isBreak})=>{
       html+=`<div class="time-row"><div class="time-label${isBreak?' break-label':''}">${label}${note&&!isBreak?`<span class="time-row-note">（${note}）</span>`:''}</div>`
