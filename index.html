@@ -1223,9 +1223,15 @@ const TEACHER_PASSWORD = null
 <!-- TEACHER STUDENT VIEW -->
 <div class="page" id="page-teacher-student-view">
   <div class="teacher-note"><i class="ti ti-shield-check"></i> 講師モード — 全生徒のページにアクセスできます</div>
-  <div class="form-group" style="margin-bottom:14px;max-width:280px">
-    <div class="lbl">閲覧する生徒</div>
-    <select id="tsv-select" onchange="loadTeacherStudentView()"><option value="">— 選択してください —</option></select>
+  <div style="display:flex;gap:12px;align-items:flex-end;margin-bottom:14px;flex-wrap:wrap">
+    <div class="form-group" style="margin-bottom:0;flex:1;min-width:200px">
+      <div class="lbl">閲覧する生徒</div>
+      <select id="tsv-select" onchange="loadTeacherStudentView()"><option value="">— 選択してください —</option></select>
+    </div>
+    <div class="form-group" style="margin-bottom:0;min-width:100px">
+      <div class="lbl">レッスン月</div>
+      <select id="tsv-month" onchange="changeTsvMonth(this.value)"></select>
+    </div>
   </div>
   <div id="tsv-content" style="display:none">
     <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
@@ -1684,6 +1690,7 @@ function nav(id){
   if(id==='lesson-dates')renderDayBlocks()
   if(id==='students'){renderStudentList();updateCourseOptions()}
   if(id==='transfer-admin')renderTransferRequests()
+  if(id==='teacher-student-view')initTsvMonthSelect()
   if(id==='notices-admin'){
     const sel=document.getElementById('notice-month')
     if(sel) sel.innerHTML=buildMonthSelect()
@@ -2244,6 +2251,28 @@ function renderTeacherStudentViewSelects(){
   sel.innerHTML='<option value="">— 選択してください —</option>'+
     students.map(s=>`<option value="${s.id}">${s.name}（${s.day}曜 月${s.course}回）</option>`).join('')
   if(cur){sel.value=cur;loadTeacherStudentView()}
+}
+function initTsvMonthSelect(){
+  const sel=document.getElementById('tsv-month')
+  if(!sel) return
+  sel.innerHTML=[1,2,3,4,5,6,7,8,9,10,11,12].map(m=>
+    '<option value="'+m+'" '+(selectedMonth==m?'selected':'')+'>'+m+'月</option>'
+  ).join('')
+}
+async function changeTsvMonth(m){
+  selectedMonth=parseInt(m)
+  await loadLessonDates()
+  await loadStudents()
+  // 月セレクト以外の場所（トップバーなど）にも反映
+  const topMonthSel=document.getElementById('month-select')
+  if(topMonthSel) topMonthSel.value=selectedMonth
+  // 生徒ページを再表示
+  loadTeacherStudentView()
+  // スケジュール表も更新
+  window.__trialMap={};window.__transferMap={}
+  renderScheduleTable()
+  renderDashboard()
+  renderDayBlocks()
 }
 function loadTeacherStudentView(){
   const id=document.getElementById('tsv-select').value,c=document.getElementById('tsv-content')
