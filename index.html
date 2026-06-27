@@ -1445,6 +1445,25 @@ async function loadStudents(){
       id:t.id, date:t.date, time:t.time, day:t.day, memo:t.memo, month:t.month
     }))
   }
+
+  // ★ 月2回生徒の古い選択を自動クリーンアップ
+  // 講師が日程を変更した場合、削除された日程を選んでいた生徒の選択をDBから自動削除
+  for(const s of students){
+    if(canSelectDates(s)){
+      const currentDates = lessonDates[s.day] || []
+      const validSel = s.selected.filter(d => currentDates.includes(d))
+      if(validSel.length !== s.selected.length){
+        // 古い選択がある → DBから削除して有効な選択だけ残す
+        if(sb){
+          await sb.from('student_selections').delete().eq('student_id',s.id).eq('month',selectedMonth)
+          if(validSel.length){
+            await sb.from('student_selections').insert(validSel.map(d=>({student_id:s.id,date:d,month:selectedMonth})))
+          }
+        }
+        s.selected = validSel
+      }
+    }
+  }
 }
 
 async function loadLessonDates(){
