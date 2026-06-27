@@ -1477,18 +1477,15 @@ async function saveLessonDates(){
       if(newSel.length)await sb.from('student_selections').insert(newSel)
       s.selected=tempDates[s.day]||[]
     } else {
-      // 月2回：古い選択のうち新しい日程に存在しないものを削除（無効な選択をリセット）
+      // 月2回：新日程に含まれる選択のみ残す（必ず全削除→再挿入）
       const newDates=tempDates[s.day]||[]
       const validSel=s.selected.filter(d=>newDates.includes(d))
-      if(validSel.length !== s.selected.length){
-        // 無効な選択が含まれていたらリセット
-        await sb.from('student_selections').delete().eq('student_id',s.id).eq('month',selectedMonth)
-        if(validSel.length){
-          await sb.from('student_selections').insert(validSel.map(d=>({student_id:s.id,date:d,month:selectedMonth})))
-        }
-        s.selected=validSel
-        toast('日程変更により、'+s.name+'さんの選択（'+s.selected.join('・')+'）をリセットしました。再選択が必要です。')
+      // 常に全削除して再挿入（確実にリセット）
+      await sb.from('student_selections').delete().eq('student_id',s.id).eq('month',selectedMonth)
+      if(validSel.length){
+        await sb.from('student_selections').insert(validSel.map(d=>({student_id:s.id,date:d,month:selectedMonth})))
       }
+      s.selected=validSel
     }
   }
   DAY_LIST.forEach(day=>{lessonDates[day]=[...tempDates[day]]})
