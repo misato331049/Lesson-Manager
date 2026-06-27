@@ -1468,13 +1468,27 @@ async function saveLessonDates(){
     tempDates[day].forEach(date=>rows.push({day,date,month:selectedMonth}))
   })
   if(rows.length){await sb.from('lesson_dates').insert(rows)}
-  // 月3回・金・日の生徒は自動で選択を更新
+  // 全生徒の選択を更新
   for(const s of students){
     if(s.course===3||s.day==='金'||s.day==='日'){
+      // 月3回・金・日：全日程を自動設定
       await sb.from('student_selections').delete().eq('student_id',s.id).eq('month',selectedMonth)
       const newSel=(tempDates[s.day]||[]).map(date=>({student_id:s.id,date,month:selectedMonth}))
       if(newSel.length)await sb.from('student_selections').insert(newSel)
       s.selected=tempDates[s.day]||[]
+    } else {
+      // 月2回：古い選択のうち新しい日程に存在しないものを削除（無効な選択をリセット）
+      const newDates=tempDates[s.day]||[]
+      const validSel=s.selected.filter(d=>newDates.includes(d))
+      if(validSel.length !== s.selected.length){
+        // 無効な選択が含まれていたらリセット
+        await sb.from('student_selections').delete().eq('student_id',s.id).eq('month',selectedMonth)
+        if(validSel.length){
+          await sb.from('student_selections').insert(validSel.map(d=>({student_id:s.id,date:d,month:selectedMonth})))
+        }
+        s.selected=validSel
+        toast('日程変更により、'+s.name+'さんの選択（'+s.selected.join('・')+'）をリセットしました。再選択が必要です。')
+      }
     }
   }
   DAY_LIST.forEach(day=>{lessonDates[day]=[...tempDates[day]]})
