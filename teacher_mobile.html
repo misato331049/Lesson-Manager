@@ -764,7 +764,7 @@ function tSched(){
         // 色分け：月3回=濃緑 / 金固定=紫 / 日固定=黄 / 月2回=青
         const cls=s.course===3?'sc-x3':s.day==='金'?'sc-fr':s.day==='日'?'sc-su':'sc-x2'
         const suspCls=isSuspended(s)?' style="opacity:0.35;text-decoration:line-through"':''
-        html+=`<span class="sc-name ${cls}"${suspCls}>${s.name}${isSuspended(s)?' (休会)':''}</span>`
+        html+=`<span class="sc-name ${cls}"${suspCls}>${s.name}${isSuspended(s)?'[休]':''}</span>`
       })
       if(!window.__transferMapM) window.__transferMapM={}
       transfers.forEach(t=>{

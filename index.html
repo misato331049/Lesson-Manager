@@ -127,7 +127,7 @@ input:disabled,select:disabled,textarea:disabled{opacity:.5;cursor:not-allowed;b
 .time-label{font-size:10px;color:var(--text2);padding:4px 8px;white-space:nowrap;min-width:86px;display:flex;align-items:center;flex-direction:column;justify-content:center;border-right:1px solid #b0aaa0;background:var(--bg);gap:1px}
 .time-label.break-label{background:#F5F3ED;justify-content:center;font-size:9px;font-style:italic}
 .time-row-note{font-size:9px;color:var(--purple)}
-.cell-slot{min-width:88px;padding:3px 5px;border-right:1px solid #b0aaa0;min-height:28px;display:flex;align-items:center;flex-wrap:wrap;gap:2px}
+.cell-slot{width:88px;min-width:88px;max-width:120px;padding:3px 4px;border-right:1px solid #b0aaa0;min-height:28px;display:flex;align-items:center;flex-wrap:wrap;gap:1px 2px;overflow:hidden}
 .cell-slot:last-child{border-right:none}
 .cell-slot.break-slot{background:#F5F3ED;justify-content:center;font-size:9px;color:var(--text3);font-style:italic}
 .cell-name{font-size:10px;padding:2px 6px;border-radius:4px;white-space:nowrap;font-weight:600}
@@ -925,9 +925,9 @@ async function deleteMyComment(noticeId, studentId, p){
 .lesson-popup-close:hover{background:var(--border)}
 
 /* ===== SCHEDULE EDIT (drag/transfer/trial) ===== */
-.cell-transfer{background:#D1D5DB;color:#374151;font-size:10px;padding:2px 6px;border-radius:4px;white-space:nowrap;font-weight:500;cursor:grab}
-.cell-trial{background:#7DD3FC;color:#0C4A6E;font-size:10px;padding:2px 6px;border-radius:4px;white-space:nowrap;font-weight:500}
-.cell-name{display:inline-block;font-size:10px;padding:2px 6px;border-radius:4px;white-space:nowrap;font-weight:500}
+.cell-transfer{background:#D1D5DB;color:#374151;font-size:9px;padding:1px 4px;border-radius:3px;white-space:nowrap;font-weight:600;cursor:grab;max-width:100%;overflow:hidden;text-overflow:ellipsis}
+.cell-trial{background:#7DD3FC;color:#0C4A6E;font-size:9px;padding:1px 4px;border-radius:3px;white-space:nowrap;font-weight:600;max-width:100%;overflow:hidden;text-overflow:ellipsis}
+.cell-name{display:inline-block;font-size:9px;padding:1px 4px;border-radius:3px;white-space:nowrap;font-weight:600;max-width:100%;overflow:hidden;text-overflow:ellipsis}
 .cell-name.suspended{opacity:0.4;text-decoration:line-through}
 .cell-fixed{background:#EAF3DE;color:#27500A}
 .cell-selected{background:#E6F1FB;color:#0C447C}
@@ -1785,7 +1785,7 @@ function getEntries(day,date,slotKey){
     // 承認済み欠席の場合は表示しない（空きコマに）
     const isAbsent = approvedAbsences.some(a=>a.studentId===s.id&&a.date===date&&a.day===day&&a.month===selectedMonth)
     if(isAbsent) return null
-    return {name:s.name+(isSuspended(s)?' (休会)':''),type:s.course===3?'fixed':'selected',studentId:s.id,suspended:isSuspended(s)}
+    return {name:s.name+(isSuspended(s)?'[休]':''),type:s.course===3?'fixed':'selected',studentId:s.id,suspended:isSuspended(s)}
   }).filter(Boolean)
   // 振替（手動移動）
   const transfers = manualTransfers
@@ -1847,15 +1847,15 @@ function renderScheduleByPage(pageId){
             const _trk1 = Object.keys(window.__transferMap).length
             window.__transferMap[_trk1] = e.transferId
             cellHtml += `<span class="cell-name cell-transfer">${e.name}</span>`
-            if(isTeacher) cellHtml += `<button class="transfer-detail-btn" data-trkey="${_trk1}" style="font-size:10px;padding:1px 5px;margin-left:3px;cursor:pointer;background:#F1EFE8;border:none;border-radius:3px;color:#5F5E5A">詳細</button>`
-            if(isTeacher) cellHtml += ` <span class="transfer-del-btn" data-trkey-del="${_trk1}" style="cursor:pointer;margin-left:2px;font-size:10px;color:#666">×</span>`
+            if(isTeacher) cellHtml += `<button class="transfer-detail-btn" data-trkey="${_trk1}" style="font-size:8px;padding:0px 3px;margin-left:1px;cursor:pointer;background:#F1EFE8;border:none;border-radius:2px;color:#5F5E5A;line-height:1.4">詳細</button>`
+            if(isTeacher) cellHtml += ` <span class="transfer-del-btn" data-trkey-del="${_trk1}" style="cursor:pointer;margin-left:1px;font-size:8px;color:#999;line-height:1">×</span>`
           } else if(e.type==='trial'){
             if(!window.__trialMap) window.__trialMap={}
             const _tkey = Object.keys(window.__trialMap).length
             window.__trialMap[_tkey] = e.trialId
             cellHtml += '<span class="cell-name cell-trial">'+e.name+'</span>'
-            if(isTeacher) cellHtml += '<button class="trial-detail-btn" data-tkey="'+_tkey+'" style="font-size:10px;padding:1px 5px;margin-left:3px;cursor:pointer;background:#BAE6FD;border:none;border-radius:3px;color:#0C4A6E">詳細</button>'
-            if(isTeacher) cellHtml += '<span style="cursor:pointer;margin-left:2px;font-size:10px;color:#666" data-tkey-del="'+_tkey+'">&times;</span>'
+            if(isTeacher) cellHtml += '<button class="trial-detail-btn" data-tkey="'+_tkey+'" style="font-size:8px;padding:0px 3px;margin-left:1px;cursor:pointer;background:#BAE6FD;border:none;border-radius:2px;color:#0C4A6E;line-height:1.4">詳細</button>'
+            if(isTeacher) cellHtml += '<span style="cursor:pointer;margin-left:1px;font-size:8px;color:#999;line-height:1" data-tkey-del="'+_tkey+'">&times;</span>'
           } else {
             if(isTeacher){
               // 振替申請があれば名前クリックで詳細表示
@@ -1920,15 +1920,15 @@ function renderScheduleTable_orig(){
             const _trk2 = Object.keys(window.__transferMap).length
             window.__transferMap[_trk2] = e.transferId
             cellHtml+=`<span class="cell-name cell-transfer">${e.name}</span>`
-            if(isTeacher) cellHtml+=`<button class="transfer-detail-btn" data-trkey="${_trk2}" style="font-size:10px;padding:1px 5px;margin-left:3px;cursor:pointer;background:#F1EFE8;border:none;border-radius:3px;color:#5F5E5A">詳細</button>`
-            if(isTeacher) cellHtml+=` <span class="transfer-del-btn" data-trkey-del="${_trk2}" style="cursor:pointer;margin-left:2px;font-size:10px;color:#666">×</span>`
+            if(isTeacher) cellHtml+=`<button class="transfer-detail-btn" data-trkey="${_trk2}" style="font-size:8px;padding:0px 3px;margin-left:1px;cursor:pointer;background:#F1EFE8;border:none;border-radius:2px;color:#5F5E5A;line-height:1.4">詳細</button>`
+            if(isTeacher) cellHtml+=` <span class="transfer-del-btn" data-trkey-del="${_trk2}" style="cursor:pointer;margin-left:1px;font-size:8px;color:#999;line-height:1">×</span>`
           } else if(e.type==='trial'){
             if(!window.__trialMap) window.__trialMap={}
             const _tkey2 = Object.keys(window.__trialMap).length
             window.__trialMap[_tkey2] = e.trialId
             cellHtml += '<span class="cell-name cell-trial">'+e.name+'</span>'
-            if(isTeacher) cellHtml += '<button class="trial-detail-btn" data-tkey="'+_tkey2+'" style="font-size:10px;padding:1px 5px;margin-left:3px;cursor:pointer;background:#BAE6FD;border:none;border-radius:3px;color:#0C4A6E">詳細</button>'
-            if(isTeacher) cellHtml += '<span style="cursor:pointer;margin-left:2px;font-size:10px;color:#666" data-tkey-del="'+_tkey2+'">&times;</span>'
+            if(isTeacher) cellHtml += '<button class="trial-detail-btn" data-tkey="'+_tkey2+'" style="font-size:8px;padding:0px 3px;margin-left:1px;cursor:pointer;background:#BAE6FD;border:none;border-radius:2px;color:#0C4A6E;line-height:1.4">詳細</button>'
+            if(isTeacher) cellHtml += '<span style="cursor:pointer;margin-left:1px;font-size:8px;color:#999;line-height:1" data-tkey-del="'+_tkey2+'">&times;</span>'
           } else {
             if(isTeacher){
               cellHtml+=`<span class="cell-name cell-${e.type} draggable" draggable="true" ondragstart="onDragStart(event,'${e.studentId||''}','${e.name}','${day}','${d}','${slot}')">${e.name}</span>`
