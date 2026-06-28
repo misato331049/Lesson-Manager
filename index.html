@@ -1380,6 +1380,10 @@ function getCourseOptions(day){
 function canSelectDates(s){return(s.day==='木'||s.day==='土')&&s.course===2}
 function isWithdrawn(s){
   if(!s.withdrawal_month) return false
+  const curYear = new Date().getFullYear()
+  const wy = s.withdrawal_year || curYear
+  if(curYear > wy) return true
+  if(curYear < wy) return false
   return selectedMonth >= s.withdrawal_month
 }
 function sortDates(arr){return[...arr].sort((a,b)=>{const pa=a.split('/').map(Number),pb=b.split('/').map(Number);return pa[0]!==pb[0]?pa[0]-pb[0]:pa[1]-pb[1]})}
@@ -2080,14 +2084,17 @@ function quickView(id){nav('teacher-student-view');document.getElementById('tsv-
 function openWithdrawalModal(id){
   const s=students.find(x=>x.id===id)
   if(!s) return
+  const curYear=new Date().getFullYear()
+  const yearOpts=[curYear-1,curYear,curYear+1,curYear+2].map(y=>'<option value="'+y+'" '+(curYear==y?'selected':'')+'>'+y+'年</option>').join('')
   const monthOpts=[1,2,3,4,5,6,7,8,9,10,11,12].map(m=>'<option value="'+m+'" '+(selectedMonth==m?'selected':'')+'>'+m+'月</option>').join('')
   showModal('withdrawal-modal',
     '<div class="modal-title" style="color:var(--red)"><i class="ti ti-user-off"></i> 退会設定</div>'+
     '<div style="font-size:14px;font-weight:600;margin-bottom:4px">'+s.name+'</div>'+
     '<div style="font-size:12px;color:var(--text2);margin-bottom:14px">'+s.day+'曜 '+s.time+' / 月'+s.course+'回コース</div>'+
-    '<div class="form-group" style="margin-bottom:14px">'+
-      '<div class="lbl">退会月（この月からスケジュールに表示されなくなります）</div>'+
-      '<select id="withdrawal-month-sel">'+monthOpts+'</select>'+
+    '<div class="lbl">退会年月（この年月からスケジュールに表示されなくなります）</div>'+
+    '<div style="display:flex;gap:8px;margin-bottom:14px">'+
+      '<select id="withdrawal-year-sel" style="flex:1">'+yearOpts+'</select>'+
+      '<select id="withdrawal-month-sel" style="flex:1">'+monthOpts+'</select>'+
     '</div>'+
     '<div style="display:flex;gap:8px">'+
       '<button class="btn btn-primary" style="flex:1;background:var(--red);border-color:var(--red)" onclick="confirmWithdrawal(\''+s.id+'\')"><i class="ti ti-check"></i> 退会に設定</button>'+
@@ -2096,14 +2103,16 @@ function openWithdrawalModal(id){
   )
 }
 async function confirmWithdrawal(id){
+  const year=parseInt(document.getElementById('withdrawal-year-sel')?.value)
   const month=parseInt(document.getElementById('withdrawal-month-sel')?.value)
-  if(!month){toast('退会月を選択してください',true);return}
+  if(!month||!year){toast('退会年月を選択してください',true);return}
   const s=students.find(x=>x.id===id)
   if(!s) return
   s.withdrawal_month=month
-  if(sb) await sb.from('students').update({withdrawal_month:month}).eq('id',id)
+  s.withdrawal_year=year
+  if(sb) await sb.from('students').update({withdrawal_month:month,withdrawal_year:year}).eq('id',id)
   closeModal()
-  toast(s.name+'さんを'+month+'月退会に設定しました')
+  toast(s.name+'さんを'+year+'年'+month+'月退会に設定しました')
   renderDashboard()
   window.__trialMap={};window.__transferMap={}
   renderScheduleTable()
@@ -2112,7 +2121,8 @@ async function cancelWithdrawal(id){
   const s=students.find(x=>x.id===id)
   if(!s) return
   s.withdrawal_month=null
-  if(sb) await sb.from('students').update({withdrawal_month:null}).eq('id',id)
+  s.withdrawal_year=null
+  if(sb) await sb.from('students').update({withdrawal_month:null,withdrawal_year:null}).eq('id',id)
   toast(s.name+'さんの退会を取り消しました')
   renderWithdrawalList()
   renderDashboard()
@@ -2131,7 +2141,7 @@ function renderWithdrawalList(){
       '<div class="avatar" style="background:'+bg+';color:'+fg+'">'+initials(s.name)+'</div>'+
       '<div style="flex:1"><div style="font-weight:600">'+s.name+'</div>'+
       '<div style="font-size:11px;color:var(--text2)">'+s.day+'曜 '+s.time+' / 月'+s.course+'回</div></div>'+
-      '<span class="badge b-red" style="margin-right:8px">'+s.withdrawal_month+'月退会</span>'+
+      '<span class="badge b-red" style="margin-right:8px">'+(s.withdrawal_year||'')+'年'+s.withdrawal_month+'月退会</span>'+
       '<button class="btn btn-sm" onclick="cancelWithdrawal(\''+s.id+'\')"><i class="ti ti-arrow-back-up"></i> 復帰</button>'+
     '</div>'
   }).join('')
