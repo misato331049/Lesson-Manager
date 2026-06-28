@@ -2089,7 +2089,7 @@ function openWithdrawalModal(id){
       '<select id="withdrawal-month-sel">'+monthOpts+'</select>'+
     '</div>'+
     '<div style="display:flex;gap:8px">'+
-      '<button class="btn btn-primary" style="flex:1;background:var(--red);border-color:var(--red)" onclick="confirmWithdrawal(''+s.id+'')"><i class="ti ti-check"></i> 退会に設定</button>'+
+      '<button class="btn btn-primary" style="flex:1;background:var(--red);border-color:var(--red)" onclick="confirmWithdrawal(\''+s.id+'\')"><i class="ti ti-check"></i> 退会に設定</button>'+
       '<button class="btn" onclick="closeModal()">キャンセル</button>'+
     '</div>'
   )
@@ -2131,7 +2131,7 @@ function renderWithdrawalList(){
       '<div style="flex:1"><div style="font-weight:600">'+s.name+'</div>'+
       '<div style="font-size:11px;color:var(--text2)">'+s.day+'曜 '+s.time+' / 月'+s.course+'回</div></div>'+
       '<span class="badge b-red" style="margin-right:8px">'+s.withdrawal_month+'月退会</span>'+
-      '<button class="btn btn-sm" onclick="cancelWithdrawal(''+s.id+'')"><i class="ti ti-arrow-back-up"></i> 復帰</button>'+
+      '<button class="btn btn-sm" onclick="cancelWithdrawal(\''+s.id+'\')"><i class="ti ti-arrow-back-up"></i> 復帰</button>'+
     '</div>'
   }).join('')
 }
