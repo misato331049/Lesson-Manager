@@ -2447,7 +2447,7 @@ function refreshPortal(id,p){
     const locked=isScheduleLocked()
     const banner=document.getElementById('sp-lock-banner')
     banner.style.display=locked?'block':'none'
-    banner.innerHTML=locked?`<div class="lock-banner"><div style="font-size:20px;color:var(--amber);flex-shrink:0"><i class="ti ti-lock"></i></div><div><div style="font-weight:600;font-size:13px;color:var(--amber);margin-bottom:2px">日程の変更期間が終了しました</div><div style="font-size:12px;color:var(--amber);line-height:1.6">${selectedMonth}月分の日程受付は締め切りました。変更が必要な場合は講師へ直接ご連絡ください。</div></div></div>`:''
+    banner.innerHTML=locked?`<div class="lock-banner"><div style="font-size:20px;color:var(--amber);flex-shrink:0"><i class="ti ti-lock"></i></div><div><div style="font-weight:600;font-size:13px;color:var(--amber);margin-bottom:2px">日程の変更期間が終了しました</div><div style="font-size:12px;color:var(--amber);line-height:1.6">${selectedMonth}月分の日程受付は締め切りました。変更が必要な場合やご欠席の場合は、お電話にて講師へ直接ご連絡ください。</div></div></div>`:''
   }
   renderPortalSchedule(s,p);renderPortalAbsent(s,p)
   if(p==='sp') renderStudentCalendar(s.id)
@@ -2611,7 +2611,7 @@ function renderPortalAbsent(s,p){
       <div class="info-box"><strong>欠席</strong>：来校できない日程をご連絡ください。<br><strong>振替相談</strong>：振替は原則なしですが、前月以内の相談のみ受け付けます。確実な振替をお約束するものではありません。</div>
       <div class="form-group" style="margin-bottom:10px"><div class="lbl">該当する日程</div><select id="${p}-absent-date" ${locked?'disabled':''}>${opts}</select></div>
       <div class="form-group" style="margin-bottom:10px"><div class="lbl">種別</div><select id="${p}-absent-type" ${locked?'disabled':''}><option>欠席（振替なし）</option><option>振替相談希望</option></select></div>
-      <div class="form-group" style="margin-bottom:12px"><div class="lbl">理由・ご希望</div><textarea id="${p}-absent-note" ${locked?'disabled':''} placeholder="${locked?'締め切り済みのため受付を終了しました':'例）急な用事のため。振替：6月中可能な日があれば教えてください。'}"></textarea></div>
+      <div class="form-group" style="margin-bottom:12px"><div class="lbl">理由・ご希望</div><textarea id="${p}-absent-note" ${locked?'disabled':''} placeholder="${locked?'締め切り済みのため受付を終了しました。ご欠席の場合はお電話にて講師へご連絡ください。':'例）急な用事のため。振替：6月中可能な日があれば教えてください。'}"></textarea></div>
       <button class="btn btn-primary" onclick="handleSubmitAbsent('${s.id}','${p}')" ${locked?'disabled':''}><i class="ti ti-send"></i> 送信する</button>
     </div>`
 }

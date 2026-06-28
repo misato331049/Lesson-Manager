@@ -658,7 +658,7 @@ function tWithdrawalList(){
       '<div style="flex:1;min-width:0"><div style="font-weight:700;font-size:14px">'+s.name+'</div>'+
       '<div style="font-size:12px;color:var(--tx2)">'+s.day+'曜 '+s.time+' / 月'+s.course+'回</div></div>'+
       '<span class="b b-rd" style="margin-right:6px;font-size:10px">'+(s.withdrawal_year||'')+'年'+s.withdrawal_month+'月退会</span>'+
-      '<button class="btn bsm" onclick="cancelWithdrawalM(''+s.id+'')"><i class="ti ti-arrow-back-up"></i> 復帰</button>'+
+      '<button class="btn bsm" onclick="cancelWithdrawalM(\''+s.id+'\')"><i class="ti ti-arrow-back-up"></i> 復帰</button>'+
     '</div>'
   }).join('')
 }
@@ -1098,7 +1098,7 @@ function showTransferDetailM(id){
       '</div>'+
       '<div style="display:flex;gap:8px">'+
         '<button class="btn bp" style="flex:1" onclick="document.getElementById('transfer-detail-ov').remove()">閉じる</button>'+
-        '<button class="btn br bsm" onclick="document.getElementById('transfer-detail-ov').remove();tDelTransfer(''+t.id+'')"><i class="ti ti-trash"></i> 削除</button>'+
+        '<button class="btn br bsm" onclick="document.getElementById(\'transfer-detail-ov\').remove();tDelTransfer(\''+t.id+'\')"><i class="ti ti-trash"></i> 削除</button>'+
       '</div>'+
     '</div>'
   ov.addEventListener('click',e=>{if(e.target===ov)ov.remove()})
@@ -1132,7 +1132,7 @@ function showTrialDetailM(id){
       memoHtml+
       '<div style="display:flex;gap:8px">'+
         '<button class="btn bp" style="flex:1" onclick="document.getElementById('trial-detail-ov').remove()">閉じる</button>'+
-        '<button class="btn br bsm" onclick="document.getElementById('trial-detail-ov').remove();tDelTrial(''+t.id+'')"><i class="ti ti-trash"></i> 削除</button>'+
+        '<button class="btn br bsm" onclick="document.getElementById(\'trial-detail-ov\').remove();tDelTrial(\''+t.id+'\')"><i class="ti ti-trash"></i> 削除</button>'+
       '</div>'+
     '</div>'
   ov.addEventListener('click',e=>{if(e.target===ov)ov.remove()})
