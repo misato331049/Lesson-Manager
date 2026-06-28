@@ -414,6 +414,10 @@ function isWithdrawn(s){
   if(curYear<wy) return false
   return selectedMonth>=s.withdrawal_month
 }
+function isSuspended(s){
+  if(!s.suspension_from||!s.suspension_to) return false
+  return selectedMonth>=s.suspension_from&&selectedMonth<=s.suspension_to
+}
 function pad(n){return String(n).padStart(2,'0')}
 function genTS(){const s=[];let h=12,m=30;while(h<20||(h===20&&m===0)){const eh=m+30>=60?h+1:h,em=(m+30)%60;s.push(`${pad(h)}:${pad(m)}〜${pad(eh)}:${pad(em)}`);m+=30;if(m>=60){m-=60;h++;}}return s}
 function genFri(){const s=[];let h=12,m=30;while(true){const tot=h*60+m+45;if(tot>20*60)break;const eh=Math.floor(tot/60),em=tot%60;s.push(`${pad(h)}:${pad(m)}〜${pad(eh)}:${pad(em)}`);m+=45;if(m>=60){m-=60;h++;}}return s}
@@ -594,12 +598,66 @@ function tDash(){
         ${status}
         ${abs?`<span class="b b-rd" style="font-size:10px">欠席${abs}回</span>`:''}
       </div>
+      \${isSuspended(s)?'<span class="b b-pu" style="margin-left:4px;font-size:10px">休会中</span>':''}
+      <button class="btn bsm" style="margin-left:4px;color:var(--pur);border-color:#D8D0F0" onclick="openSuspensionM('${s.id}')" title="休会"><i class="ti ti-zzz"></i></button>
       <button class="btn bsm" style="margin-left:4px;color:var(--amb);border-color:#F0D8A0" onclick="openWithdrawalM('${s.id}')" title="退会"><i class="ti ti-user-off"></i></button>
     </div>`
   }).join('')
 }
 
 /* ===== WITHDRAWAL ===== */
+/* ===== 休会管理 ===== */
+function openSuspensionM(id){
+  const s=students.find(x=>x.id===id);if(!s)return
+  const existing=document.getElementById('susp-modal-ov');if(existing)existing.remove()
+  const hasSusp=s.suspension_from&&s.suspension_to
+  const monthOpts=[1,2,3,4,5,6,7,8,9,10,11,12].map(m=>'<option value="'+m+'" '+(selectedMonth==m?'selected':'')+'>'+m+'月</option>').join('')
+  const ov=document.createElement('div')
+  ov.id='susp-modal-ov'
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:500;display:flex;align-items:flex-end;justify-content:center'
+  ov.innerHTML=
+    '<div style="background:var(--sf);border-radius:16px 16px 0 0;padding:20px 18px calc(20px + env(safe-area-inset-bottom));width:100%">'+
+      '<div style="width:40px;height:4px;background:var(--bd2);border-radius:2px;margin:0 auto 16px"></div>'+
+      '<div style="font-size:17px;font-weight:700;color:var(--pur);margin-bottom:12px"><i class="ti ti-zzz"></i> 休会設定</div>'+
+      '<div style="font-size:15px;font-weight:600;margin-bottom:4px">'+s.name+'</div>'+
+      '<div style="font-size:12px;color:var(--tx2);margin-bottom:14px">'+s.day+'曜 '+s.time+' / 月'+s.course+'回コース</div>'+
+      (hasSusp
+        ? '<div style="background:var(--pl);border-radius:8px;padding:10px 12px;margin-bottom:14px;font-size:13px"><span style="font-weight:700;color:var(--pur)">現在の休会期間：</span>'+s.suspension_from+'月〜'+s.suspension_to+'月</div>'+
+          '<div style="display:flex;gap:8px">'+
+            '<button class="btn" style="flex:1;color:var(--pur);border-color:var(--pur)" id="susp-cancel-btn"><i class="ti ti-player-play"></i> 休会を解除</button>'+
+            '<button class="btn" id="susp-close-btn">閉じる</button>'+
+          '</div>'
+        : '<div style="font-size:12px;font-weight:700;color:var(--tx2);margin-bottom:6px">休会期間</div>'+
+          '<div style="display:flex;gap:8px;align-items:center;margin-bottom:16px">'+
+            '<select id="susp-from-m" style="flex:1;font-size:15px;padding:10px 12px">'+monthOpts+'</select>'+
+            '<span style="color:var(--tx2)">〜</span>'+
+            '<select id="susp-to-m" style="flex:1;font-size:15px;padding:10px 12px">'+monthOpts+'</select>'+
+          '</div>'+
+          '<div style="display:flex;gap:8px">'+
+            '<button class="btn" style="flex:1;background:var(--pur);color:#fff;border-color:var(--pur)" id="susp-confirm-btn"><i class="ti ti-check"></i> 休会に設定</button>'+
+            '<button class="btn" id="susp-close-btn">キャンセル</button>'+
+          '</div>'
+      )+ '</div>'
+  ov.addEventListener('click',e=>{if(e.target===ov)ov.remove()})
+  const closeBtn=ov.querySelector('#susp-close-btn');if(closeBtn)closeBtn.addEventListener('click',()=>ov.remove())
+  const confirmBtn=ov.querySelector('#susp-confirm-btn')
+  if(confirmBtn)confirmBtn.addEventListener('click',async()=>{
+    const from=parseInt(ov.querySelector('#susp-from-m').value)
+    const to=parseInt(ov.querySelector('#susp-to-m').value)
+    if(from>to){toast('開始月は終了月以前にしてください',true);return}
+    s.suspension_from=from;s.suspension_to=to
+    if(sb)await sb.from('students').update({suspension_from:from,suspension_to:to}).eq('id',id)
+    ov.remove();toast(s.name+'さんを'+from+'月〜'+to+'月休会に設定しました（'+(to-from+1)+'ヶ月間）');tDash()
+  })
+  const cancelBtn=ov.querySelector('#susp-cancel-btn')
+  if(cancelBtn)cancelBtn.addEventListener('click',async()=>{
+    s.suspension_from=null;s.suspension_to=null
+    if(sb)await sb.from('students').update({suspension_from:null,suspension_to:null}).eq('id',id)
+    ov.remove();toast(s.name+'さんの休会を解除しました');tDash()
+  })
+  document.body.appendChild(ov)
+}
+
 function openWithdrawalM(id){
   const s=students.find(x=>x.id===id)
   if(!s)return
@@ -705,7 +763,8 @@ function tSched(){
       normal.forEach(s=>{
         // 色分け：月3回=濃緑 / 金固定=紫 / 日固定=黄 / 月2回=青
         const cls=s.course===3?'sc-x3':s.day==='金'?'sc-fr':s.day==='日'?'sc-su':'sc-x2'
-        html+=`<span class="sc-name ${cls}">${s.name}</span>`
+        const suspCls=isSuspended(s)?' style="opacity:0.35;text-decoration:line-through"':''
+        html+=`<span class="sc-name ${cls}"${suspCls}>${s.name}${isSuspended(s)?' (休会)':''}</span>`
       })
       if(!window.__transferMapM) window.__transferMapM={}
       transfers.forEach(t=>{
