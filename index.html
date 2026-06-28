@@ -956,60 +956,120 @@ async function deleteMyComment(noticeId, studentId, p){
 /* ===== 印刷・PDF用CSS ===== */
 @media print {
   * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
-  body { background: #fff !important; margin: 0; padding: 0; }
-  .sidebar, .topbar, .demo-bar, #lesson-popup-overlay, #global-modal-overlay, #slot-menu, .trial-detail-btn, .transfer-detail-btn, [data-tkey-del], .transfer-del-btn { display: none !important; }
+  body { background: #fff !important; margin: 0; padding: 0; font-size: 14px !important; }
+  @page { size: A4 landscape; margin: 8mm; }
+
+  /* 非表示 */
+  .sidebar, .topbar, .demo-bar, #lesson-popup-overlay, #global-modal-overlay, #slot-menu,
+  .trial-detail-btn, .transfer-detail-btn, [data-tkey-del], .transfer-del-btn,
+  .cell-empty-click, .topbar-actions, .mode-toggle,
+  .cell-transfer span, .cell-trial span, .cell-name span { display: none !important; }
+
+  /* レイアウト */
   .shell { display: block !important; width: 100% !important; }
   .main { display: block !important; width: 100% !important; overflow: visible !important; }
-  .content { padding: 3mm !important; overflow: visible !important; width: 100% !important; }
+  .content { padding: 4mm !important; overflow: visible !important; width: 100% !important; }
   .page { display: none !important; }
-  .page.active { display: block !important; width: 100% !important; height: calc(100vh - 10mm) !important; }
-  .sched-outer { overflow: visible !important; width: 100% !important; height: 100% !important; }
+  .page.active { display: block !important; width: 100% !important; }
+
+  /* テーブル全体を幅100%に */
+  .sched-outer { overflow: visible !important; width: 100% !important; }
   .sched-days-row {
-    min-width: unset !important; width: 100% !important; height: 100% !important;
+    min-width: unset !important; width: 100% !important;
     display: flex !important; align-items: stretch !important;
+    border: 2px solid #888 !important;
   }
+
+  /* 曜日カラム */
   .day-col {
-    flex: 1 !important; border-right: 1px solid #ccc !important;
+    flex: 1 !important; border-right: 2px solid #888 !important;
     display: flex !important; flex-direction: column !important;
   }
   .day-col:last-child { border-right: none !important; }
-  .day-col-header { padding: 5px 4px !important; font-size: 13px !important; font-weight: 700 !important; text-align: center !important; flex-shrink: 0 !important; }
-  .day-dates-row { display: flex !important; flex-shrink: 0 !important; }
-  /* 日付ヘッダーの時間列ダミーも同じ幅に */
-  .day-dates-row > div:first-child { min-width: 76px !important; width: 76px !important; flex-shrink: 0 !important; }
-  .date-th { flex: 1 !important; min-width: unset !important; padding: 5px 2px !important; font-size: 12px !important; font-weight: 600 !important; text-align: center !important; }
+  .day-col-header {
+    padding: 6px 4px !important; font-size: 14px !important; font-weight: 700 !important;
+    text-align: center !important; flex-shrink: 0 !important;
+    border-bottom: 2px solid #888 !important;
+  }
+
+  /* 日付ヘッダー */
+  .day-dates-row {
+    display: flex !important; flex-shrink: 0 !important;
+    border-bottom: 2px solid #888 !important;
+  }
+  .day-dates-row > div:first-child {
+    min-width: 90px !important; width: 90px !important; flex-shrink: 0 !important;
+    border-right: 1px solid #aaa !important;
+  }
+  .date-th {
+    flex: 1 !important; min-width: unset !important; padding: 6px 2px !important;
+    font-size: 14px !important; font-weight: 700 !important; text-align: center !important;
+    border-right: 1px solid #aaa !important;
+  }
+  .date-th:last-child { border-right: none !important; }
+
+  /* 時間行 */
   .day-col > div:last-child { flex: 1 !important; display: flex !important; flex-direction: column !important; }
-  .time-row { display: flex !important; flex: 1 !important; }
+  .time-row {
+    display: flex !important; flex: 1 !important;
+    border-bottom: 1px solid #aaa !important;
+    min-height: 28px !important;
+  }
   .time-label {
-    min-width: 76px !important; width: 76px !important;
-    font-size: 10px !important; font-weight: 500 !important;
-    padding: 2px 4px !important; flex-shrink: 0 !important;
+    min-width: 90px !important; width: 90px !important;
+    font-size: 11px !important; font-weight: 600 !important;
+    padding: 3px 5px !important; flex-shrink: 0 !important;
     display: flex !important; align-items: center !important;
     white-space: nowrap !important; overflow: visible !important;
-    flex-direction: column !important; justify-content: center !important; line-height: 1.3 !important;
+    flex-direction: column !important; justify-content: center !important;
+    line-height: 1.3 !important;
+    border-right: 1px solid #aaa !important;
+    background: #f8f8f6 !important;
   }
-  .time-label.break-label { font-size: 9px !important; }
-  .time-row-note { font-size: 8px !important; }
+  .time-label.break-label { font-size: 10px !important; }
+  .time-row-note { font-size: 9px !important; }
+
+  /* セル */
   .cell-slot {
-    flex: 1 !important; min-width: unset !important; padding: 1px !important;
-    min-height: unset !important; display: flex !important;
-    align-items: stretch !important; justify-content: stretch !important;
+    flex: 1 !important; min-width: unset !important; max-width: unset !important;
+    width: auto !important;
+    padding: 2px 3px !important; min-height: unset !important;
+    display: flex !important; align-items: center !important; justify-content: center !important;
+    border-right: 1px solid #aaa !important;
+    overflow: visible !important;
   }
-  .cell-name {
+  .cell-slot:last-child { border-right: none !important; }
+
+  /* 名前セル */
+  .cell-name, .cell-transfer, .cell-trial {
     flex: 1 !important; width: 100% !important; display: flex !important;
     align-items: center !important; justify-content: center !important;
-    font-size: 12px !important; font-weight: 600 !important;
-    padding: 2px !important; border-radius: 3px !important;
-    text-align: center !important; white-space: normal !important; word-break: break-all !important;
+    font-size: 13px !important; font-weight: 700 !important;
+    padding: 3px 2px !important; border-radius: 3px !important;
+    text-align: center !important; white-space: normal !important;
+    word-break: break-all !important;
+    max-width: unset !important; overflow: visible !important;
+    text-overflow: unset !important; text-decoration: none !important;
   }
-  .cell-transfer { flex: 1 !important; width: 100% !important; display: flex !important; align-items: center !important; justify-content: center !important; font-size: 12px !important; font-weight: 600 !important; }
-  .cell-trial { flex: 1 !important; width: 100% !important; display: flex !important; align-items: center !important; justify-content: center !important; font-size: 12px !important; font-weight: 600 !important; }
-  .cell-empty-click { display: none !important; }
-  .break-slot { display: flex !important; align-items: center !important; justify-content: center !important; font-size: 10px !important; }
-  .print-title { display: block !important; font-size: 15px !important; font-weight: 700 !important; margin-bottom: 3mm !important; flex-shrink: 0 !important; }
-  @page { size: A4 landscape; margin: 6mm; }
-  /* 振替・体験の削除ボタンを印刷時に非表示 */
-  .cell-transfer span, .cell-trial span, .cell-name span { display: none !important; }
+  .cell-name.suspended {
+    opacity: 0.35 !important;
+    text-decoration: line-through !important;
+  }
+
+  /* 休憩行 */
+  .break-slot {
+    display: flex !important; align-items: center !important; justify-content: center !important;
+    font-size: 11px !important; background: #f0f0ee !important;
+  }
+
+  /* タイトル */
+  .print-title {
+    display: block !important; font-size: 18px !important; font-weight: 700 !important;
+    margin-bottom: 4mm !important; flex-shrink: 0 !important;
+  }
+
+  /* ドラッグ関連を無効化 */
+  .cell-slot.drag-over, .cell-slot.dragging-source { opacity: 1 !important; outline: none !important; }
 }
 .print-title { display: none; }
 </style>
