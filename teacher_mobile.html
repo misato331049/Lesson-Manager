@@ -1097,7 +1097,7 @@ function showTransferDetailM(id){
         '<div><span style="color:var(--tx2)">振替先：</span><span style="font-weight:700;color:var(--grn)">'+t.toDate+'（'+t.toDay+'）'+t.toTime+'</span></div>'+
       '</div>'+
       '<div style="display:flex;gap:8px">'+
-        '<button class="btn bp" style="flex:1" onclick="document.getElementById('transfer-detail-ov').remove()">閉じる</button>'+
+        '<button class="btn bp" style="flex:1" onclick="document.getElementById(\'transfer-detail-ov\').remove()">閉じる</button>'+
         '<button class="btn br bsm" onclick="document.getElementById(\'transfer-detail-ov\').remove();tDelTransfer(\''+t.id+'\')"><i class="ti ti-trash"></i> 削除</button>'+
       '</div>'+
     '</div>'
@@ -1131,7 +1131,7 @@ function showTrialDetailM(id){
       '</div>'+
       memoHtml+
       '<div style="display:flex;gap:8px">'+
-        '<button class="btn bp" style="flex:1" onclick="document.getElementById('trial-detail-ov').remove()">閉じる</button>'+
+        '<button class="btn bp" style="flex:1" onclick="document.getElementById(\'trial-detail-ov\').remove()">閉じる</button>'+
         '<button class="btn br bsm" onclick="document.getElementById(\'trial-detail-ov\').remove();tDelTrial(\''+t.id+'\')"><i class="ti ti-trash"></i> 削除</button>'+
       '</div>'+
     '</div>'
