@@ -2068,8 +2068,9 @@ function renderDashboard(){
       <div style="flex:1"><div style="font-weight:600">${s.name}</div>
       <div style="font-size:11px;color:var(--text2)">${s.day}曜 ${s.time} 月${s.course}回</div></div>
       ${status}
-      <button class="btn btn-sm" style="margin-left:6px" onclick="quickView('${s.id}')"><i class="ti ti-eye"></i></button>
-      <button class="btn btn-sm" style="margin-left:4px;color:var(--red);border-color:#F0C0C0" onclick="openWithdrawalModal('${s.id}')" title="退会設定"><i class="ti ti-user-off"></i></button>
+      <button class="btn btn-sm" style="margin-left:6px" onclick="quickView('${s.id}')" title="生徒ページ"><i class="ti ti-eye"></i></button>
+      <button class="btn btn-sm" style="margin-left:4px;color:var(--amber);border-color:#F0D8A0" onclick="openWithdrawalModal('${s.id}')" title="退会設定"><i class="ti ti-user-off"></i></button>
+      <button class="btn btn-sm" style="margin-left:4px;color:var(--red);border-color:#F0C0C0" onclick="deleteStudent('${s.id}')" title="削除"><i class="ti ti-trash"></i></button>
     </div>`
   }).join('')
 }
