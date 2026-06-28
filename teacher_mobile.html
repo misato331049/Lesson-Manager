@@ -282,6 +282,7 @@ const SUPABASE_ANON_KEY='sb_publishable_1kvfIoWeos6iH0N1N3W15g_gqf-Z8Aj'
       <select id="tr-to-day" onchange="trToTimeOpts()"><option value="木">木</option><option value="金">金</option><option value="土">土</option><option value="日">日</option></select></div>
     </div>
     <div class="fg"><label class="lb">振替先の時間</label><select id="tr-to-time"></select></div>
+    <div class="fg"><label class="lb">メモ（任意）</label><input id="tr-memo" placeholder="例）体調不良のため振替" style="font-size:14px;padding:9px 12px"></div>
     <button class="btn bp" onclick="tAddTransfer()"><i class="ti ti-plus"></i> 振替を追加</button>
   </div>
   <div class="card">
@@ -309,7 +310,16 @@ const SUPABASE_ANON_KEY='sb_publishable_1kvfIoWeos6iH0N1N3W15g_gqf-Z8Aj'
   </div>
 </div>
 
-<!-- ⑩ STUDENT VIEW (生徒ページを見る) -->
+<!-- ⑩ WITHDRAWAL LIST -->
+<div class="page" id="page-withdrawal">
+  <div class="card">
+    <div class="ct"><i class="ti ti-user-off"></i> 退会リスト</div>
+    <div style="font-size:12px;color:var(--tx2);margin-bottom:12px">退会処理をした生徒の履歴です。復帰させることもできます。</div>
+    <div id="t-withdrawal-list"><div style="color:var(--tx3);text-align:center;padding:20px">退会者はいません</div></div>
+  </div>
+</div>
+
+<!-- ⑪ STUDENT VIEW (生徒ページを見る) -->
 <div class="page" id="page-view">
   <div class="card">
     <div class="ct">生徒ページを見る（講師）</div>
@@ -346,6 +356,7 @@ const SUPABASE_ANON_KEY='sb_publishable_1kvfIoWeos6iH0N1N3W15g_gqf-Z8Aj'
   <button class="nb" id="nb-students" onclick="tPage('students')"><i class="ti ti-users"></i><span>生徒管理</span></button>
   <button class="nb" id="nb-transfer" onclick="tPage('transfer')"><i class="ti ti-replace"></i><span>振替設定</span></button>
   <button class="nb" id="nb-trial" onclick="tPage('trial')"><i class="ti ti-user-plus"></i><span>体験</span></button>
+  <button class="nb" id="nb-withdrawal" onclick="tPage('withdrawal')"><i class="ti ti-user-off"></i><span>退会</span></button>
   <button class="nb" id="nb-view" onclick="tPage('view')"><i class="ti ti-eye"></i><span>生徒ページ</span></button>
 </nav>
 </div>
@@ -395,6 +406,14 @@ const AC=[['#E6F1FB','#0C447C'],['#EAF3DE','#27500A'],['#FAEEDA','#633806'],['#E
 function ini(n){return n.replace(/\s/g,'').substring(0,2)}
 function sortD(a){return[...a].sort((x,y)=>{const px=x.split('/').map(Number),py=y.split('/').map(Number);return px[0]!==py[0]?px[0]-py[0]:px[1]-py[1]})}
 function canSel(s){return(s.day==='木'||s.day==='土')&&s.course===2}
+function isWithdrawn(s){
+  if(!s.withdrawal_month) return false
+  const curYear=new Date().getFullYear()
+  const wy=s.withdrawal_year||curYear
+  if(curYear>wy) return true
+  if(curYear<wy) return false
+  return selectedMonth>=s.withdrawal_month
+}
 function pad(n){return String(n).padStart(2,'0')}
 function genTS(){const s=[];let h=12,m=30;while(h<20||(h===20&&m===0)){const eh=m+30>=60?h+1:h,em=(m+30)%60;s.push(`${pad(h)}:${pad(m)}〜${pad(eh)}:${pad(em)}`);m+=30;if(m>=60){m-=60;h++;}}return s}
 function genFri(){const s=[];let h=12,m=30;while(true){const tot=h*60+m+45;if(tot>20*60)break;const eh=Math.floor(tot/60),em=tot%60;s.push(`${pad(h)}:${pad(m)}〜${pad(eh)}:${pad(em)}`);m+=45;if(m>=60){m-=60;h++;}}return s}
@@ -460,10 +479,25 @@ async function tLoadAll(){
     studentName:x.student_name,
     fromDate:x.from_date, fromTime:x.from_time, fromDay:x.from_day,
     toDate:x.to_date, toTime:x.to_time, toDay:x.to_day,
+    memo:x.memo||'',
     month:x.month
   }))
   notices=n.data||[]
   trialLessons=trl.data||[]
+  // 月2回生徒の古い選択を自動クリーンアップ
+  for(const s of students){
+    if(canSel(s)){
+      const currentDates=lessonDates[s.day]||[]
+      const validSel=s.selected.filter(d=>currentDates.includes(d))
+      if(validSel.length!==s.selected.length){
+        if(sb){
+          await sb.from('student_selections').delete().eq('student_id',s.id).eq('month',selectedMonth)
+          if(validSel.length)await sb.from('student_selections').insert(validSel.map(d=>({student_id:s.id,date:d,month:selectedMonth})))
+        }
+        s.selected=validSel
+      }
+    }
+  }
   updBadges()
 }
 
@@ -509,7 +543,7 @@ function tPage(name,skipRender=false){
   document.getElementById('main-content').scrollTop=0
   document.getElementById('htitle').textContent={
     dashboard:'ダッシュボード',schedule:'時間割',dates:'日程設定',requests:'振替相談',
-    notices:'お知らせ',students:'生徒管理',transfer:'振替設定',trial:'体験レッスン',view:'生徒ページを見る'
+    notices:'お知らせ',students:'生徒管理',transfer:'振替設定',withdrawal:'退会リスト',trial:'体験レッスン',view:'生徒ページを見る'
   }[name]||'レッスン管理（講師）'
   if(skipRender)return
   if(name==='dashboard')tDash()
@@ -520,15 +554,17 @@ function tPage(name,skipRender=false){
   if(name==='students'){stTab('list');tStudents()}
   if(name==='transfer'){tTransferList();tTransferStudList()}
   if(name==='trial')tTrialList()
+  if(name==='withdrawal')tWithdrawalList()
   if(name==='view')tsvSetup()
 }
 
 /* ===== DASHBOARD ===== */
 function tDash(){
-  const t=students.length
-  const x3=students.filter(s=>s.course===3||s.day==='金'||s.day==='日').length
-  const x2=students.filter(s=>s.course===2&&s.day!=='金'&&s.day!=='日').length
-  const rc=students.reduce((a,s)=>a+s.requests.length,0)
+  const active=students.filter(s=>!isWithdrawn(s))
+  const t=active.length
+  const x3=active.filter(s=>s.course===3||s.day==='金'||s.day==='日').length
+  const x2=active.filter(s=>s.course===2&&s.day!=='金'&&s.day!=='日').length
+  const rc=active.reduce((a,s)=>a+s.requests.length,0)
   document.getElementById('t-stats').innerHTML=`
     <div class="st"><div class="sl"><i class="ti ti-users"></i> 生徒数</div><div class="sv">${t}</div></div>
     <div class="st"><div class="sl"><i class="ti ti-calendar-repeat"></i> 月3回</div><div class="sv">${x3}</div></div>
@@ -536,7 +572,7 @@ function tDash(){
     <div class="st"><div class="sl"><i class="ti ti-bell"></i> 振替相談</div><div class="sv" style="color:var(--red)">${rc}</div></div>`
   const q=(document.getElementById('dash-q')?.value||'').toLowerCase()
   const DO={木:0,金:1,土:2,日:3}
-  let list=[...students].sort((a,b)=>DO[a.day]-DO[b.day]||a.time.localeCompare(b.time))
+  let list=[...active].sort((a,b)=>DO[a.day]-DO[b.day]||a.time.localeCompare(b.time))
   if(q)list=list.filter(s=>s.name.toLowerCase().includes(q)||(s.kana&&s.kana.toLowerCase().includes(q)))
   if(!list.length){document.getElementById('t-dash-list').innerHTML='<div style="color:var(--tx3);text-align:center;padding:20px">生徒が見つかりません</div>';return}
   document.getElementById('t-dash-list').innerHTML=list.map(s=>{
@@ -558,7 +594,72 @@ function tDash(){
         ${status}
         ${abs?`<span class="b b-rd" style="font-size:10px">欠席${abs}回</span>`:''}
       </div>
+      <button class="btn bsm" style="margin-left:4px;color:var(--amb);border-color:#F0D8A0" onclick="openWithdrawalM('${s.id}')" title="退会"><i class="ti ti-user-off"></i></button>
     </div>`
+  }).join('')
+}
+
+/* ===== WITHDRAWAL ===== */
+function openWithdrawalM(id){
+  const s=students.find(x=>x.id===id)
+  if(!s)return
+  const existing=document.getElementById('withdrawal-modal-ov')
+  if(existing)existing.remove()
+  const curYear=new Date().getFullYear()
+  const yearOpts=[curYear-1,curYear,curYear+1,curYear+2].map(y=>'<option value="'+y+'" '+(curYear==y?'selected':'')+'>'+y+'年</option>').join('')
+  const monthOpts=[1,2,3,4,5,6,7,8,9,10,11,12].map(m=>'<option value="'+m+'" '+(selectedMonth==m?'selected':'')+'>'+m+'月</option>').join('')
+  const ov=document.createElement('div')
+  ov.id='withdrawal-modal-ov'
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:500;display:flex;align-items:flex-end;justify-content:center'
+  ov.innerHTML=
+    '<div style="background:var(--sf);border-radius:16px 16px 0 0;padding:20px 18px calc(20px + env(safe-area-inset-bottom));width:100%">'+
+      '<div style="width:40px;height:4px;background:var(--bd2);border-radius:2px;margin:0 auto 16px"></div>'+
+      '<div style="font-size:17px;font-weight:700;color:var(--red);margin-bottom:12px"><i class="ti ti-user-off"></i> 退会設定</div>'+
+      '<div style="font-size:15px;font-weight:600;margin-bottom:4px">'+s.name+'</div>'+
+      '<div style="font-size:12px;color:var(--tx2);margin-bottom:14px">'+s.day+'曜 '+s.time+' / 月'+s.course+'回コース</div>'+
+      '<div style="font-size:12px;font-weight:700;color:var(--tx2);margin-bottom:6px">退会年月</div>'+
+      '<div style="display:flex;gap:8px;margin-bottom:16px">'+
+        '<select id="wm-year" style="flex:1;font-size:15px;padding:10px 12px">'+yearOpts+'</select>'+
+        '<select id="wm-month" style="flex:1;font-size:15px;padding:10px 12px">'+monthOpts+'</select>'+
+      '</div>'+
+      '<div style="display:flex;gap:8px">'+
+        '<button class="btn br" style="flex:1" id="wm-confirm-btn"><i class="ti ti-check"></i> 退会に設定</button>'+
+        '<button class="btn" id="wm-cancel-btn">キャンセル</button>'+
+      '</div>'+
+    '</div>'
+  ov.addEventListener('click',e=>{if(e.target===ov)ov.remove()})
+  ov.querySelector('#wm-confirm-btn').addEventListener('click',async()=>{
+    const year=parseInt(ov.querySelector('#wm-year').value)
+    const month=parseInt(ov.querySelector('#wm-month').value)
+    s.withdrawal_month=month;s.withdrawal_year=year
+    if(sb)await sb.from('students').update({withdrawal_month:month,withdrawal_year:year}).eq('id',id)
+    ov.remove()
+    toast(s.name+'さんを'+year+'年'+month+'月退会に設定しました')
+    tDash()
+  })
+  ov.querySelector('#wm-cancel-btn').addEventListener('click',()=>ov.remove())
+  document.body.appendChild(ov)
+}
+async function cancelWithdrawalM(id){
+  const s=students.find(x=>x.id===id);if(!s)return
+  s.withdrawal_month=null;s.withdrawal_year=null
+  if(sb)await sb.from('students').update({withdrawal_month:null,withdrawal_year:null}).eq('id',id)
+  toast(s.name+'さんの退会を取り消しました')
+  tWithdrawalList();tDash()
+}
+function tWithdrawalList(){
+  const withdrawn=students.filter(s=>s.withdrawal_month)
+  const el=document.getElementById('t-withdrawal-list')
+  if(!withdrawn.length){el.innerHTML='<div style="color:var(--tx3);text-align:center;padding:20px">退会者はいません</div>';return}
+  el.innerHTML=withdrawn.map(s=>{
+    const[bg,fg]=AC[students.indexOf(s)%AC.length]
+    return '<div class="srow">'+
+      '<div class="av" style="background:'+bg+';color:'+fg+'">'+ini(s.name)+'</div>'+
+      '<div style="flex:1;min-width:0"><div style="font-weight:700;font-size:14px">'+s.name+'</div>'+
+      '<div style="font-size:12px;color:var(--tx2)">'+s.day+'曜 '+s.time+' / 月'+s.course+'回</div></div>'+
+      '<span class="b b-rd" style="margin-right:6px;font-size:10px">'+(s.withdrawal_year||'')+'年'+s.withdrawal_month+'月退会</span>'+
+      '<button class="btn bsm" onclick="cancelWithdrawalM(''+s.id+'')"><i class="ti ti-arrow-back-up"></i> 復帰</button>'+
+    '</div>'
   }).join('')
 }
 
@@ -570,6 +671,8 @@ function tRenderDayTabs(){
 function selDay(d){curDay=d;tRenderDayTabs();tSched()}
 
 function tSched(){
+  window.__trialMapM = {} // 毎回リセット
+  window.__transferMapM = {}
   const day=curDay
   const dates=sortD(lessonDates[day]||[])
   const el=document.getElementById('t-sched')
@@ -581,7 +684,7 @@ function tSched(){
     slots.forEach(({slot,isBreak})=>{
       if(isBreak){html+=`<div style="text-align:center;font-size:12px;color:var(--tx3);padding:5px 0;border-bottom:1px solid var(--bd)">— 休憩 —</div>`;return}
       // PC版 getEntries と同じロジック
-      const normal=students.filter(s=>{
+      const normal=students.filter(s=>!isWithdrawn(s)).filter(s=>{
         if(s.day!==day) return false   // 曜日チェック
         if(s.time!==slot) return false  // 時間チェック
         // この生徒のレッスン対象日を取得（PC版と同じ）
@@ -604,8 +707,20 @@ function tSched(){
         const cls=s.course===3?'sc-x3':s.day==='金'?'sc-fr':s.day==='日'?'sc-su':'sc-x2'
         html+=`<span class="sc-name ${cls}">${s.name}</span>`
       })
-      transfers.forEach(t=>{html+=`<span class="sc-name sc-tr">${t.studentName}（振替）</span>`})
-      trials.forEach(t=>{html+=`<span class="sc-name sc-tl" style="cursor:pointer" onclick="showTrialDetailM('${t.id}')">体験${t.memo?'：'+t.memo.substring(0,6)+'…':''}</span>`})
+      if(!window.__transferMapM) window.__transferMapM={}
+      transfers.forEach(t=>{
+        const _tmk = Object.keys(window.__transferMapM).length
+        window.__transferMapM[_tmk] = t.transferId
+        html += '<span class="sc-name sc-tr">'+t.studentName+'（振替）</span>'
+        html += '<button class="m-transfer-btn" data-tmkey="'+_tmk+'" style="font-size:10px;padding:2px 6px;margin-left:3px;background:#F1EFE8;border:none;border-radius:3px;color:#5F5E5A;cursor:pointer">詳細</button>'
+      })
+      trials.forEach(t=>{
+        if(!window.__trialMapM) window.__trialMapM={}
+        const _mk = Object.keys(window.__trialMapM).length
+        window.__trialMapM[_mk] = t.id
+        html += '<span class="sc-name sc-tl">体験' + (t.memo ? '：' + t.memo.substring(0,6) + '…' : '') + '</span>'
+        html += '<button class="m-trial-btn" data-mkey="'+_mk+'" style="font-size:10px;padding:2px 6px;margin-left:3px;background:#BAE6FD;border:none;border-radius:3px;color:#0C4A6E;cursor:pointer">詳細</button>'
+      })
       if(!normal.length&&!transfers.length&&!trials.length)html+='<span style="font-size:12px;color:var(--tx3)">空き</span>'
       html+=`</div></div>`
     })
@@ -928,8 +1043,9 @@ async function tAddTransfer(){
   const toDay=document.getElementById('tr-to-day').value
   const toTime=document.getElementById('tr-to-time').value
   if(!fromDate||!toDate){toast('元の日付・振替先の日付を入力してください',true);return}
-  const row={student_name:s.name,from_date:fromDate,from_time:fromTime,from_day:fromDay,to_date:toDate,to_time:toTime,to_day:toDay,month:selectedMonth}
-  if(sb){const{data,error}=await sb.from('manual_transfers').insert([row]).select().single();if(error){toast('保存に失敗しました',true);return};manualTransfers.push({id:data.id,studentName:s.name,fromDate,fromTime,fromDay,toDate,toTime,toDay,month:selectedMonth})}
+  const memo=document.getElementById('tr-memo')?.value.trim()||''
+  const row={student_name:s.name,from_date:fromDate,from_time:fromTime,from_day:fromDay,to_date:toDate,to_time:toTime,to_day:toDay,memo:memo,month:selectedMonth}
+  if(sb){const{data,error}=await sb.from('manual_transfers').insert([row]).select().single();if(error){toast('保存に失敗しました',true);return};manualTransfers.push({id:data.id,studentName:s.name,fromDate,fromTime,fromDay,toDate,toTime,toDay,memo:memo,month:selectedMonth})}
   toast('振替を登録しました');tTransferList()
   ;['tr-from-date','tr-to-date'].forEach(i=>document.getElementById(i).value='')
 }
@@ -939,7 +1055,7 @@ function tTransferList(){
   document.getElementById('tr-list').innerHTML=list.map(t=>`<div style="display:flex;align-items:center;gap:10px;padding:11px 0;border-bottom:1px solid var(--bd)">
     <div style="flex:1">
       <div style="font-size:14px;font-weight:700">${t.studentName}</div>
-      <div style="font-size:12px;color:var(--tx2)">${t.fromDate}（${t.fromDay}）${t.fromTime} → <span style="color:var(--grn);font-weight:700">${t.toDate}（${t.toDay}）${t.toTime}</span></div>
+      <div style="font-size:12px;color:var(--tx2)">${t.fromDate}（${t.fromDay}）${t.fromTime} → <span style="color:var(--grn);font-weight:700">${t.toDate}（${t.toDay}）${t.toTime}</span></div>${t.memo?`<div style="font-size:11px;color:var(--tx3);margin-top:2px">メモ：${t.memo}</div>`:""}
     </div>
     <button class="btn bsm" style="color:var(--red);border-color:#F7C1C1" onclick="tDelTransfer('${t.id}')"><i class="ti ti-trash"></i></button>
   </div>`).join('')
@@ -956,33 +1072,69 @@ async function tAddTrial(){
   if(sb){const{data,error}=await sb.from('trial_lessons').insert([row]).select().single();if(error){toast('保存に失敗しました',true);return};trialLessons.push({...data})}
   toast('体験レッスンを登録しました');tTrialList();document.getElementById('tl-date').value='';document.getElementById('tl-memo').value=''
 }
+function showTransferDetailM(id){
+  const t=manualTransfers.find(x=>x.id===id)
+  if(!t){toast('振替情報が見つかりません',true);return}
+  const existing=document.getElementById('transfer-detail-ov')
+  if(existing)existing.remove()
+  const ov=document.createElement('div')
+  ov.id='transfer-detail-ov'
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:500;display:flex;align-items:flex-end;justify-content:center'
+  ov.innerHTML=
+    '<div style="background:var(--sf);border-radius:16px 16px 0 0;padding:20px 18px calc(20px + env(safe-area-inset-bottom));width:100%">'+
+      '<div style="width:40px;height:4px;background:var(--bd2);border-radius:2px;margin:0 auto 16px"></div>'+
+      '<div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">'+
+        '<div style="width:36px;height:36px;border-radius:50%;background:#F1EFE8;color:#5F5E5A;display:flex;align-items:center;justify-content:center;font-size:18px">'+
+          '<i class="ti ti-replace"></i>'+
+        '</div>'+
+        '<div>'+
+          '<div style="font-size:15px;font-weight:700">'+t.studentName+'</div>'+
+          '<div style="font-size:12px;color:var(--tx2)">振替レッスン</div>'+
+        '</div>'+
+      '</div>'+
+      '<div style="background:var(--bg);border-radius:8px;padding:10px 12px;margin-bottom:14px;font-size:13px">'+
+        '<div style="margin-bottom:5px"><span style="color:var(--tx2)">元の日程：</span>'+(t.fromDate||'—')+'（'+(t.fromDay||'—')+'）'+(t.fromTime||'—')+'</div>'+
+        '<div><span style="color:var(--tx2)">振替先：</span><span style="font-weight:700;color:var(--grn)">'+t.toDate+'（'+t.toDay+'）'+t.toTime+'</span></div>'+
+      '</div>'+
+      '<div style="display:flex;gap:8px">'+
+        '<button class="btn bp" style="flex:1" onclick="document.getElementById('transfer-detail-ov').remove()">閉じる</button>'+
+        '<button class="btn br bsm" onclick="document.getElementById('transfer-detail-ov').remove();tDelTransfer(''+t.id+'')"><i class="ti ti-trash"></i> 削除</button>'+
+      '</div>'+
+    '</div>'
+  ov.addEventListener('click',e=>{if(e.target===ov)ov.remove()})
+  document.body.appendChild(ov)
+}
+
 function showTrialDetailM(id){
   const t=trialLessons.find(x=>x.id===id)
-  if(!t)return
+  if(!t){toast('体験レッスンが見つかりません',true);return}
+  // 既存のオーバーレイがあれば削除
+  const existing=document.getElementById('trial-detail-ov')
+  if(existing)existing.remove()
+  const memoHtml=t.memo
+    ?'<div style="margin-bottom:14px"><div style="font-size:11px;font-weight:700;color:var(--tx2);margin-bottom:6px">メモ</div><div style="font-size:14px;line-height:1.8;white-space:pre-wrap;background:var(--bg);border-radius:var(--rs);padding:12px">'+t.memo+'</div></div>'
+    :'<div style="color:var(--tx3);font-size:13px;margin-bottom:14px">メモはありません</div>'
   const ov=document.createElement('div')
   ov.id='trial-detail-ov'
   ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:500;display:flex;align-items:flex-end;justify-content:center'
-  ov.innerHTML=`
-    <div style="background:var(--sf);border-radius:16px 16px 0 0;padding:20px 18px calc(20px + env(safe-area-inset-bottom));width:100%;max-height:80vh;overflow-y:auto">
-      <div style="width:40px;height:4px;background:var(--bd2);border-radius:2px;margin:0 auto 16px"></div>
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px">
-        <i class="ti ti-user-plus" style="color:#0284C7;font-size:22px"></i>
-        <div style="font-size:17px;font-weight:700;color:#0C4A6E">体験レッスン詳細</div>
-      </div>
-      <div style="background:#E0F2FE;border-radius:var(--rs);padding:12px;margin-bottom:14px;display:flex;gap:16px;flex-wrap:wrap">
-        <div><div style="font-size:10px;color:var(--tx2);font-weight:700;margin-bottom:3px">日付</div><div style="font-size:17px;font-weight:700">${t.date}（${t.day}）</div></div>
-        <div><div style="font-size:10px;color:var(--tx2);font-weight:700;margin-bottom:3px">時間</div><div style="font-size:17px;font-weight:700">${t.time}</div></div>
-        <div><div style="font-size:10px;color:var(--tx2);font-weight:700;margin-bottom:3px">月</div><div style="font-size:17px;font-weight:700">${t.month}月</div></div>
-      </div>
-      ${t.memo
-        ?`<div style="margin-bottom:14px"><div style="font-size:11px;font-weight:700;color:var(--tx2);margin-bottom:6px">メモ</div><div style="font-size:14px;line-height:1.8;white-space:pre-wrap;background:var(--bg);border-radius:var(--rs);padding:12px">${t.memo}</div></div>`
-        :'<div style="color:var(--tx3);font-size:13px;margin-bottom:14px">メモはありません</div>'
-      }
-      <div style="display:flex;gap:8px">
-        <button class="btn bp" style="flex:1" onclick="document.getElementById('trial-detail-ov').remove()">閉じる</button>
-        <button class="btn br bsm" onclick="document.getElementById('trial-detail-ov').remove();tDelTrial('${t.id}')"><i class="ti ti-trash"></i> 削除</button>
-      </div>
-    </div>`
+  ov.innerHTML=
+    '<div style="background:var(--sf);border-radius:16px 16px 0 0;padding:20px 18px calc(20px + env(safe-area-inset-bottom));width:100%;max-height:80vh;overflow-y:auto">'+
+      '<div style="width:40px;height:4px;background:var(--bd2);border-radius:2px;margin:0 auto 16px"></div>'+
+      '<div style="display:flex;align-items:center;gap:8px;margin-bottom:14px">'+
+        '<i class="ti ti-user-plus" style="color:#0284C7;font-size:22px"></i>'+
+        '<div style="font-size:17px;font-weight:700;color:#0C4A6E">体験レッスン詳細</div>'+
+      '</div>'+
+      '<div style="background:#E0F2FE;border-radius:var(--rs);padding:12px;margin-bottom:14px;display:flex;gap:16px;flex-wrap:wrap">'+
+        '<div><div style="font-size:10px;color:var(--tx2);font-weight:700;margin-bottom:3px">日付</div><div style="font-size:17px;font-weight:700">'+t.date+'（'+t.day+'）</div></div>'+
+        '<div><div style="font-size:10px;color:var(--tx2);font-weight:700;margin-bottom:3px">時間</div><div style="font-size:17px;font-weight:700">'+t.time+'</div></div>'+
+        '<div><div style="font-size:10px;color:var(--tx2);font-weight:700;margin-bottom:3px">月</div><div style="font-size:17px;font-weight:700">'+t.month+'月</div></div>'+
+      '</div>'+
+      memoHtml+
+      '<div style="display:flex;gap:8px">'+
+        '<button class="btn bp" style="flex:1" onclick="document.getElementById('trial-detail-ov').remove()">閉じる</button>'+
+        '<button class="btn br bsm" onclick="document.getElementById('trial-detail-ov').remove();tDelTrial(''+t.id+'')"><i class="ti ti-trash"></i> 削除</button>'+
+      '</div>'+
+    '</div>'
   ov.addEventListener('click',e=>{if(e.target===ov)ov.remove()})
   document.body.appendChild(ov)
 }
@@ -1048,6 +1200,26 @@ function tsvNtc(s){
 }
 
 /* ===== FILE INPUT ===== */
+// 体験レッスン「詳細」ボタンのイベント委譲
+document.addEventListener('click', function(e){
+  const btn = e.target.closest('.m-trial-btn')
+  if(btn){
+    e.stopPropagation()
+    const key = btn.dataset.mkey
+    const id = window.__trialMapM && window.__trialMapM[key]
+    if(id) showTrialDetailM(id)
+    return
+  }
+  const trBtn = e.target.closest('.m-transfer-btn')
+  if(trBtn){
+    e.stopPropagation()
+    const key = trBtn.dataset.tmkey
+    const id = window.__transferMapM && window.__transferMapM[key]
+    if(id) showTransferDetailM(id)
+    return
+  }
+})
+
 window.addEventListener('DOMContentLoaded',()=>{
   const fi=document.getElementById('n-file');if(!fi)return
   fi.addEventListener('change',function(){

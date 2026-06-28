@@ -247,6 +247,21 @@ async function sLoadAll(){
   approvedAbsences=(apr.data||[]).map(x=>({id:x.id,studentId:x.student_id,date:x.date,day:x.students?.day||'',time:x.students?.time||'',type:x.type||'欠席',note:x.note||'',month:selectedMonth}))
   manualTransfers=(tr.data||[]).map(x=>({id:x.id,studentName:x.student_name,toDate:x.to_date,toDay:x.to_day,toTime:x.to_time,month:x.month}))
   notices=ntc.data||[]
+
+  // 月2回生徒の古い選択を自動クリーンアップ
+  for(const s of students){
+    if(canSel(s)){
+      const currentDates=lessonDates[s.day]||[]
+      const validSel=s.selected.filter(d=>currentDates.includes(d))
+      if(validSel.length!==s.selected.length){
+        if(sb){
+          await sb.from('student_selections').delete().eq('student_id',s.id).eq('month',selectedMonth)
+          if(validSel.length)await sb.from('student_selections').insert(validSel.map(d=>({student_id:s.id,date:d,month:selectedMonth})))
+        }
+        s.selected=validSel
+      }
+    }
+  }
 }
 
 /* ===== LOGIN ===== */
@@ -348,6 +363,9 @@ function sRenderSchedule(){
   if(!dates.length&&!trDates.length){
     html='<div class="card" style="text-align:center;color:var(--text3);font-size:14px;padding:24px">まだ日程が設定されていません</div>'
   }else if(sel){
+    // 現在の日程に存在しない古い選択を除去
+    const validSel=s.selected.filter(d=>dates.includes(d))
+    if(validSel.length!==s.selected.length) s.selected=validSel
     html+=`<div class="card"><div class="ctitle">${selectedMonth}月のレッスン（${dates.length}回から2回を選択）</div>`
     if(!locked&&dates.length){html+=`<div style="font-size:13px;color:var(--blue-d);background:var(--blue-l);border-radius:8px;padding:10px 12px;margin-bottom:12px">2回分を選んで「確定」してください（${s.selected.length}/2）</div>`}
     html+=dates.map(d=>{
