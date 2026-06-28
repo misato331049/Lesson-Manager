@@ -1051,6 +1051,7 @@ const TEACHER_PASSWORD = null
     <div class="nav-item" onclick="nav('students')" id="n-students"><i class="ti ti-users"></i> 生徒管理</div>
     <div class="nav-item" onclick="nav('transfer-admin')" id="n-transfer-admin"><i class="ti ti-switch-horizontal"></i> 振替相談</div>
     <div class="nav-item" onclick="nav('notices-admin')" id="n-notices-admin" style="position:relative"><i class="ti ti-bell-ringing"></i> お知らせ<span id="notices-unreplied-badge" style="display:none;margin-left:6px;background:var(--red);color:#fff;font-size:10px;font-weight:600;border-radius:9px;padding:1px 6px"></span></div>
+    <div class="nav-item" onclick="nav('withdrawal-list')" id="n-withdrawal-list"><i class="ti ti-user-off"></i> 退会リスト</div>
     <div class="nav-section" style="margin-top:8px">生徒ページ（講師）</div>
     <div class="nav-item" onclick="nav('teacher-student-view')" id="n-teacher-student-view"><i class="ti ti-eye"></i> 生徒ページを見る</div>
   </div>
@@ -1221,6 +1222,14 @@ const TEACHER_PASSWORD = null
 </div>
 
 <!-- TEACHER STUDENT VIEW -->
+<div class="page" id="page-withdrawal-list">
+  <div class="card">
+    <div class="card-title"><i class="ti ti-user-off"></i> 退会リスト</div>
+    <div style="font-size:12px;color:var(--text2);margin-bottom:14px">退会処理をした生徒の履歴です。復帰させることもできます。</div>
+    <div id="withdrawal-list"><div style="color:var(--text3);text-align:center;padding:20px">退会者はいません</div></div>
+  </div>
+</div>
+
 <div class="page" id="page-teacher-student-view">
   <div class="teacher-note"><i class="ti ti-shield-check"></i> 講師モード — 全生徒のページにアクセスできます</div>
   <div style="display:flex;gap:12px;align-items:flex-end;margin-bottom:14px;flex-wrap:wrap">
@@ -1369,6 +1378,10 @@ function getCourseOptions(day){
   return[{v:2,l:'月2回（固定）'}]
 }
 function canSelectDates(s){return(s.day==='木'||s.day==='土')&&s.course===2}
+function isWithdrawn(s){
+  if(!s.withdrawal_month) return false
+  return selectedMonth >= s.withdrawal_month
+}
 function sortDates(arr){return[...arr].sort((a,b)=>{const pa=a.split('/').map(Number),pb=b.split('/').map(Number);return pa[0]!==pb[0]?pa[0]-pb[0]:pa[1]-pb[1]})}
 function initials(n){return n.replace(/\s/g,'').substring(0,2)}
 function getCurrentMonth(){return new Date().getMonth()+1}
@@ -1691,6 +1704,7 @@ function nav(id){
   if(id==='students'){renderStudentList();updateCourseOptions()}
   if(id==='transfer-admin')renderTransferRequests()
   if(id==='teacher-student-view')initTsvMonthSelect()
+  if(id==='withdrawal-list')renderWithdrawalList()
   if(id==='notices-admin'){
     const sel=document.getElementById('notice-month')
     if(sel) sel.innerHTML=buildMonthSelect()
@@ -1756,7 +1770,7 @@ async function initApp(){
    スケジュール表
    ===================================================== */
 function getEntries(day,date,slotKey){
-  const normal = students.filter(s=>s.day===day&&s.time===slotKey).map(s=>{
+  const normal = students.filter(s=>s.day===day&&s.time===slotKey&&!isWithdrawn(s)).map(s=>{
     const ds=canSelectDates(s)?s.selected:(lessonDates[day]||[])
     if(!ds.includes(date)) return null
     // 承認済み欠席の場合は表示しない（空きコマに）
@@ -2026,15 +2040,16 @@ async function downloadAllBackup(){
 }
 
 function renderDashboard(){
-  document.getElementById('d-total').textContent=students.length
-  document.getElementById('d-3x').textContent=students.filter(s=>s.course===3).length
-  document.getElementById('d-2x').textContent=students.filter(s=>s.course===2).length
-  document.getElementById('d-req').textContent=students.reduce((a,s)=>a+s.requests.length,0)
+  const active=students.filter(s=>!isWithdrawn(s))
+  document.getElementById('d-total').textContent=active.length
+  document.getElementById('d-3x').textContent=active.filter(s=>s.course===3).length
+  document.getElementById('d-2x').textContent=active.filter(s=>s.course===2).length
+  document.getElementById('d-req').textContent=active.reduce((a,s)=>a+s.requests.length,0)
   const el=document.getElementById('dash-list')
   const dashSearchEl=document.getElementById('dash-search')
   const dashQuery=dashSearchEl?dashSearchEl.value.trim().toLowerCase():''
   const DAY_ORDER2={木:0,金:1,土:2,日:3}
-  let displayStudents=[...students].sort((a,b)=>{
+  let displayStudents=[...active].sort((a,b)=>{
     if(DAY_ORDER2[a.day]!==DAY_ORDER2[b.day]) return DAY_ORDER2[a.day]-DAY_ORDER2[b.day]
     return a.time.localeCompare(b.time)
   })
@@ -2054,10 +2069,72 @@ function renderDashboard(){
       <div style="font-size:11px;color:var(--text2)">${s.day}曜 ${s.time} 月${s.course}回</div></div>
       ${status}
       <button class="btn btn-sm" style="margin-left:6px" onclick="quickView('${s.id}')"><i class="ti ti-eye"></i></button>
+      <button class="btn btn-sm" style="margin-left:4px;color:var(--red);border-color:#F0C0C0" onclick="openWithdrawalModal('${s.id}')" title="退会設定"><i class="ti ti-user-off"></i></button>
     </div>`
   }).join('')
 }
 function quickView(id){nav('teacher-student-view');document.getElementById('tsv-select').value=id;loadTeacherStudentView()}
+
+/* ===== 退会管理 ===== */
+function openWithdrawalModal(id){
+  const s=students.find(x=>x.id===id)
+  if(!s) return
+  const monthOpts=[1,2,3,4,5,6,7,8,9,10,11,12].map(m=>'<option value="'+m+'" '+(selectedMonth==m?'selected':'')+'>'+m+'月</option>').join('')
+  showModal('withdrawal-modal',
+    '<div class="modal-title" style="color:var(--red)"><i class="ti ti-user-off"></i> 退会設定</div>'+
+    '<div style="font-size:14px;font-weight:600;margin-bottom:4px">'+s.name+'</div>'+
+    '<div style="font-size:12px;color:var(--text2);margin-bottom:14px">'+s.day+'曜 '+s.time+' / 月'+s.course+'回コース</div>'+
+    '<div class="form-group" style="margin-bottom:14px">'+
+      '<div class="lbl">退会月（この月からスケジュールに表示されなくなります）</div>'+
+      '<select id="withdrawal-month-sel">'+monthOpts+'</select>'+
+    '</div>'+
+    '<div style="display:flex;gap:8px">'+
+      '<button class="btn btn-primary" style="flex:1;background:var(--red);border-color:var(--red)" onclick="confirmWithdrawal(''+s.id+'')"><i class="ti ti-check"></i> 退会に設定</button>'+
+      '<button class="btn" onclick="closeModal()">キャンセル</button>'+
+    '</div>'
+  )
+}
+async function confirmWithdrawal(id){
+  const month=parseInt(document.getElementById('withdrawal-month-sel')?.value)
+  if(!month){toast('退会月を選択してください',true);return}
+  const s=students.find(x=>x.id===id)
+  if(!s) return
+  s.withdrawal_month=month
+  if(sb) await sb.from('students').update({withdrawal_month:month}).eq('id',id)
+  closeModal()
+  toast(s.name+'さんを'+month+'月退会に設定しました')
+  renderDashboard()
+  window.__trialMap={};window.__transferMap={}
+  renderScheduleTable()
+}
+async function cancelWithdrawal(id){
+  const s=students.find(x=>x.id===id)
+  if(!s) return
+  s.withdrawal_month=null
+  if(sb) await sb.from('students').update({withdrawal_month:null}).eq('id',id)
+  toast(s.name+'さんの退会を取り消しました')
+  renderWithdrawalList()
+  renderDashboard()
+  window.__trialMap={};window.__transferMap={}
+  renderScheduleTable()
+}
+function renderWithdrawalList(){
+  const withdrawn=students.filter(s=>s.withdrawal_month)
+  const el=document.getElementById('withdrawal-list')
+  if(!withdrawn.length){el.innerHTML='<div style="color:var(--text3);text-align:center;padding:20px">退会者はいません</div>';return}
+  const DAY_ORDER2={木:0,金:1,土:2,日:3}
+  const sorted=[...withdrawn].sort((a,b)=>(a.withdrawal_month||0)-(b.withdrawal_month||0)||(DAY_ORDER2[a.day]||0)-(DAY_ORDER2[b.day]||0))
+  el.innerHTML=sorted.map(s=>{
+    const[bg,fg]=AVATAR_COLORS[students.indexOf(s)%AVATAR_COLORS.length]
+    return '<div class="srow">'+
+      '<div class="avatar" style="background:'+bg+';color:'+fg+'">'+initials(s.name)+'</div>'+
+      '<div style="flex:1"><div style="font-weight:600">'+s.name+'</div>'+
+      '<div style="font-size:11px;color:var(--text2)">'+s.day+'曜 '+s.time+' / 月'+s.course+'回</div></div>'+
+      '<span class="badge b-red" style="margin-right:8px">'+s.withdrawal_month+'月退会</span>'+
+      '<button class="btn btn-sm" onclick="cancelWithdrawal(''+s.id+'')"><i class="ti ti-arrow-back-up"></i> 復帰</button>'+
+    '</div>'
+  }).join('')
+}
 
 /* =====================================================
    日程設定
