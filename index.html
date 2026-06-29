@@ -1070,6 +1070,14 @@ async function deleteMyComment(noticeId, studentId, p){
 
   /* ドラッグ関連を無効化 */
   .cell-slot.drag-over, .cell-slot.dragging-source { opacity: 1 !important; outline: none !important; }
+
+  /* 時間割一覧ページの印刷 */
+  #page-timetable { page-break-inside: auto !important; }
+  #page-timetable table { width: 100% !important; border-collapse: collapse !important; font-size: 13px !important; }
+  #page-timetable th { padding: 6px 10px !important; font-size: 12px !important; }
+  #page-timetable td { padding: 6px 10px !important; font-size: 13px !important; }
+  #page-timetable tr { page-break-inside: avoid !important; }
+  #timetable-content > div { page-break-inside: avoid !important; margin-bottom: 12px !important; }
 }
 .print-title { display: none; }
 </style>
@@ -2142,12 +2150,12 @@ function renderTimetable(){
     dayStudents.forEach(s=>{
       const suspended=isSuspended(s)
       const rowStyle=suspended?'opacity:0.4;text-decoration:line-through':''
-      const courseLabel=s.course===3?'月3回':(s.day==='金'||s.day==='日')?'月2回固定':'月2回選択'
+      const courseLabel=s.course===3?'月3回':(s.day==='金'||s.day==='日')?'月2回固定':'月2回'
       const courseBadge=s.course===3
         ?'<span style="background:var(--green-light);color:var(--green);font-size:11px;padding:2px 8px;border-radius:10px;font-weight:600">月3回</span>'
         :(s.day==='金'||s.day==='日')
           ?'<span style="background:var(--purple-light);color:var(--purple);font-size:11px;padding:2px 8px;border-radius:10px;font-weight:600">月2回固定</span>'
-          :'<span style="background:var(--blue-light);color:var(--blue);font-size:11px;padding:2px 8px;border-radius:10px;font-weight:600">月2回選択</span>'
+          :'<span style="background:var(--blue-light);color:var(--blue);font-size:11px;padding:2px 8px;border-radius:10px;font-weight:600">月2回</span>'
       const suspBadge=suspended?'<span style="background:var(--purple-light);color:var(--purple);font-size:10px;padding:1px 6px;border-radius:8px;margin-left:6px">休会中</span>':''
       html+=`<tr style="border-bottom:1px solid #e0ddd8;${rowStyle}">
         <td style="padding:8px 12px;font-size:13px;color:var(--text2);font-weight:500;white-space:nowrap">${s.time}</td>

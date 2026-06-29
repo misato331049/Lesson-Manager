@@ -587,7 +587,7 @@ function mRenderTimetable(){
       </div>`
     ds.forEach(s=>{
       const sus=isSuspended(s)
-      const cl=s.course===3?'月3回':(s.day==='金'||s.day==='日')?'月2回固定':'月2回選択'
+      const cl=s.course===3?'月3回':(s.day==='金'||s.day==='日')?'月2回固定':'月2回'
       const cc=s.course===3?'background:#EAF3DE;color:var(--grn)':(s.day==='金'||s.day==='日')?'background:#EEEDFE;color:var(--pur)':'background:#E6F1FB;color:#185FA5'
       html+=`<div style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--bd);${sus?'opacity:0.4;text-decoration:line-through':''}">
         <div style="font-size:12px;color:var(--tx2);width:90px;flex-shrink:0">${s.time}</div>
