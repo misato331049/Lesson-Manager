@@ -165,6 +165,11 @@ const SUPABASE_ANON_KEY='sb_publishable_1kvfIoWeos6iH0N1N3W15g_gqf-Z8Aj'
   </div>
 </div>
 
+<!-- ②.5 TIMETABLE -->
+<div class="page" id="page-timetable">
+  <div id="m-timetable-content"></div>
+</div>
+
 <!-- ③ SCHEDULE (時間割) -->
 <div class="page" id="page-schedule">
   <div class="card" style="margin-bottom:10px">
@@ -349,6 +354,7 @@ const SUPABASE_ANON_KEY='sb_publishable_1kvfIoWeos6iH0N1N3W15g_gqf-Z8Aj'
 <!-- BOTTOM NAV (スクロール可能) -->
 <nav class="bnav" id="bnav" style="display:none">
   <button class="nb on" id="nb-dashboard" onclick="tPage('dashboard')"><i class="ti ti-layout-dashboard"></i><span>ダッシュ</span></button>
+  <button class="nb" id="nb-timetable" onclick="tPage('timetable')"><i class="ti ti-clock-hour-4"></i><span>在籍</span></button>
   <button class="nb" id="nb-schedule" onclick="tPage('schedule')"><i class="ti ti-layout-grid"></i><span>時間割</span></button>
   <button class="nb" id="nb-dates" onclick="tPage('dates')"><i class="ti ti-calendar-event"></i><span>日程設定</span></button>
   <button class="nb" id="nb-requests" onclick="tPage('requests')"><i class="ti ti-switch-horizontal"></i><span>振替相談</span><span class="dot" id="req-dot" style="display:none"></span></button>
@@ -551,6 +557,7 @@ function tPage(name,skipRender=false){
   }[name]||'レッスン管理（講師）'
   if(skipRender)return
   if(name==='dashboard')tDash()
+  if(name==='timetable')mRenderTimetable()
   if(name==='schedule'){tRenderDayTabs();tSched()}
   if(name==='dates')tDateBlocks()
   if(name==='requests')tRequests()
@@ -563,6 +570,36 @@ function tPage(name,skipRender=false){
 }
 
 /* ===== DASHBOARD ===== */
+function mRenderTimetable(){
+  const el=document.getElementById('m-timetable-content')
+  const active=students.filter(s=>!isWithdrawn(s))
+  const DAY_ORDER=['木','金','土','日']
+  const DC={木:'var(--grn)',金:'#185FA5',土:'var(--amb)',日:'var(--red)'}
+  const DB={木:'#EAF3DE',金:'#E6F1FB',土:'#FAEEDA',日:'#FCEBEB'}
+  let html=''
+  DAY_ORDER.forEach(day=>{
+    const ds=active.filter(s=>s.day===day).sort((a,b)=>a.time.localeCompare(b.time))
+    if(!ds.length) return
+    html+=`<div style="margin-bottom:16px">
+      <div style="background:${DB[day]};border-left:4px solid ${DC[day]};padding:10px 14px;border-radius:0 var(--rs) var(--rs) 0;display:flex;align-items:center;gap:8px">
+        <span style="font-size:15px;font-weight:700;color:${DC[day]}">${day}曜日</span>
+        <span style="font-size:12px;color:var(--tx2)">${ds.length}名</span>
+      </div>`
+    ds.forEach(s=>{
+      const sus=isSuspended(s)
+      const cl=s.course===3?'月3回':(s.day==='金'||s.day==='日')?'月2回固定':'月2回選択'
+      const cc=s.course===3?'background:#EAF3DE;color:var(--grn)':(s.day==='金'||s.day==='日')?'background:#EEEDFE;color:var(--pur)':'background:#E6F1FB;color:#185FA5'
+      html+=`<div style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--bd);${sus?'opacity:0.4;text-decoration:line-through':''}">
+        <div style="font-size:12px;color:var(--tx2);width:90px;flex-shrink:0">${s.time}</div>
+        <div style="flex:1;font-size:14px;font-weight:600">${s.name}${sus?'<span style="font-size:10px;color:var(--pur);margin-left:4px">休会中</span>':''}</div>
+        <span style="${cc};font-size:10px;padding:2px 8px;border-radius:10px;font-weight:600;white-space:nowrap">${cl}</span>
+      </div>`
+    })
+    html+=`</div>`
+  })
+  el.innerHTML=html||'<div style="color:var(--tx3);text-align:center;padding:40px">生徒が登録されていません</div>'
+}
+
 function tDash(){
   const active=students.filter(s=>!isWithdrawn(s))
   const t=active.length

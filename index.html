@@ -1107,6 +1107,7 @@ const TEACHER_PASSWORD = null
     <div class="nav-item active" onclick="nav('schedule-thu-sat')" id="n-schedule-thu-sat"><i class="ti ti-layout-grid"></i> レッスン表（木・土）</div>
     <div class="nav-item" onclick="nav('schedule-fri')" id="n-schedule-fri"><i class="ti ti-layout-grid"></i> レッスン表（金）</div>
     <div class="nav-item" onclick="nav('schedule-sun')" id="n-schedule-sun"><i class="ti ti-layout-grid"></i> レッスン表（日）</div>
+    <div class="nav-item" onclick="nav('timetable')" id="n-timetable"><i class="ti ti-clock-hour-4"></i> 時間割一覧</div>
     <div class="nav-item" onclick="nav('dashboard')" id="n-dashboard"><i class="ti ti-layout-dashboard"></i> ダッシュボード</div>
     <div class="nav-item" onclick="nav('lesson-dates')" id="n-lesson-dates"><i class="ti ti-calendar"></i> 日程設定</div>
     <div class="nav-item" onclick="nav('students')" id="n-students"><i class="ti ti-users"></i> 生徒管理</div>
@@ -1212,6 +1213,10 @@ const TEACHER_PASSWORD = null
 </div>
 
 <!-- DASHBOARD -->
+<div class="page" id="page-timetable">
+  <div id="timetable-content"></div>
+</div>
+
 <div class="page" id="page-dashboard">
   <div style="background:linear-gradient(135deg,#EAF3DE,#f8fdf4);border:1px solid #c5dba8;border-radius:var(--radius);padding:14px 16px;margin-bottom:16px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
     <div>
@@ -1768,6 +1773,7 @@ function nav(id){
   if(nv)nv.classList.add('active')
   setTopbar(id)
   if(id==='schedule-thu-sat'||id==='schedule-fri'||id==='schedule-sun'){window.__trialMap={};window.__transferMap={};setupWarning('setup-warning-sched');renderScheduleTable()}
+  if(id==='timetable')renderTimetable()
   if(id==='dashboard')renderDashboard()
   if(id==='lesson-dates')renderDayBlocks()
   if(id==='students'){renderStudentList();updateCourseOptions()}
@@ -2106,6 +2112,52 @@ async function downloadAllBackup(){
     toast('バックアップに失敗しました',true)
     console.error(e)
   }
+}
+
+function renderTimetable(){
+  const el=document.getElementById('timetable-content')
+  const active=students.filter(s=>!isWithdrawn(s))
+  const DAY_ORDER=['木','金','土','日']
+  const DAY_COLORS={木:'var(--green)',金:'var(--blue)',土:'var(--amber)',日:'var(--red)'}
+  const DAY_BG={木:'var(--green-light)',金:'var(--blue-light)',土:'var(--amber-light)',日:'var(--red-light)'}
+  let html=''
+  DAY_ORDER.forEach(day=>{
+    const dayStudents=active.filter(s=>s.day===day).sort((a,b)=>a.time.localeCompare(b.time))
+    if(!dayStudents.length) return
+    const susp=s=>isSuspended(s)
+    html+=`<div style="margin-bottom:20px">
+      <div style="background:${DAY_BG[day]};border-left:4px solid ${DAY_COLORS[day]};padding:10px 16px;border-radius:0 var(--radius) var(--radius) 0;margin-bottom:1px;display:flex;align-items:center;gap:10px">
+        <span style="font-size:16px;font-weight:700;color:${DAY_COLORS[day]}">${day}曜日</span>
+        <span style="font-size:12px;color:var(--text2)">${dayStudents.length}名</span>
+      </div>
+      <table style="width:100%;border-collapse:collapse;border:1px solid #b0aaa0">
+        <thead>
+          <tr style="background:var(--bg)">
+            <th style="text-align:left;padding:8px 12px;font-size:12px;font-weight:700;color:var(--text2);border-bottom:2px solid #b0aaa0;width:140px">時間</th>
+            <th style="text-align:left;padding:8px 12px;font-size:12px;font-weight:700;color:var(--text2);border-bottom:2px solid #b0aaa0">生徒名</th>
+            <th style="text-align:center;padding:8px 12px;font-size:12px;font-weight:700;color:var(--text2);border-bottom:2px solid #b0aaa0;width:80px">回数</th>
+          </tr>
+        </thead>
+        <tbody>`
+    dayStudents.forEach(s=>{
+      const suspended=isSuspended(s)
+      const rowStyle=suspended?'opacity:0.4;text-decoration:line-through':''
+      const courseLabel=s.course===3?'月3回':(s.day==='金'||s.day==='日')?'月2回固定':'月2回選択'
+      const courseBadge=s.course===3
+        ?'<span style="background:var(--green-light);color:var(--green);font-size:11px;padding:2px 8px;border-radius:10px;font-weight:600">月3回</span>'
+        :(s.day==='金'||s.day==='日')
+          ?'<span style="background:var(--purple-light);color:var(--purple);font-size:11px;padding:2px 8px;border-radius:10px;font-weight:600">月2回固定</span>'
+          :'<span style="background:var(--blue-light);color:var(--blue);font-size:11px;padding:2px 8px;border-radius:10px;font-weight:600">月2回選択</span>'
+      const suspBadge=suspended?'<span style="background:var(--purple-light);color:var(--purple);font-size:10px;padding:1px 6px;border-radius:8px;margin-left:6px">休会中</span>':''
+      html+=`<tr style="border-bottom:1px solid #e0ddd8;${rowStyle}">
+        <td style="padding:8px 12px;font-size:13px;color:var(--text2);font-weight:500;white-space:nowrap">${s.time}</td>
+        <td style="padding:8px 12px;font-size:14px;font-weight:600">${s.name}${suspBadge}</td>
+        <td style="padding:8px 12px;text-align:center">${courseBadge}</td>
+      </tr>`
+    })
+    html+=`</tbody></table></div>`
+  })
+  el.innerHTML=html||'<div style="color:var(--text3);text-align:center;padding:40px">生徒が登録されていません</div>'
 }
 
 function renderDashboard(){
