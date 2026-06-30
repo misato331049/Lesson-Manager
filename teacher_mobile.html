@@ -587,7 +587,7 @@ function mRenderTimetable(){
       </div>`
     ds.forEach(s=>{
       const sus=isSuspended(s)
-      const cl=s.course===3?'月3回':(s.day==='金'||s.day==='日')?'月2回固定':'月2回'
+      const cl=s.course===3?'月3回':(s.day==='金'||s.day==='日')?'月2回':'月2回'
       const cc=s.course===3?'background:#EAF3DE;color:var(--grn)':(s.day==='金'||s.day==='日')?'background:#EEEDFE;color:var(--pur)':'background:#E6F1FB;color:#185FA5'
       html+=`<div style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--bd);${sus?'opacity:0.4;text-decoration:line-through':''}">
         <div style="font-size:12px;color:var(--tx2);width:90px;flex-shrink:0">${s.time}</div>
@@ -1081,7 +1081,7 @@ function aOpts(){
   const sl=day==='日'?SS.filter(x=>!x.br).map(x=>x.s):day==='金'?FS:TS
   const st=document.getElementById('a-time');if(st)st.innerHTML=sl.map(s=>`<option>${s}</option>`).join('')
   const sc=document.getElementById('a-course');if(sc)sc.innerHTML=getCOpts(day).map(o=>`<option value="${o.v}">${o.l}</option>`).join('')
-  const sn=document.getElementById('a-note');if(sn)sn.textContent=(day==='金'||day==='日')?'※ 金・日は月2回固定です。':'※ 木・土の月3回は全日程固定。月2回は候補から2日選択。'
+  const sn=document.getElementById('a-note');if(sn)sn.textContent=(day==='金'||day==='日')?'※ 金・日は月2回です。':'※ 木・土の月3回は全日程固定。月2回は候補から2日選択。'
 }
 async function tAddStudent(){
   const name=document.getElementById('a-name').value.trim();if(!name){toast('氏名を入力してください',true);return}

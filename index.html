@@ -1071,13 +1071,16 @@ async function deleteMyComment(noticeId, studentId, p){
   /* ドラッグ関連を無効化 */
   .cell-slot.drag-over, .cell-slot.dragging-source { opacity: 1 !important; outline: none !important; }
 
-  /* 時間割一覧ページの印刷 */
-  #page-timetable { page-break-inside: auto !important; }
-  #page-timetable table { width: 100% !important; border-collapse: collapse !important; font-size: 13px !important; }
-  #page-timetable th { padding: 6px 10px !important; font-size: 12px !important; }
-  #page-timetable td { padding: 6px 10px !important; font-size: 13px !important; }
+  /* 時間割一覧ページの印刷 - 全曜日を1ページに収める */
+  #page-timetable { page-break-inside: avoid !important; }
+  #timetable-content { display: flex !important; flex-wrap: wrap !important; gap: 8px !important; }
+  #timetable-content > div { flex: 1 1 48% !important; margin-bottom: 4px !important; page-break-inside: avoid !important; }
+  #page-timetable table { width: 100% !important; border-collapse: collapse !important; }
+  #page-timetable th { padding: 3px 6px !important; font-size: 9px !important; }
+  #page-timetable td { padding: 2px 6px !important; font-size: 10px !important; line-height: 1.3 !important; }
   #page-timetable tr { page-break-inside: avoid !important; }
-  #timetable-content > div { page-break-inside: avoid !important; margin-bottom: 12px !important; }
+  #timetable-content > div > div:first-child { padding: 4px 8px !important; font-size: 11px !important; }
+  #timetable-content > div > div:first-child span:first-child { font-size: 12px !important; }
 }
 .print-title { display: none; }
 </style>
@@ -2150,11 +2153,11 @@ function renderTimetable(){
     dayStudents.forEach(s=>{
       const suspended=isSuspended(s)
       const rowStyle=suspended?'opacity:0.4;text-decoration:line-through':''
-      const courseLabel=s.course===3?'月3回':(s.day==='金'||s.day==='日')?'月2回固定':'月2回'
+      const courseLabel=s.course===3?'月3回':(s.day==='金'||s.day==='日')?'月2回':'月2回'
       const courseBadge=s.course===3
         ?'<span style="background:var(--green-light);color:var(--green);font-size:11px;padding:2px 8px;border-radius:10px;font-weight:600">月3回</span>'
         :(s.day==='金'||s.day==='日')
-          ?'<span style="background:var(--purple-light);color:var(--purple);font-size:11px;padding:2px 8px;border-radius:10px;font-weight:600">月2回固定</span>'
+          ?'<span style="background:var(--purple-light);color:var(--purple);font-size:11px;padding:2px 8px;border-radius:10px;font-weight:600">月2回</span>'
           :'<span style="background:var(--blue-light);color:var(--blue);font-size:11px;padding:2px 8px;border-radius:10px;font-weight:600">月2回</span>'
       const suspBadge=suspended?'<span style="background:var(--purple-light);color:var(--purple);font-size:10px;padding:1px 6px;border-radius:8px;margin-left:6px">休会中</span>':''
       html+=`<tr style="border-bottom:1px solid #e0ddd8;${rowStyle}">
@@ -2188,7 +2191,7 @@ function renderDashboard(){
     const[bg,fg]=AVATAR_COLORS[i%AVATAR_COLORS.length]
     const sel=canSelectDates(s)
     const status=s.course===3?'<span class="badge b-green">全日固定</span>'
-      :!sel?'<span class="badge b-purple">月2回固定</span>'
+      :!sel?'<span class="badge b-purple">月2回</span>'
       :!(lessonDates[s.day]||[]).length?'<span class="badge b-gray">日程未設定</span>'
       :s.selected.length>=2?'<span class="badge b-blue">日程確定</span>'
       :'<span class="badge b-amber">未選択</span>'
@@ -2373,7 +2376,7 @@ function updateCourseOptions(){
   document.getElementById('s-time').innerHTML=slots.map(s=>`<option>${s}</option>`).join('')
   document.getElementById('s-course').innerHTML=getCourseOptions(day).map(o=>`<option value="${o.v}">${o.l}</option>`).join('')
   document.getElementById('s-course-note').textContent=(day==='金'||day==='日')
-    ?'※ 金・日は月2回固定です。日程選択・振替はありません。'
+    ?'※ 金・日は月2回です。日程選択・振替はありません。'
     :'※ 木・土の月3回は全日程固定。月2回は3回の候補から2日を選択できます。'
 }
 function renderStudentList(){
