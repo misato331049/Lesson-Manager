@@ -218,6 +218,10 @@ let selectedMonth=new Date().getMonth()+1
 const AVATAR_COLORS=[['#E6F1FB','#0C447C'],['#EAF3DE','#27500A'],['#FAEEDA','#633806'],['#EEEDFE','#3C3489'],['#FCEBEB','#791F1F'],['#E0F2FE','#0C4A6E']]
 function ini(n){return n.replace(/\s/g,'').substring(0,2)}
 function sortD(a){return[...a].sort((x,y)=>{const px=x.split('/').map(Number),py=y.split('/').map(Number);return px[0]!==py[0]?px[0]-py[0]:px[1]-py[1]})}
+function linkify(text){
+  if(!text) return ''
+  return text.replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" target="_blank" style="color:var(--blue-d);text-decoration:underline;word-break:break-all">$1</a>')
+}
 function canSel(s){return(s.day==='木'||s.day==='土')&&s.course===2}
 function isLocked(){return new Date().getDate()>=1}
 
@@ -569,7 +573,7 @@ function sRenderNotices(){
         <div style="font-size:16px;font-weight:700;line-height:1.4">${n.title}</div>
         ${confirmed?'<span class="bdg b-green" style="flex-shrink:0">確認済み</span>':'<span class="bdg b-amber" style="flex-shrink:0">未確認</span>'}
       </div>
-      <div style="font-size:13px;color:var(--text2);line-height:1.7;white-space:pre-wrap;margin-bottom:12px">${n.body}</div>
+      <div style="font-size:13px;color:var(--text2);line-height:1.7;white-space:pre-wrap;margin-bottom:12px">${linkify(n.body)}</div>
       ${filesHtml}
       ${!confirmed?`<button class="btn btn-p btn-bl" style="margin-bottom:14px" onclick="sConfirmNotice('${n.id}','${s.id}')"><i class="ti ti-check"></i> 確認しました</button>`:''}
       <div style="border-top:1px solid var(--border);padding-top:12px">

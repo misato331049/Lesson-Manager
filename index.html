@@ -738,7 +738,7 @@ function renderNoticesAdmin(){
         <span style="font-weight:600;font-size:13px">${n.title}</span>
         <span class="badge b-blue" style="font-size:10px">${n.month}月</span>
       </div>
-      <div style="font-size:12px;color:var(--text2);margin-bottom:6px;white-space:pre-wrap">${n.body}</div>
+      <div style="font-size:12px;color:var(--text2);margin-bottom:6px;white-space:pre-wrap">${linkify(n.body)}</div>
       ${(n.files&&n.files.length)?`
       <div style="margin-bottom:6px">
         ${n.files.map(f=>{
@@ -839,7 +839,7 @@ function renderPortalNotices(s,p){
         <span style="font-weight:600;font-size:13px">${n.title}</span>
         ${confirmed?'<span class="badge b-green" style="font-size:10px;flex-shrink:0">確認済み</span>':'<span class="badge b-amber" style="font-size:10px;flex-shrink:0">未確認</span>'}
       </div>
-      <div style="font-size:12px;color:var(--text2);margin-bottom:10px;white-space:pre-wrap;line-height:1.6">${n.body}</div>
+      <div style="font-size:12px;color:var(--text2);margin-bottom:10px;white-space:pre-wrap;line-height:1.6">${linkify(n.body)}</div>
 
       ${(n.files&&n.files.length)?(()=>{
         const isExpired = n.expires_at && new Date(n.expires_at) < new Date()
@@ -1217,10 +1217,6 @@ const TEACHER_PASSWORD = null
       <textarea id="notice-body" style="min-height:80px" placeholder="例）今月のレッスン資料はこちらです。&#10;https://drive.google.com/..."></textarea>
     </div>
     <div class="form-group" style="margin-bottom:10px">
-      <div class="lbl">ファイル添付（PDF・mp3、各20MBまで）</div>
-      <input type="file" id="notice-file-input" accept=".pdf,.mp3,audio/mpeg,application/pdf" multiple style="font-size:12px">
-      <div id="notice-file-preview" style="margin-top:6px"></div>
-      <div style="font-size:11px;color:var(--text2);margin-top:4px">※ 送信から2週間でファイルは自動削除されます</div>
     </div>
     <div class="form-group" style="margin-bottom:10px">
       <div class="lbl">対象月</div>
@@ -1477,6 +1473,10 @@ const AVATAR_COLORS=[
 function getCourseOptions(day){
   if(day==='木'||day==='土')return[{v:3,l:'月3回（固定）'},{v:2,l:'月2回（3回から選択）'}]
   return[{v:2,l:'月2回（固定）'}]
+}
+function linkify(text){
+  if(!text) return ''
+  return text.replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" target="_blank" style="color:var(--blue);text-decoration:underline;word-break:break-all">$1</a>')
 }
 function canSelectDates(s){return(s.day==='木'||s.day==='土')&&s.course===2}
 function isWithdrawn(s){
@@ -3473,7 +3473,7 @@ function renderNoticesAdmin(){
         <span style="font-weight:600;font-size:13px">${n.title}</span>
         <span class="badge b-blue" style="font-size:10px">${n.month}月</span>
       </div>
-      <div style="font-size:12px;color:var(--text2);margin-bottom:6px;white-space:pre-wrap">${n.body}</div>
+      <div style="font-size:12px;color:var(--text2);margin-bottom:6px;white-space:pre-wrap">${linkify(n.body)}</div>
       ${(n.files&&n.files.length)?`
       <div style="margin-bottom:6px">
         ${n.files.map(f=>{
@@ -3574,7 +3574,7 @@ function renderPortalNotices(s,p){
         <span style="font-weight:600;font-size:13px">${n.title}</span>
         ${confirmed?'<span class="badge b-green" style="font-size:10px;flex-shrink:0">確認済み</span>':'<span class="badge b-amber" style="font-size:10px;flex-shrink:0">未確認</span>'}
       </div>
-      <div style="font-size:12px;color:var(--text2);margin-bottom:10px;white-space:pre-wrap;line-height:1.6">${n.body}</div>
+      <div style="font-size:12px;color:var(--text2);margin-bottom:10px;white-space:pre-wrap;line-height:1.6">${linkify(n.body)}</div>
 
       ${(n.files&&n.files.length)?(()=>{
         const isExpired = n.expires_at && new Date(n.expires_at) < new Date()
