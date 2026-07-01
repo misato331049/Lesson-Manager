@@ -626,6 +626,30 @@ function renderNoticeFilePreview(){
   }).join('')
 }
 
+async function downloadNoticeFile(e, path, name){
+  if(!path || !sb) return // pathがなければ通常のリンクで開く
+  e.preventDefault()
+  try{
+    // signed URLを生成してダウンロード
+    const{data,error}=await sb.storage.from('notice-files').createSignedUrl(path, 3600)
+    if(error||!data?.signedUrl){
+      // fallback: public URLで直接開く
+      toast('ダウンロードの準備中にエラーが発生しました。直接リンクを試みます。',true)
+      return
+    }
+    const a=document.createElement('a')
+    a.href=data.signedUrl
+    a.download=name
+    a.target='_blank'
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+  }catch(err){
+    console.error(err)
+    toast('ダウンロードに失敗しました',true)
+  }
+}
+
 async function uploadNoticeFiles(noticeId){
   const uploaded=[]
   for(const file of noticeSelectedFiles){
@@ -825,7 +849,7 @@ function renderPortalNotices(s,p){
         const filesHtml = n.files.map(f=>{
           const icon=f.name.toLowerCase().endsWith('.mp3')?'ti-music':'ti-file-type-pdf'
           const sizeMb=(f.size/1024/1024).toFixed(1)
-          return `<a href="${f.url}" target="_blank" download style="display:flex;align-items:center;gap:6px;font-size:12px;background:var(--blue-light);color:var(--blue-dark);border-radius:6px;padding:7px 10px;margin-bottom:6px;text-decoration:none"><i class="ti ${icon}" style="font-size:16px"></i><span style="flex:1">${f.name}</span><span style="font-size:10px">${sizeMb}MB</span><i class="ti ti-download"></i></a>`
+          return `<a href="${f.url}" target="_blank" download="${f.name}" style="display:flex;align-items:center;gap:6px;font-size:12px;background:var(--blue-light);color:var(--blue-dark);border-radius:6px;padding:7px 10px;margin-bottom:6px;text-decoration:none" onclick="downloadNoticeFile(event,'${f.path||''}','${f.name}')"><i class="ti ${icon}" style="font-size:16px"></i><span style="flex:1">${f.name}</span><span style="font-size:10px">${sizeMb}MB</span><i class="ti ti-download"></i></a>`
         }).join('')
         const expireNote = n.expires_at ? `<div style="font-size:10px;color:var(--amber);margin-bottom:10px">※ ${new Date(n.expires_at).toLocaleDateString('ja-JP')}までダウンロード可能です</div>` : ''
         return `<div style="margin-bottom:6px">${filesHtml}</div>${expireNote}`
@@ -3560,7 +3584,7 @@ function renderPortalNotices(s,p){
         const filesHtml = n.files.map(f=>{
           const icon=f.name.toLowerCase().endsWith('.mp3')?'ti-music':'ti-file-type-pdf'
           const sizeMb=(f.size/1024/1024).toFixed(1)
-          return `<a href="${f.url}" target="_blank" download style="display:flex;align-items:center;gap:6px;font-size:12px;background:var(--blue-light);color:var(--blue-dark);border-radius:6px;padding:7px 10px;margin-bottom:6px;text-decoration:none"><i class="ti ${icon}" style="font-size:16px"></i><span style="flex:1">${f.name}</span><span style="font-size:10px">${sizeMb}MB</span><i class="ti ti-download"></i></a>`
+          return `<a href="${f.url}" target="_blank" download="${f.name}" style="display:flex;align-items:center;gap:6px;font-size:12px;background:var(--blue-light);color:var(--blue-dark);border-radius:6px;padding:7px 10px;margin-bottom:6px;text-decoration:none" onclick="downloadNoticeFile(event,'${f.path||''}','${f.name}')"><i class="ti ${icon}" style="font-size:16px"></i><span style="flex:1">${f.name}</span><span style="font-size:10px">${sizeMb}MB</span><i class="ti ti-download"></i></a>`
         }).join('')
         const expireNote = n.expires_at ? `<div style="font-size:10px;color:var(--amber);margin-bottom:10px">※ ${new Date(n.expires_at).toLocaleDateString('ja-JP')}までダウンロード可能です</div>` : ''
         return `<div style="margin-bottom:6px">${filesHtml}</div>${expireNote}`

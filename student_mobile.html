@@ -559,7 +559,7 @@ function sRenderNotices(){
         filesHtml=n.files.map(f=>{
           const icon=f.name.toLowerCase().endsWith('.mp3')?'ti-music':'ti-file-type-pdf'
           const sz=(f.size/1024/1024).toFixed(1)
-          return `<a href="${f.url}" target="_blank" download class="flink"><i class="ti ${icon}"></i><span style="flex:1;font-size:13px;font-weight:600;word-break:break-all">${f.name}</span><span style="font-size:11px;color:var(--text3);flex-shrink:0">${sz}MB</span><i class="ti ti-download"></i></a>`
+          return `<a href="${f.url}" target="_blank" download="${f.name}" class="flink" onclick="sDownloadFile(event,'${f.path||''}','${f.name}')"><i class="ti ${icon}"></i><span style="flex:1;font-size:13px;font-weight:600;word-break:break-all">${f.name}</span><span style="font-size:11px;color:var(--text3);flex-shrink:0">${sz}MB</span><i class="ti ti-download"></i></a>`
         }).join('')
         if(n.expires_at)filesHtml+=`<div style="font-size:11px;color:var(--amber);margin-bottom:10px">※ ${new Date(n.expires_at).toLocaleDateString('ja-JP')}までダウンロード可能です</div>`
       }
@@ -617,6 +617,18 @@ async function sDelComment(nid,sid){
   if(sb)await sb.from('notices').update({comments:n.comments}).eq('id',nid)
   toast('取り消しました');sRenderNotices()
 }
+
+async function sDownloadFile(e, path, name){
+  if(!path || !sb) return
+  e.preventDefault()
+  try{
+    const{data,error}=await sb.storage.from('notice-files').createSignedUrl(path, 3600)
+    if(error||!data?.signedUrl){toast('ダウンロードに失敗しました',true);return}
+    const a=document.createElement('a');a.href=data.signedUrl;a.download=name;a.target='_blank'
+    document.body.appendChild(a);a.click();document.body.removeChild(a)
+  }catch(err){toast('ダウンロードに失敗しました',true)}
+}
+
 </script>
 </body>
 </html>
