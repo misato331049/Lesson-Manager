@@ -452,8 +452,27 @@ async function changeMonth(m){
 }
 
 /* ===== DATA ===== */
+async function autoCleanupOldData(){
+  if(!sb) return
+  const cur=new Date().getMonth()+1
+  const staleMonths=[]
+  for(let m=1;m<=12;m++){if((cur-m+12)%12>=6)staleMonths.push(m)}
+  if(!staleMonths.length)return
+  const lastClean=localStorage.getItem('lastCleanupMonth')
+  if(lastClean===String(cur))return
+  for(const m of staleMonths){
+    await sb.from('lesson_dates').delete().eq('month',m)
+    await sb.from('student_selections').delete().eq('month',m)
+    await sb.from('requests').delete().eq('month',m)
+    await sb.from('notices').delete().eq('month',m)
+    await sb.from('manual_transfers').delete().eq('month',m)
+    await sb.from('trial_lessons').delete().eq('month',m)
+  }
+  localStorage.setItem('lastCleanupMonth',String(cur))
+}
 async function tLoadAll(){
   if(!sb)return
+  await autoCleanupOldData()
   const[s,d,r,apr,tr,n,trl,sel]=await Promise.all([
     sb.from('students').select('*').order('day').order('time'),
     sb.from('lesson_dates').select('*').eq('month',selectedMonth),
