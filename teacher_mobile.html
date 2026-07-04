@@ -658,7 +658,7 @@ function tDash(){
         ${status}
         ${abs?`<span class="b b-rd" style="font-size:10px">欠席${abs}回</span>`:''}
       </div>
-      \${isSuspended(s)?'<span class="b b-pu" style="margin-left:4px;font-size:10px">休会中</span>':''}
+      ${isSuspended(s)?'<span class="b b-pu" style="margin-left:4px;font-size:10px">休会中</span>':''}
       <button class="btn bsm" style="margin-left:4px;color:var(--pur);border-color:#D8D0F0" onclick="openSuspensionM('${s.id}')" title="休会"><i class="ti ti-zzz"></i></button>
       <button class="btn bsm" style="margin-left:4px;color:var(--amb);border-color:#F0D8A0" onclick="openWithdrawalM('${s.id}')" title="退会"><i class="ti ti-user-off"></i></button>
     </div>`
@@ -829,7 +829,7 @@ function tSched(){
       if(!window.__transferMapM) window.__transferMapM={}
       transfers.forEach(t=>{
         const _tmk = Object.keys(window.__transferMapM).length
-        window.__transferMapM[_tmk] = t.transferId
+        window.__transferMapM[_tmk] = t.id
         html += '<span class="sc-name sc-tr">'+t.studentName+'（振替）</span>'
         html += '<button class="m-transfer-btn" data-tmkey="'+_tmk+'" style="font-size:10px;padding:2px 6px;margin-left:3px;background:#F1EFE8;border:none;border-radius:3px;color:#5F5E5A;cursor:pointer">詳細</button>'
       })
