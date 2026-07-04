@@ -456,8 +456,13 @@ function sRenderCalendar(){
     if(isAbs)tag=`<span class="ctag" style="background:#9CA3AF;color:#fff">欠席</span>`
     else if(isTr){const t=trDates.find(x=>x.toDate===ds);tag=`<span class="ctag" style="background:#9CA3AF;color:#fff;cursor:pointer" onclick="showPopup('${d}','${m}','${t.toTime||s.time}','${t.toDay||s.day}',true)">振替</span>`}
     else if(hasL){
-      const bg=sel?isSel?'var(--blue)':'var(--green)':'var(--green)'
-      tag=`<span class="ctag" style="background:${bg};color:#fff" onclick="showPopup('${d}','${m}','${s.time}','${s.day}',false)">${sel?(isSel?'●':'○'):'レッスン'}</span>`
+      if(sel && !isSel){
+        // 月2回の未選択日は何も表示しない
+      } else {
+        const bg='var(--green)'
+        const label=sel?'●':'レッスン'
+        tag=`<span class="ctag" style="background:${bg};color:#fff" onclick="showPopup('${d}','${m}','${s.time}','${s.day}',false)">${label}</span>`
+      }
     }
     html+=`<div class="${cls}"><div class="${dc}">${d}</div>${tag}</div>`
   }
