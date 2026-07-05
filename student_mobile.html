@@ -144,6 +144,9 @@ const TEACHER_PASSWORD=null
   <input id="login-name" placeholder="例：山田 花子" type="text" autocomplete="name"></div>
   <div class="fg" style="margin-top:12px"><label class="lbl"><i class="ti ti-lock"></i> パスワード</label>
   <input id="login-pw" placeholder="パスワードを入力" type="password" onkeydown="if(event.key==='Enter')sLogin()"></div>
+  <label style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--text2);margin:12px 0;cursor:pointer">
+    <input type="checkbox" id="student-remember" style="width:15px;height:15px;cursor:pointer"> パスワードを記録する
+  </label>
   <button class="btn btn-p btn-bl" onclick="sLogin()"><i class="ti ti-login"></i> ログイン</button>
   <div id="login-err" style="margin-top:10px;font-size:13px;color:var(--red);text-align:center;display:none"><i class="ti ti-alert-circle"></i> 名前またはパスワードが違います</div>
 </div></div>
@@ -310,6 +313,10 @@ async function sLogin(){
   const pw=document.getElementById('login-pw')?.value.trim()||''
   if(s.password && s.password!==pw){document.getElementById('login-err').style.display='block';return}
   loggedInStudent=s
+  // パスワード記録
+  const remember=document.getElementById('student-remember')?.checked
+  if(remember){localStorage.setItem('studentName',name);localStorage.setItem('studentPw',pw)}
+  else{localStorage.removeItem('studentName');localStorage.removeItem('studentPw')}
   document.getElementById('bnav').style.display='flex'
   // 月セレクト初期化
   const msel=document.getElementById('s-month-sel')
@@ -362,10 +369,21 @@ function sChangePassword(){
     if(newPw.length<4){toast('4文字以上にしてください',true);return}
     s.password=newPw
     if(sb)await sb.from('students').update({password:newPw}).eq('id',s.id)
+    if(localStorage.getItem('studentName')===s.name){localStorage.setItem('studentPw',newPw)}
     ov.remove();toast('パスワードを変更しました')
   })
   document.body.appendChild(ov)
 }
+window.addEventListener('DOMContentLoaded',()=>{
+  const savedName=localStorage.getItem('studentName')
+  const savedPw=localStorage.getItem('studentPw')
+  if(savedName){
+    const n=document.getElementById('login-name'),p=document.getElementById('login-pw'),r=document.getElementById('student-remember')
+    if(n)n.value=savedName
+    if(p&&savedPw)p.value=savedPw
+    if(r)r.checked=true
+  }
+})
 function sLogout(){
   loggedInStudent=null
   document.getElementById('bnav').style.display='none'

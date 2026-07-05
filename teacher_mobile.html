@@ -148,6 +148,9 @@ const SUPABASE_ANON_KEY='sb_publishable_1kvfIoWeos6iH0N1N3W15g_gqf-Z8Aj'
   <div style="text-align:center;font-size:13px;color:var(--tx2);margin-bottom:18px">パスワードを入力してください</div>
   <div class="fg"><label class="lb">パスワード</label>
   <input type="password" id="teacher-pw" placeholder="••••••••" onkeydown="if(event.key==='Enter')doLogin()"></div>
+  <label style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--tx2);margin-bottom:14px;cursor:pointer">
+    <input type="checkbox" id="teacher-remember" style="width:15px;height:15px;cursor:pointer"> パスワードを記録する
+  </label>
   <button class="btn bp bbl" id="login-btn" onclick="doLogin()"><i class="ti ti-login"></i> ログイン</button>
   <div id="pw-err" style="margin-top:10px;font-size:13px;color:var(--red);text-align:center;display:none"><i class="ti ti-alert-circle"></i> パスワードが違います</div>
 </div></div>
@@ -261,7 +264,7 @@ const SUPABASE_ANON_KEY='sb_publishable_1kvfIoWeos6iH0N1N3W15g_gqf-Z8Aj'
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
         <div class="fg"><label class="lb">コース</label><select id="a-course"></select></div>
-        <div class="fg"><label class="lb">連絡先</label><input id="a-tel" placeholder="090-0000-0000"></div>
+        <div class="fg"><label class="lb">初期パスワード</label><input id="a-pw" placeholder="生徒に伝えるパスワード"></div>
       </div>
       <div id="a-note" style="font-size:12px;color:var(--tx2);margin-bottom:10px"></div>
       <button class="btn bp" onclick="tAddStudent()"><i class="ti ti-plus"></i> 登録する</button>
@@ -386,7 +389,7 @@ const SUPABASE_ANON_KEY='sb_publishable_1kvfIoWeos6iH0N1N3W15g_gqf-Z8Aj'
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
       <div class="fg"><label class="lb">コース</label><select id="e-course"></select></div>
-      <div class="fg"><label class="lb">連絡先</label><input id="e-tel"></div>
+      <div class="fg"><label class="lb">パスワード（講師のみ閲覧可）</label><input type="password" id="e-pw"></div>
     </div>
     <div style="display:flex;gap:8px;margin-top:4px">
       <button class="btn bp" style="flex:1" onclick="tSaveEdit()"><i class="ti ti-check"></i> 保存</button>
@@ -545,19 +548,30 @@ function updBadges(){
 /* ===== LOGIN ===== */
 async function doLogin(){
   const pw=document.getElementById('teacher-pw').value
+  const remember=document.getElementById('teacher-remember')?.checked
   if(!pw){toast('パスワードを入力してください',true);return}
   document.getElementById('pw-err').style.display='none'
-  if(!sb){if(pw==='demo1234')afterLogin();else document.getElementById('pw-err').style.display='block';return}
+  const saveIfRemember=()=>{ if(remember){localStorage.setItem('teacherPw',pw)}else{localStorage.removeItem('teacherPw')} }
+  if(!sb){if(pw==='demo1234'){saveIfRemember();afterLogin()}else document.getElementById('pw-err').style.display='block';return}
   const btn=document.getElementById('login-btn')
   btn.textContent='確認中...';btn.disabled=true
   try{
     const{data,error}=await sb.rpc('check_teacher_password',{input_password:pw})
     btn.innerHTML='<i class="ti ti-login"></i> ログイン';btn.disabled=false
     if(error)throw error
-    if(data===true||data==='t'||data==='true'||data==true)afterLogin()
+    if(data===true||data==='t'||data==='true'||data==true){saveIfRemember();afterLogin()}
     else document.getElementById('pw-err').style.display='block'
   }catch(e){btn.innerHTML='<i class="ti ti-login"></i> ログイン';btn.disabled=false;document.getElementById('pw-err').style.display='block'}
 }
+// 記録済みパスワードの自動入力
+window.addEventListener('DOMContentLoaded',()=>{
+  const saved=localStorage.getItem('teacherPw')
+  if(saved){
+    const el=document.getElementById('teacher-pw')
+    const rem=document.getElementById('teacher-remember')
+    if(el){el.value=saved; if(rem)rem.checked=true}
+  }
+})
 async function afterLogin(){
   document.getElementById('bnav').style.display='flex'
   initMonthSel()
@@ -1090,7 +1104,7 @@ function tStudents(){
       <div class="av" style="background:${bg};color:${fg}">${ini(s.name)}</div>
       <div style="flex:1;min-width:0">
         <div style="font-weight:700;font-size:14px">${s.name}<span style="font-size:12px;color:var(--tx2);font-weight:400;margin-left:5px">${s.kana||''}</span></div>
-        <div style="font-size:12px;color:var(--tx2)">${s.day}曜 ${s.time} / 月${s.course}回${s.tel?' / '+s.tel:''}</div>
+        <div style="font-size:12px;color:var(--tx2)">${s.day}曜 ${s.time} / 月${s.course}回</div>
       </div>
       <div style="display:flex;gap:5px;flex-shrink:0">
         <button class="btn bsm" onclick="tOpenEdit('${s.id}')"><i class="ti ti-edit"></i></button>
@@ -1111,20 +1125,22 @@ async function tAddStudent(){
   if(students.find(s=>s.name===name)){toast('同名の生徒が既に登録されています',true);return}
   const kana=document.getElementById('a-kana').value.trim()
   const day=document.getElementById('a-day').value,time=document.getElementById('a-time').value
-  const course=parseInt(document.getElementById('a-course').value),tel=document.getElementById('a-tel').value.trim()
+  const course=parseInt(document.getElementById('a-course').value),pw=document.getElementById('a-pw').value.trim()
   if(!sb){toast('Supabaseが未設定です',true);return}
-  const{data,error}=await sb.from('students').insert([{name,kana,day,time,course,tel}]).select().single()
+  if(!pw){toast('初期パスワードを入力してください',true);return}
+  const{data,error}=await sb.from('students').insert([{name,kana,day,time,course,password:pw}]).select().single()
   if(error){toast('登録に失敗しました',true);return}
   if(course===3||day==='金'||day==='日'){const sel=(lessonDates[day]||[]).map(date=>({student_id:data.id,date,month:selectedMonth}));if(sel.length)await sb.from('student_selections').insert(sel);data.selected=lessonDates[day]||[]}
   else data.selected=[]
   data.requests=[];students.push(data)
-  ;['a-name','a-kana','a-tel'].forEach(i=>document.getElementById(i).value='')
+  ;['a-name','a-kana','a-pw'].forEach(i=>document.getElementById(i).value='')
   stTab('list');toast(name+'さんを登録しました')
 }
 async function tDelStudent(id){if(!confirm('この生徒を削除しますか？'))return;if(sb)await sb.from('students').delete().eq('id',id);students=students.filter(s=>s.id!==id);tStudents();toast('削除しました')}
 function tOpenEdit(id){
   const s=students.find(x=>x.id===id);if(!s)return
-  document.getElementById('e-id').value=s.id;document.getElementById('e-name').value=s.name;document.getElementById('e-kana').value=s.kana||'';document.getElementById('e-day').value=s.day;document.getElementById('e-tel').value=s.tel||''
+  document.getElementById('e-id').value=s.id;document.getElementById('e-name').value=s.name;document.getElementById('e-kana').value=s.kana||'';document.getElementById('e-day').value=s.day
+  const pwEl=document.getElementById('e-pw');if(pwEl)pwEl.value=s.password||''
   eOpts();setTimeout(()=>{document.getElementById('e-time').value=s.time;document.getElementById('e-course').value=String(s.course)},0)
   document.getElementById('emod').style.display='flex'
 }
@@ -1135,11 +1151,11 @@ async function tSaveEdit(){
   if(!name){toast('氏名を入力してください',true);return}
   const kana=document.getElementById('e-kana').value.trim(),day=document.getElementById('e-day').value
   const time=document.getElementById('e-time').value,course=parseInt(document.getElementById('e-course').value)
-  const tel=document.getElementById('e-tel').value.trim()
+  const pw=document.getElementById('e-pw')?.value.trim()||''
   const s=students.find(x=>x.id===id);if(!s)return
-  s.name=name;s.kana=kana;s.day=day;s.time=time;s.course=course;s.tel=tel
+  s.name=name;s.kana=kana;s.day=day;s.time=time;s.course=course;s.password=pw
   if(course===3||day==='金'||day==='日')s.selected=[...lessonDates[day]||[]]
-  if(sb)await sb.from('students').update({name,kana,day,time,course,tel}).eq('id',id)
+  if(sb)await sb.from('students').update({name,kana,day,time,course,password:pw}).eq('id',id)
   closeEdit();tStudents();toast(name+'さんの情報を更新しました')
 }
 

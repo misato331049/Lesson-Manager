@@ -477,7 +477,7 @@ function openEditModal(id){
   document.getElementById('edit-name').value=s.name
   document.getElementById('edit-kana').value=s.kana||''
   document.getElementById('edit-day').value=s.day
-  document.getElementById('edit-tel').value=s.tel||''
+  const pwEl=document.getElementById('edit-pw'); if(pwEl) pwEl.value=s.password||''
   updateEditTimeOptions()
   document.getElementById('edit-time').value=s.time
   document.getElementById('edit-course').value=String(s.course)
@@ -496,17 +496,17 @@ async function saveEditStudent(){
   const day=document.getElementById('edit-day').value
   const time=document.getElementById('edit-time').value
   const course=parseInt(document.getElementById('edit-course').value)
-  const tel=document.getElementById('edit-tel').value.trim()
+  const pw=document.getElementById('edit-pw')?.value.trim()||''
   if(!name){toast('氏名を入力してください',true);return}
   const s=students.find(x=>x.id===id)
   if(!s) return
   // ローカル更新
-  s.name=name;s.kana=kana;s.day=day;s.time=time;s.course=course;s.tel=tel
+  s.name=name;s.kana=kana;s.day=day;s.time=time;s.course=course;s.password=pw
   // 月3回や金・日なら選択日程を自動更新
   if(course===3||day==='金'||day==='日') s.selected=[...lessonDates[day]||[]]
   // Supabase更新
   if(sb){
-    await sb.from('students').update({name,kana,day,time,course,tel}).eq('id',id)
+    await sb.from('students').update({name,kana,day,time,course,password:pw}).eq('id',id)
   }
   closeEditModal()
   renderStudentList()
@@ -1179,6 +1179,9 @@ const TEACHER_PASSWORD = null
         <div class="lbl">パスワード</div>
         <input type="password" id="teacher-pw" placeholder="••••••••" onkeydown="if(event.key==='Enter')doTeacherLogin()">
       </div>
+      <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text2);margin-bottom:14px;cursor:pointer">
+        <input type="checkbox" id="teacher-remember" style="width:14px;height:14px;cursor:pointer"> パスワードを記録する
+      </label>
       <button class="btn btn-primary" style="width:100%;justify-content:center" onclick="doTeacherLogin()"><i class="ti ti-login"></i> ログイン</button>
       <div id="teacher-login-error" style="margin-top:10px;font-size:12px;color:var(--red);text-align:center;display:none"><i class="ti ti-alert-circle"></i> パスワードが違います</div>
       <div style="margin-top:16px;text-align:center">
@@ -1293,7 +1296,6 @@ const TEACHER_PASSWORD = null
     </div>
     <div class="form-row">
       <div class="form-group"><div class="lbl">コース</div><select id="s-course"></select></div>
-      <div class="form-group"><div class="lbl">連絡先</div><input id="s-tel" placeholder="090-0000-0000"></div>
       <div class="form-group"><div class="lbl">初期パスワード</div><input id="s-pw" placeholder="生徒に伝えるパスワード"></div>
     </div>
     <div id="s-course-note" style="font-size:11px;color:var(--text2);margin-bottom:10px"></div>
@@ -1371,6 +1373,9 @@ const TEACHER_PASSWORD = null
         <div class="lbl"><i class="ti ti-lock"></i> パスワード</div>
         <input type="password" id="login-pw" placeholder="パスワードを入力" onkeydown="if(event.key==='Enter')doLogin()">
       </div>
+      <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text2);margin-bottom:14px;cursor:pointer">
+        <input type="checkbox" id="student-remember" style="width:14px;height:14px;cursor:pointer"> パスワードを記録する
+      </label>
       <button class="btn btn-primary" style="width:100%;justify-content:center" onclick="doLogin()"><i class="ti ti-login"></i> ログイン</button>
       <div id="login-error" style="margin-top:10px;font-size:12px;color:var(--red);text-align:center;display:none"><i class="ti ti-alert-circle"></i> 名前またはパスワードが違います</div>
     </div>
@@ -1646,7 +1651,7 @@ async function saveLessonDates(){
 async function addStudentToDB(s){
   if(!sb){toast('Supabaseが未設定です',true);return false}
   const{data,error}=await sb.from('students').insert([{
-    name:s.name,kana:s.kana,day:s.day,time:s.time,course:s.course,tel:s.tel
+    name:s.name,kana:s.kana,day:s.day,time:s.time,course:s.course,password:s.password||''
   }]).select().single()
   if(error){toast('登録に失敗しました',true);console.error(error);return false}
   // 月3回・金・日は全日程を自動登録
@@ -1838,17 +1843,19 @@ function nav(id){
    ===================================================== */
 async function doTeacherLogin(){
   const pw=document.getElementById('teacher-pw').value
+  const remember=document.getElementById('teacher-remember')?.checked
   if(!pw){ document.getElementById('teacher-login-error').style.display='block'; return }
+
+  const onSuccess=()=>{
+    teacherLoggedIn=true
+    document.getElementById('teacher-login-error').style.display='none'
+    if(remember){ localStorage.setItem('teacherPw', pw) } else { localStorage.removeItem('teacherPw') }
+    initApp()
+  }
 
   if(!sb){
     // Supabase未設定時はデモ用パスワードで動作
-    if(pw==='demo1234'){
-      teacherLoggedIn=true
-      document.getElementById('teacher-login-error').style.display='none'
-      initApp()
-    } else {
-      document.getElementById('teacher-login-error').style.display='block'
-    }
+    if(pw==='demo1234'){ onSuccess() } else { document.getElementById('teacher-login-error').style.display='block' }
     return
   }
 
@@ -1857,9 +1864,7 @@ async function doTeacherLogin(){
     const { data, error } = await sb.rpc('check_teacher_password', { input_password: pw })
     if(error) throw error
     if(data === true || data === 't' || data === 'true' || data == true){
-      teacherLoggedIn=true
-      document.getElementById('teacher-login-error').style.display='none'
-      initApp()
+      onSuccess()
     } else {
       document.getElementById('teacher-login-error').style.display='block'
     }
@@ -1868,6 +1873,25 @@ async function doTeacherLogin(){
     document.getElementById('teacher-login-error').style.display='block'
   }
 }
+// 記録されたパスワードを自動入力
+document.addEventListener('DOMContentLoaded', ()=>{
+  const savedTeacherPw = localStorage.getItem('teacherPw')
+  if(savedTeacherPw){
+    const el=document.getElementById('teacher-pw')
+    const rem=document.getElementById('teacher-remember')
+    if(el){ el.value = savedTeacherPw; if(rem) rem.checked=true }
+  }
+  const savedStudentName = localStorage.getItem('studentName')
+  const savedStudentPw = localStorage.getItem('studentPw')
+  if(savedStudentName){
+    const nameEl=document.getElementById('login-name')
+    const pwEl=document.getElementById('login-pw')
+    const rem2=document.getElementById('student-remember')
+    if(nameEl){ nameEl.value = savedStudentName }
+    if(pwEl && savedStudentPw){ pwEl.value = savedStudentPw }
+    if(rem2){ rem2.checked=true }
+  }
+})
 
 async function autoCleanupOldData(){
   if(!sb) return
@@ -2142,7 +2166,7 @@ async function downloadAllBackup(){
     // 各テーブルをCSV化してダウンロード
     const monthLabel=`${selectedMonth}月分バックアップ`
     const tables=[
-      {name:'生徒一覧',       data:s.data,  headers:['id','name','kana','day','time','course','tel']},
+      {name:'生徒一覧',       data:s.data,  headers:['id','name','kana','day','time','course']},
       {name:'欠席振替申請',   data:r.data,  headers:['id','student_name','date','type','note','status','month','transfer_date','transfer_day','transfer_time','created_at']},
       {name:'お知らせ',       data:n.data,  headers:['id','title','body','month','target_names','created_at','expires_at']},
       {name:'日程選択',       data:sel.data,headers:['id','student_id','date','month']},
@@ -2453,7 +2477,7 @@ function renderStudentList(){
     return`<div class="srow">
       <div class="avatar" style="background:${bg};color:${fg}">${initials(s.name)}</div>
       <div style="flex:1"><div style="font-weight:600">${s.name} <span style="font-size:11px;color:var(--text2);font-weight:400">${s.kana||''}</span></div>
-      <div style="font-size:11px;color:var(--text2)">${s.day}曜 ${s.time} / 月${s.course}回 / ${s.tel||''}</div></div>
+      <div style="font-size:11px;color:var(--text2)">${s.day}曜 ${s.time} / 月${s.course}回</div></div>
       <span class="badge ${s.course===3?'b-green':'b-blue'}">月${s.course}回</span>
       <button class="btn btn-sm" style="margin-left:6px" onclick="openEditModal('${s.id}')"><i class="ti ti-edit"></i></button>
       <button class="btn btn-sm" style="color:var(--red);border-color:#F7C1C1;margin-left:4px" onclick="deleteStudent('${s.id}')"><i class="ti ti-trash"></i></button>
@@ -2469,12 +2493,11 @@ async function addStudent(){
   const day=document.getElementById('s-day').value
   const time=document.getElementById('s-time').value
   const course=parseInt(document.getElementById('s-course').value)
-  const tel=document.getElementById('s-tel').value.trim()
   const pw=document.getElementById('s-pw').value.trim()
   if(!pw){toast('初期パスワードを入力してください',true);return}
-  const ok=await addStudentToDB({name,kana,day,time,course,tel,password:pw})
+  const ok=await addStudentToDB({name,kana,day,time,course,password:pw})
   if(ok){
-    ;['s-name','s-kana','s-tel','s-pw'].forEach(i=>document.getElementById(i).value='')
+    ;['s-name','s-kana','s-pw'].forEach(i=>document.getElementById(i).value='')
     renderStudentList();toast(name+'さんを登録しました')
   }
 }
@@ -2655,6 +2678,15 @@ async function doLogin(){
   }
   document.getElementById('login-error').style.display='none'
   loggedInStudent = s
+  // パスワード記録
+  const remember=document.getElementById('student-remember')?.checked
+  if(remember){
+    localStorage.setItem('studentName', name)
+    localStorage.setItem('studentPw', pw)
+  } else {
+    localStorage.removeItem('studentName')
+    localStorage.removeItem('studentPw')
+  }
   // レッスン日程もロード
   await loadLessonDates()
   await loadNotices() // ★修正: ログイン時にお知らせデータを必ず取得
@@ -2693,6 +2725,10 @@ async function changeStudentPassword(){
   if(newPw.length<4){toast('パスワードは4文字以上にしてください',true);return}
   s.password=newPw
   if(sb) await sb.from('students').update({password:newPw}).eq('id',s.id)
+  // 記録済みパスワードがあれば更新
+  if(localStorage.getItem('studentName')===s.name){
+    localStorage.setItem('studentPw', newPw)
+  }
   closeModal()
   toast('パスワードを変更しました')
 }
@@ -3299,7 +3335,7 @@ function openEditModal(id){
   document.getElementById('edit-name').value=s.name
   document.getElementById('edit-kana').value=s.kana||''
   document.getElementById('edit-day').value=s.day
-  document.getElementById('edit-tel').value=s.tel||''
+  const pwEl=document.getElementById('edit-pw'); if(pwEl) pwEl.value=s.password||''
   updateEditTimeOptions()
   document.getElementById('edit-time').value=s.time
   document.getElementById('edit-course').value=String(s.course)
@@ -3318,17 +3354,17 @@ async function saveEditStudent(){
   const day=document.getElementById('edit-day').value
   const time=document.getElementById('edit-time').value
   const course=parseInt(document.getElementById('edit-course').value)
-  const tel=document.getElementById('edit-tel').value.trim()
+  const pw=document.getElementById('edit-pw')?.value.trim()||''
   if(!name){toast('氏名を入力してください',true);return}
   const s=students.find(x=>x.id===id)
   if(!s) return
   // ローカル更新
-  s.name=name;s.kana=kana;s.day=day;s.time=time;s.course=course;s.tel=tel
+  s.name=name;s.kana=kana;s.day=day;s.time=time;s.course=course;s.password=pw
   // 月3回や金・日なら選択日程を自動更新
   if(course===3||day==='金'||day==='日') s.selected=[...lessonDates[day]||[]]
   // Supabase更新
   if(sb){
-    await sb.from('students').update({name,kana,day,time,course,tel}).eq('id',id)
+    await sb.from('students').update({name,kana,day,time,course,password:pw}).eq('id',id)
   }
   closeEditModal()
   renderStudentList()
@@ -3963,9 +3999,8 @@ if(isStudentMode){
     </div>
     <div class="form-row" style="margin-bottom:10px">
       <div class="form-group"><div class="lbl">コース</div><select id="edit-course"></select></div>
-      <div class="form-group"><div class="lbl">連絡先</div><input id="edit-tel" placeholder="090-0000-0000"></div>
-    </div>
-    <div class="form-group" style="margin-bottom:10px"><div class="lbl">パスワード</div><input id="edit-pw" placeholder="生徒のパスワード"></div>
+      </div>
+    <div class="form-group" style="margin-bottom:10px"><div class="lbl">パスワード（講師のみ閲覧可）</div><input type="password" id="edit-pw" placeholder="生徒のパスワード"></div>
     <div style="display:flex;gap:8px;margin-top:14px">
       <button class="btn btn-primary" style="flex:1" onclick="saveEditStudent()"><i class="ti ti-device-floppy"></i> 保存する</button>
       <button class="btn" onclick="closeEditModal()">キャンセル</button>
