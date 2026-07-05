@@ -141,9 +141,11 @@ const TEACHER_PASSWORD=null
   <div style="text-align:center;font-size:19px;font-weight:700;margin-bottom:5px">生徒ページ</div>
   <div style="text-align:center;font-size:13px;color:var(--text2);margin-bottom:20px">お名前を入力してログインしてください</div>
   <div class="fg"><label class="lbl">氏名（登録名と完全一致）</label>
-  <input id="login-name" placeholder="例：山田 花子" type="text" autocomplete="name" onkeydown="if(event.key==='Enter')sLogin()"></div>
+  <input id="login-name" placeholder="例：山田 花子" type="text" autocomplete="name"></div>
+  <div class="fg" style="margin-top:12px"><label class="lbl"><i class="ti ti-lock"></i> パスワード</label>
+  <input id="login-pw" placeholder="パスワードを入力" type="password" onkeydown="if(event.key==='Enter')sLogin()"></div>
   <button class="btn btn-p btn-bl" onclick="sLogin()"><i class="ti ti-login"></i> ログイン</button>
-  <div id="login-err" style="margin-top:10px;font-size:13px;color:var(--red);text-align:center;display:none"><i class="ti ti-alert-circle"></i> 名前が見つかりません</div>
+  <div id="login-err" style="margin-top:10px;font-size:13px;color:var(--red);text-align:center;display:none"><i class="ti ti-alert-circle"></i> 名前またはパスワードが違います</div>
 </div></div>
 </div>
 
@@ -304,13 +306,16 @@ async function sLogin(){
   const s=students.find(x=>x.name===name)
   btn.innerHTML='<i class="ti ti-login"></i> ログイン';btn.disabled=false
   if(!s){document.getElementById('login-err').style.display='block';return}
+  // パスワード検証
+  const pw=document.getElementById('login-pw')?.value.trim()||''
+  if(s.password && s.password!==pw){document.getElementById('login-err').style.display='block';return}
   loggedInStudent=s
   document.getElementById('bnav').style.display='flex'
   // 月セレクト初期化
   const msel=document.getElementById('s-month-sel')
   msel.innerHTML=[1,2,3,4,5,6,7,8,9,10,11,12].map(m=>`<option value="${m}" ${selectedMonth==m?'selected':''}>${m}月</option>`).join('')
   msel.style.display='block'
-  document.getElementById('hdr-right').innerHTML=`<button onclick="sLogout()" style="background:none;border:none;color:var(--text2);font-size:13px;cursor:pointer;font-family:var(--font);display:flex;align-items:center;gap:4px;padding:6px"><i class="ti ti-logout" style="font-size:19px"></i></button>`
+  document.getElementById('hdr-right').innerHTML=`<button onclick="sChangePassword()" style="background:none;border:none;color:var(--text2);cursor:pointer;padding:6px;margin-right:4px"><i class="ti ti-key" style="font-size:19px"></i></button><button onclick="sLogout()" style="background:none;border:none;color:var(--text2);font-size:13px;cursor:pointer;font-family:var(--font);display:flex;align-items:center;gap:4px;padding:6px"><i class="ti ti-logout" style="font-size:19px"></i></button>`
   sPage('schedule')
 }
 async function sChangeMonth(m){
@@ -326,6 +331,40 @@ async function sChangeMonth(m){
   if(cur==='schedule')sRenderSchedule()
   if(cur==='absent')sRenderAbsent()
   if(cur==='notices')sRenderNotices()
+}
+function sChangePassword(){
+  const s=loggedInStudent;if(!s)return
+  const existing=document.getElementById('cpw-ov');if(existing)existing.remove()
+  const ov=document.createElement('div')
+  ov.id='cpw-ov'
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:500;display:flex;align-items:flex-end;justify-content:center'
+  ov.innerHTML=
+    '<div style="background:var(--sf);border-radius:16px 16px 0 0;padding:20px 18px calc(20px + env(safe-area-inset-bottom));width:100%">'+
+      '<div style="width:40px;height:4px;background:var(--bd2);border-radius:2px;margin:0 auto 16px"></div>'+
+      '<div style="font-size:17px;font-weight:700;margin-bottom:14px"><i class="ti ti-key" style="color:var(--blue-d)"></i> パスワード変更</div>'+
+      '<div style="margin-bottom:10px"><div style="font-size:12px;font-weight:600;color:var(--text2);margin-bottom:4px">現在のパスワード</div><input type="password" id="cpw-old" style="font-size:16px;padding:10px 12px;width:100%;box-sizing:border-box;border:1px solid var(--border);border-radius:8px"></div>'+
+      '<div style="margin-bottom:10px"><div style="font-size:12px;font-weight:600;color:var(--text2);margin-bottom:4px">新しいパスワード</div><input type="password" id="cpw-new" style="font-size:16px;padding:10px 12px;width:100%;box-sizing:border-box;border:1px solid var(--border);border-radius:8px"></div>'+
+      '<div style="margin-bottom:16px"><div style="font-size:12px;font-weight:600;color:var(--text2);margin-bottom:4px">新しいパスワード（確認）</div><input type="password" id="cpw-confirm" style="font-size:16px;padding:10px 12px;width:100%;box-sizing:border-box;border:1px solid var(--border);border-radius:8px"></div>'+
+      '<div style="display:flex;gap:8px">'+
+        '<button class="btn btn-p btn-bl" style="flex:1" id="cpw-save-btn"><i class="ti ti-check"></i> 変更する</button>'+
+        '<button class="btn" id="cpw-cancel-btn">キャンセル</button>'+
+      '</div>'+
+    '</div>'
+  ov.addEventListener('click',e=>{if(e.target===ov)ov.remove()})
+  ov.querySelector('#cpw-cancel-btn').addEventListener('click',()=>ov.remove())
+  ov.querySelector('#cpw-save-btn').addEventListener('click',async()=>{
+    const oldPw=ov.querySelector('#cpw-old').value
+    const newPw=ov.querySelector('#cpw-new').value
+    const confirmPw=ov.querySelector('#cpw-confirm').value
+    if(s.password&&s.password!==oldPw){toast('現在のパスワードが違います',true);return}
+    if(!newPw){toast('新しいパスワードを入力してください',true);return}
+    if(newPw!==confirmPw){toast('パスワードが一致しません',true);return}
+    if(newPw.length<4){toast('4文字以上にしてください',true);return}
+    s.password=newPw
+    if(sb)await sb.from('students').update({password:newPw}).eq('id',s.id)
+    ov.remove();toast('パスワードを変更しました')
+  })
+  document.body.appendChild(ov)
 }
 function sLogout(){
   loggedInStudent=null

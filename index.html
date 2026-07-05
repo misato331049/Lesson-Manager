@@ -1294,6 +1294,7 @@ const TEACHER_PASSWORD = null
     <div class="form-row">
       <div class="form-group"><div class="lbl">コース</div><select id="s-course"></select></div>
       <div class="form-group"><div class="lbl">連絡先</div><input id="s-tel" placeholder="090-0000-0000"></div>
+      <div class="form-group"><div class="lbl">初期パスワード</div><input id="s-pw" placeholder="生徒に伝えるパスワード"></div>
     </div>
     <div id="s-course-note" style="font-size:11px;color:var(--text2);margin-bottom:10px"></div>
     <button class="btn btn-primary" onclick="addStudent()"><i class="ti ti-plus"></i> 登録する</button>
@@ -1364,10 +1365,14 @@ const TEACHER_PASSWORD = null
       </div>
       <div class="form-group" style="margin-bottom:12px">
         <div class="lbl">氏名（登録名と完全一致）</div>
-        <input id="login-name" placeholder="例：山田 花子" onkeydown="if(event.key==='Enter')doLogin()">
+        <input id="login-name" placeholder="例：山田 花子">
+      </div>
+      <div class="form-group" style="margin-bottom:16px">
+        <div class="lbl"><i class="ti ti-lock"></i> パスワード</div>
+        <input type="password" id="login-pw" placeholder="パスワードを入力" onkeydown="if(event.key==='Enter')doLogin()">
       </div>
       <button class="btn btn-primary" style="width:100%;justify-content:center" onclick="doLogin()"><i class="ti ti-login"></i> ログイン</button>
-      <div id="login-error" style="margin-top:10px;font-size:12px;color:var(--red);text-align:center;display:none"><i class="ti ti-alert-circle"></i> 名前が見つかりません</div>
+      <div id="login-error" style="margin-top:10px;font-size:12px;color:var(--red);text-align:center;display:none"><i class="ti ti-alert-circle"></i> 名前またはパスワードが違います</div>
     </div>
   </div>
 </div>
@@ -1379,7 +1384,7 @@ const TEACHER_PASSWORD = null
       <div class="avatar" id="sp-avatar" style="width:42px;height:42px;font-size:14px"></div>
       <div><div style="font-size:15px;font-weight:600" id="sp-name"></div><div style="font-size:12px;color:var(--text2)" id="sp-info"></div></div>
     </div>
-    <button class="btn btn-sm" onclick="doLogout()"><i class="ti ti-logout"></i> ログアウト</button>
+    <button class="btn btn-sm" style="margin-right:6px" onclick="openChangePasswordModal()"><i class="ti ti-key"></i> PW変更</button><button class="btn btn-sm" onclick="doLogout()"><i class="ti ti-logout"></i> ログアウト</button>
   </div>
   <div id="sp-lock-banner" style="display:none"></div>
   <div class="tab-bar">
@@ -1825,7 +1830,7 @@ function nav(id){
     }
   }
   if(id==='teacher-student-view')renderTeacherStudentViewSelects()
-  if(id==='student-login'){document.getElementById('login-name').value='';document.getElementById('login-error').style.display='none'}
+  if(id==='student-login'){document.getElementById('login-name').value='';document.getElementById('login-pw').value='';document.getElementById('login-error').style.display='none'}
 }
 
 /* =====================================================
@@ -2465,9 +2470,11 @@ async function addStudent(){
   const time=document.getElementById('s-time').value
   const course=parseInt(document.getElementById('s-course').value)
   const tel=document.getElementById('s-tel').value.trim()
-  const ok=await addStudentToDB({name,kana,day,time,course,tel})
+  const pw=document.getElementById('s-pw').value.trim()
+  if(!pw){toast('初期パスワードを入力してください',true);return}
+  const ok=await addStudentToDB({name,kana,day,time,course,tel,password:pw})
   if(ok){
-    ;['s-name','s-kana','s-tel'].forEach(i=>document.getElementById(i).value='')
+    ;['s-name','s-kana','s-tel','s-pw'].forEach(i=>document.getElementById(i).value='')
     renderStudentList();toast(name+'さんを登録しました')
   }
 }
@@ -2620,24 +2627,31 @@ async function doLogin(){
   await loadLessonDates()
   await loadStudents()
   // ローカルに既にデータがあれば使う、なければSupabaseから直接取得
+  const pw = document.getElementById('login-pw').value.trim()
   let s = students.find(x=>x.name===name)
   if(!s){
-    // Supabaseから直接名前で検索
     const {data,error} = await sb.from('students').select('*').eq('name',name).single()
     if(error || !data){
       document.getElementById('login-error').style.display='block'
       return
     }
+    s = data
+  }
+  // パスワード検証
+  if(s.password && s.password !== pw){
+    document.getElementById('login-error').style.display='block'
+    return
+  }
+  if(!s.selected){
     // 選択日程・申請も取得
     const {data:sel} = await sb.from('student_selections')
-      .select('date').eq('student_id',data.id).eq('month',selectedMonth)
-    data.selected = sel ? sel.map(x=>x.date) : []
+      .select('date').eq('student_id',s.id).eq('month',selectedMonth)
+    s.selected = sel ? sel.map(x=>x.date) : []
     const {data:req} = await sb.from('requests')
-      .select('*').eq('student_id',data.id).eq('status','pending')
-    data.requests = req || []
+      .select('*').eq('student_id',s.id).eq('status','pending')
+    s.requests = req || []
     // ローカルにも追加
-    students.push(data)
-    s = data
+    if(!students.find(x=>x.id===s.id)) students.push(s)
   }
   document.getElementById('login-error').style.display='none'
   loggedInStudent = s
@@ -2654,6 +2668,33 @@ function showStudentPortal(s){
   refreshPortal(s.id,'sp')
   spTab('schedule')
   renderPortalNotices(s,'sp')
+}
+function openChangePasswordModal(){
+  const s=loggedInStudent;if(!s)return
+  showModal('change-pw-modal',
+    '<div class="modal-title"><i class="ti ti-key" style="color:var(--blue)"></i> パスワード変更</div>'+
+    '<div class="form-group" style="margin-bottom:10px"><div class="lbl">現在のパスワード</div><input type="password" id="cpw-old" placeholder="現在のパスワード"></div>'+
+    '<div class="form-group" style="margin-bottom:10px"><div class="lbl">新しいパスワード</div><input type="password" id="cpw-new" placeholder="新しいパスワード"></div>'+
+    '<div class="form-group" style="margin-bottom:14px"><div class="lbl">新しいパスワード（確認）</div><input type="password" id="cpw-confirm" placeholder="もう一度入力"></div>'+
+    '<div style="display:flex;gap:8px">'+
+      '<button class="btn btn-primary" style="flex:1" onclick="changeStudentPassword()"><i class="ti ti-check"></i> 変更する</button>'+
+      '<button class="btn" onclick="closeModal()">キャンセル</button>'+
+    '</div>'
+  )
+}
+async function changeStudentPassword(){
+  const s=loggedInStudent;if(!s)return
+  const oldPw=document.getElementById('cpw-old')?.value||''
+  const newPw=document.getElementById('cpw-new')?.value||''
+  const confirmPw=document.getElementById('cpw-confirm')?.value||''
+  if(s.password && s.password!==oldPw){toast('現在のパスワードが違います',true);return}
+  if(!newPw){toast('新しいパスワードを入力してください',true);return}
+  if(newPw!==confirmPw){toast('新しいパスワードが一致しません',true);return}
+  if(newPw.length<4){toast('パスワードは4文字以上にしてください',true);return}
+  s.password=newPw
+  if(sb) await sb.from('students').update({password:newPw}).eq('id',s.id)
+  closeModal()
+  toast('パスワードを変更しました')
 }
 function doLogout(){loggedInStudent=null;nav('student-login')}
 
@@ -3924,6 +3965,7 @@ if(isStudentMode){
       <div class="form-group"><div class="lbl">コース</div><select id="edit-course"></select></div>
       <div class="form-group"><div class="lbl">連絡先</div><input id="edit-tel" placeholder="090-0000-0000"></div>
     </div>
+    <div class="form-group" style="margin-bottom:10px"><div class="lbl">パスワード</div><input id="edit-pw" placeholder="生徒のパスワード"></div>
     <div style="display:flex;gap:8px;margin-top:14px">
       <button class="btn btn-primary" style="flex:1" onclick="saveEditStudent()"><i class="ti ti-device-floppy"></i> 保存する</button>
       <button class="btn" onclick="closeEditModal()">キャンセル</button>
