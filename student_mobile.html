@@ -223,7 +223,12 @@ function linkify(text){
   return text.replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" target="_blank" style="color:var(--blue-d);text-decoration:underline;word-break:break-all">$1</a>')
 }
 function canSel(s){return(s.day==='木'||s.day==='土')&&s.course===2}
-function isLocked(){return new Date().getDate()>=1}
+function isLocked(){
+  const cur=new Date().getMonth()+1
+  if(selectedMonth===cur) return true  // 当月はロック
+  const dist=(cur-selectedMonth+12)%12
+  return dist>0 && dist<=6  // 過去6ヶ月以内もロック
+}
 
 function toast(msg,isErr=false){
   const t=document.getElementById('toast')
