@@ -247,7 +247,7 @@ async function autoCleanupOldData(){
   if(!sb) return
   const cur=new Date().getMonth()+1
   const staleMonths=[]
-  for(let m=1;m<=12;m++){if((cur-m+12)%12>=6)staleMonths.push(m)}
+  for(let m=1;m<=12;m++){if(cur-m>=6)staleMonths.push(m)}
   if(!staleMonths.length)return
   const lastClean=localStorage.getItem('lastCleanupMonth')
   if(lastClean===String(cur))return
