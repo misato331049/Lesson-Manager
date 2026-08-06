@@ -129,6 +129,7 @@ const TEACHER_PASSWORD=null
 <div class="hdr">
   <div class="hdr-logo"><i class="ti ti-music"></i></div>
   <div class="hdr-title" id="hdr-title">生徒ページ</div>
+  <select id="s-year-sel" onchange="sChangeYear(this.value)" style="display:none;flex-shrink:0;min-width:56px;font-size:13px;font-weight:700;padding:4px 6px;margin-right:4px;border:1px solid var(--border2);border-radius:6px;background:var(--bg);color:var(--text);font-family:var(--font);cursor:pointer;-webkit-appearance:none"></select>
   <select id="s-month-sel" onchange="sChangeMonth(this.value)" style="display:none;flex-shrink:0;min-width:52px;font-size:13px;font-weight:700;padding:4px 8px;border:1px solid var(--border2);border-radius:6px;background:var(--bg);color:var(--text);font-family:var(--font);cursor:pointer;-webkit-appearance:none"></select>
   <div id="hdr-right"></div>
 </div>
@@ -220,6 +221,7 @@ const sb=isConfigured?window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KE
 let students=[],lessonDates={},manualTransfers=[],approvedAbsences=[],notices=[]
 let loggedInStudent=null
 let selectedMonth=new Date().getMonth()+1
+let selectedYear=new Date().getFullYear()
 
 const AVATAR_COLORS=[['#E6F1FB','#0C447C'],['#EAF3DE','#27500A'],['#FAEEDA','#633806'],['#EEEDFE','#3C3489'],['#FCEBEB','#791F1F'],['#E0F2FE','#0C4A6E']]
 function ini(n){return n.replace(/\s/g,'').substring(0,2)}
@@ -230,9 +232,12 @@ function linkify(text){
 }
 function canSel(s){return(s.day==='木'||s.day==='土')&&s.course===2}
 function isLocked(){
-  const cur=new Date().getMonth()+1
-  if(selectedMonth===cur) return true  // 当月はロック
-  const dist=(cur-selectedMonth+12)%12
+  const now=new Date()
+  const curY=now.getFullYear(), curM=now.getMonth()+1
+  const curIdx=curY*12+curM
+  const selIdx=selectedYear*12+selectedMonth
+  if(selIdx===curIdx) return true  // 当月はロック
+  const dist=curIdx-selIdx
   return dist>0 && dist<=6  // 過去6ヶ月以内もロック
 }
 
@@ -266,20 +271,20 @@ async function sLoadAll(){
   await autoCleanupOldData()
   const[sd,ld,req,apr,tr,ntc,sel]=await Promise.all([
     sb.from('students').select('*').order('day').order('time'),
-    sb.from('lesson_dates').select('*').eq('month',selectedMonth),
+    sb.from('lesson_dates').select('*').eq('month',selectedMonth).eq('year',selectedYear),
     sb.from('requests').select('*').eq('status','pending'),
-    sb.from('requests').select('*,students(name,day,time)').eq('status','approved').eq('month',selectedMonth),
-    sb.from('manual_transfers').select('*').eq('month',selectedMonth),
+    sb.from('requests').select('*,students(name,day,time)').eq('status','approved').eq('month',selectedMonth).eq('year',selectedYear),
+    sb.from('manual_transfers').select('*').eq('month',selectedMonth).eq('year',selectedYear),
     sb.from('notices').select('*').order('created_at',{ascending:false}),
-    sb.from('student_selections').select('*').eq('month',selectedMonth)
+    sb.from('student_selections').select('*').eq('month',selectedMonth).eq('year',selectedYear)
   ])
   students=(sd.data||[]).map(s=>({...s,
     selected:(sel.data||[]).filter(x=>x.student_id===s.id).map(x=>x.date),
     requests:(req.data||[]).filter(x=>x.student_id===s.id)
   }))
   lessonDates={};(ld.data||[]).forEach(x=>{if(!lessonDates[x.day])lessonDates[x.day]=[];lessonDates[x.day].push(x.date)});Object.keys(lessonDates).forEach(k=>{lessonDates[k]=sortD(lessonDates[k])})
-  approvedAbsences=(apr.data||[]).map(x=>({id:x.id,studentId:x.student_id,date:x.date,day:x.students?.day||'',time:x.students?.time||'',type:x.type||'欠席',note:x.note||'',month:selectedMonth}))
-  manualTransfers=(tr.data||[]).map(x=>({id:x.id,studentName:x.student_name,toDate:x.to_date,toDay:x.to_day,toTime:x.to_time,month:x.month}))
+  approvedAbsences=(apr.data||[]).map(x=>({id:x.id,studentId:x.student_id,date:x.date,day:x.students?.day||'',time:x.students?.time||'',type:x.type||'欠席',note:x.note||'',month:selectedMonth,year:selectedYear}))
+  manualTransfers=(tr.data||[]).map(x=>({id:x.id,studentName:x.student_name,toDate:x.to_date,toDay:x.to_day,toTime:x.to_time,month:x.month,year:x.year}))
   notices=ntc.data||[]
 
   // 月2回生徒の古い選択を自動クリーンアップ
@@ -289,8 +294,8 @@ async function sLoadAll(){
       const validSel=s.selected.filter(d=>currentDates.includes(d))
       if(validSel.length!==s.selected.length){
         if(sb){
-          await sb.from('student_selections').delete().eq('student_id',s.id).eq('month',selectedMonth)
-          if(validSel.length)await sb.from('student_selections').insert(validSel.map(d=>({student_id:s.id,date:d,month:selectedMonth})))
+          await sb.from('student_selections').delete().eq('student_id',s.id).eq('month',selectedMonth).eq('year',selectedYear)
+          if(validSel.length)await sb.from('student_selections').insert(validSel.map(d=>({student_id:s.id,date:d,month:selectedMonth,year:selectedYear})))
         }
         s.selected=validSel
       }
@@ -323,6 +328,12 @@ async function sLogin(){
   const msel=document.getElementById('s-month-sel')
   msel.innerHTML=[1,2,3,4,5,6,7,8,9,10,11,12].map(m=>`<option value="${m}" ${selectedMonth==m?'selected':''}>${m}月</option>`).join('')
   msel.style.display='block'
+  const ysel=document.getElementById('s-year-sel')
+  if(ysel){
+    const base=new Date().getFullYear()
+    ysel.innerHTML=[base-1,base,base+1,base+2].map(y=>`<option value="${y}" ${selectedYear==y?'selected':''}>${y}年</option>`).join('')
+    ysel.style.display='block'
+  }
   document.getElementById('hdr-right').innerHTML=`<button onclick="sChangePassword()" style="background:none;border:none;color:var(--text2);cursor:pointer;padding:6px;margin-right:4px"><i class="ti ti-key" style="font-size:19px"></i></button><button onclick="sLogout()" style="background:none;border:none;color:var(--text2);font-size:13px;cursor:pointer;font-family:var(--font);display:flex;align-items:center;gap:4px;padding:6px"><i class="ti ti-logout" style="font-size:19px"></i></button>`
   sPage('schedule')
 }
@@ -335,6 +346,18 @@ async function sChangeMonth(m){
     if(fresh) loggedInStudent=fresh
   }
   // 現在表示中のページを再描画
+  const cur=document.querySelector('.nb.on')?.id?.replace('nb-','')
+  if(cur==='schedule')sRenderSchedule()
+  if(cur==='absent')sRenderAbsent()
+  if(cur==='notices')sRenderNotices()
+}
+async function sChangeYear(y){
+  selectedYear=parseInt(y)
+  await sLoadAll()
+  if(loggedInStudent){
+    const fresh=students.find(x=>x.id===loggedInStudent.id)
+    if(fresh) loggedInStudent=fresh
+  }
   const cur=document.querySelector('.nb.on')?.id?.replace('nb-','')
   if(cur==='schedule')sRenderSchedule()
   if(cur==='absent')sRenderAbsent()
@@ -390,6 +413,7 @@ function sLogout(){
   document.getElementById('bnav').style.display='none'
   document.getElementById('hdr-right').innerHTML=''
   document.getElementById('s-month-sel').style.display='none'
+  const ysel0=document.getElementById('s-year-sel');if(ysel0)ysel0.style.display='none'
   document.getElementById('hdr-title').textContent='生徒ページ'
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'))
   document.getElementById('page-login').classList.add('active')
@@ -542,8 +566,8 @@ async function sConfirmDates(){
   const s=loggedInStudent;if(!s)return
   if(s.selected.length<2){toast('2回選択してください',true);return}
   if(sb){
-    await sb.from('student_selections').delete().eq('student_id',s.id).eq('month',selectedMonth)
-    await sb.from('student_selections').insert(s.selected.map(d=>({student_id:s.id,date:d,month:selectedMonth})))
+    await sb.from('student_selections').delete().eq('student_id',s.id).eq('month',selectedMonth).eq('year',selectedYear)
+    await sb.from('student_selections').insert(s.selected.map(d=>({student_id:s.id,date:d,month:selectedMonth,year:selectedYear})))
   }
   toast('日程を確定しました：'+s.selected.join('・'))
   sRenderSchedule()
@@ -612,7 +636,7 @@ async function sSubmitAbsent(){
   const note=document.getElementById('abs-note').value.trim()
   if(!note){toast('内容を入力してください',true);return}
   if(!sb){toast('Supabaseが未設定です',true);return}
-  const{data,error}=await sb.from('requests').insert([{student_id:s.id,student_name:s.name,date,type,note,status:'pending',month:selectedMonth,day:s.day,time:s.time}]).select().single()
+  const{data,error}=await sb.from('requests').insert([{student_id:s.id,student_name:s.name,date,type,note,status:'pending',month:selectedMonth,year:selectedYear,day:s.day,time:s.time}]).select().single()
   if(error){toast('送信に失敗しました',true);return}
   if(!s.requests)s.requests=[]
   s.requests.push({...data})

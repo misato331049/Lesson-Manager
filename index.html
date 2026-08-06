@@ -251,7 +251,7 @@ async function onDrop(e, toDay, toDate, toSlot){
   if(s){
     s.selected = s.selected.filter(d=>d!==fromDate)
     if(sb) await sb.from('student_selections')
-      .delete().eq('student_id',studentId).eq('date',fromDate).eq('month',selectedMonth)
+      .delete().eq('student_id',studentId).eq('date',fromDate).eq('month',selectedMonth).eq('year',selectedYear)
   }
 
   // 振替として新しいコマに追加
@@ -260,14 +260,14 @@ async function onDrop(e, toDay, toDate, toSlot){
     student_name: cleanName,
     from_date: fromDate, from_time: fromSlot, from_day: fromDay,
     to_date: toDate, to_time: toSlot, to_day: toDay,
-    month: selectedMonth
+    month: selectedMonth, year: selectedYear
   }
   const transfer = {
     id: 'tr_'+Date.now(),
     studentName: cleanName,
     fromDate, fromTime: fromSlot, fromDay,
     toDate, toTime: toSlot, toDay,
-    month: selectedMonth
+    month: selectedMonth, year: selectedYear
   }
   if(sb){
     const{data}=await sb.from('manual_transfers').insert([transferRow]).select().single()
@@ -367,7 +367,7 @@ async function confirmTransferModal(day, date, slot){
     from_date: fromDate, from_time: fromTime, from_day: fromDay,
     to_date: date, to_time: slot, to_day: day,
     memo: memo,
-    month: selectedMonth
+    month: selectedMonth, year: selectedYear
   }
   if(sb){
     const{data}=await sb.from('manual_transfers').insert([transfer]).select().single()
@@ -417,7 +417,7 @@ function openTrialModal(day, date, slot){
 }
 async function confirmTrialModal(day, date, slot){
   const memo = document.getElementById('trial-memo')?.value.trim()||''
-  const trial = { date, time: slot, day, memo, month: selectedMonth }
+  const trial = { date, time: slot, day, memo, month: selectedMonth, year: selectedYear }
   if(sb){
     const{data}=await sb.from('trial_lessons').insert([trial]).select().single()
     if(data) trial.id=data.id
@@ -1518,6 +1518,7 @@ let loggedInStudent=null
 let teacherLoggedIn=false
 let currentMode='teacher'
 let selectedMonth=getCurrentMonth()
+let selectedYear=new Date().getFullYear()
 
 /* =====================================================
    Supabase データ操作
@@ -1528,7 +1529,7 @@ async function loadStudents(){
   if(!error&&data){
     for(const s of data){
       const{data:sel}=await sb.from('student_selections')
-        .select('date').eq('student_id',s.id).eq('month',selectedMonth)
+        .select('date').eq('student_id',s.id).eq('month',selectedMonth).eq('year',selectedYear)
       s.selected=sel?sel.map(x=>x.date):[]
       const{data:req}=await sb.from('requests')
         .select('*').eq('student_id',s.id).eq('status','pending')
@@ -1541,7 +1542,7 @@ async function loadStudents(){
     const{data:approved}=await sb.from('requests')
       .select('*,students(name,day,time)')
       .eq('status','approved')
-      .eq('month',selectedMonth)
+      .eq('month',selectedMonth).eq('year',selectedYear)
     if(approved){
       approvedAbsences=approved.map(r=>({
         id:r.id,
@@ -1552,7 +1553,7 @@ async function loadStudents(){
         day:r.students?.day||'',
         note:r.note||'',
         type:r.type||'欠席',
-        month:selectedMonth,
+        month:selectedMonth,year:selectedYear,
         transfer_date:r.transfer_date||'',
         transfer_day:r.transfer_day||'',
         transfer_time:r.transfer_time||''
@@ -1560,25 +1561,25 @@ async function loadStudents(){
     }
     // お知らせを取得
     const{data:noticeData}=await sb.from('notices')
-      .select('*').eq('month',selectedMonth).order('created_at',{ascending:false})
+      .select('*').eq('month',selectedMonth).eq('year',selectedYear).order('created_at',{ascending:false})
     if(noticeData) notices=noticeData
 
     // 振替データを取得
     const{data:transfers}=await sb.from('manual_transfers')
-      .select('*').eq('month',selectedMonth)
+      .select('*').eq('month',selectedMonth).eq('year',selectedYear)
     if(transfers) manualTransfers=transfers.map(t=>({
       id:t.id,
       studentName:t.student_name,
       fromDate:t.from_date, fromTime:t.from_time, fromDay:t.from_day,
       toDate:t.to_date, toTime:t.to_time, toDay:t.to_day,
       memo:t.memo||'',
-      month:t.month
+      month:t.month,year:t.year
     }))
     // 体験レッスンを取得
     const{data:trials}=await sb.from('trial_lessons')
-      .select('*').eq('month',selectedMonth)
+      .select('*').eq('month',selectedMonth).eq('year',selectedYear)
     if(trials) trialLessons=trials.map(t=>({
-      id:t.id, date:t.date, time:t.time, day:t.day, memo:t.memo, month:t.month
+      id:t.id, date:t.date, time:t.time, day:t.day, memo:t.memo, month:t.month,year:t.year
     }))
   }
 
@@ -1591,9 +1592,9 @@ async function loadStudents(){
       if(validSel.length !== s.selected.length){
         // 古い選択がある → DBから削除して有効な選択だけ残す
         if(sb){
-          await sb.from('student_selections').delete().eq('student_id',s.id).eq('month',selectedMonth)
+          await sb.from('student_selections').delete().eq('student_id',s.id).eq('month',selectedMonth).eq('year',selectedYear)
           if(validSel.length){
-            await sb.from('student_selections').insert(validSel.map(d=>({student_id:s.id,date:d,month:selectedMonth})))
+            await sb.from('student_selections').insert(validSel.map(d=>({student_id:s.id,date:d,month:selectedMonth,year:selectedYear})))
           }
         }
         s.selected = validSel
@@ -1604,7 +1605,7 @@ async function loadStudents(){
 
 async function loadLessonDates(){
   if(!sb)return
-  const{data,error}=await sb.from('lesson_dates').select('*').eq('month',selectedMonth)
+  const{data,error}=await sb.from('lesson_dates').select('*').eq('month',selectedMonth).eq('year',selectedYear)
   if(!error&&data){
     lessonDates={木:[],金:[],土:[],日:[]}
     data.forEach(r=>{if(lessonDates[r.day])lessonDates[r.day].push(r.date)})
@@ -1616,19 +1617,19 @@ async function loadLessonDates(){
 async function saveLessonDates(){
   if(!sb){toast('Supabaseが未設定です',true);return}
   // 既存削除
-  await sb.from('lesson_dates').delete().eq('month',selectedMonth)
+  await sb.from('lesson_dates').delete().eq('month',selectedMonth).eq('year',selectedYear)
   // 新規挿入
   const rows=[]
   DAY_LIST.forEach(day=>{
-    tempDates[day].forEach(date=>rows.push({day,date,month:selectedMonth}))
+    tempDates[day].forEach(date=>rows.push({day,date,month:selectedMonth,year:selectedYear}))
   })
   if(rows.length){await sb.from('lesson_dates').insert(rows)}
   // 全生徒の選択を更新
   for(const s of students){
     if(s.course===3||s.day==='金'||s.day==='日'){
       // 月3回・金・日：全日程を自動設定
-      await sb.from('student_selections').delete().eq('student_id',s.id).eq('month',selectedMonth)
-      const newSel=(tempDates[s.day]||[]).map(date=>({student_id:s.id,date,month:selectedMonth}))
+      await sb.from('student_selections').delete().eq('student_id',s.id).eq('month',selectedMonth).eq('year',selectedYear)
+      const newSel=(tempDates[s.day]||[]).map(date=>({student_id:s.id,date,month:selectedMonth,year:selectedYear}))
       if(newSel.length)await sb.from('student_selections').insert(newSel)
       s.selected=tempDates[s.day]||[]
     } else {
@@ -1636,9 +1637,9 @@ async function saveLessonDates(){
       const newDates=tempDates[s.day]||[]
       const validSel=s.selected.filter(d=>newDates.includes(d))
       // 常に全削除して再挿入（確実にリセット）
-      await sb.from('student_selections').delete().eq('student_id',s.id).eq('month',selectedMonth)
+      await sb.from('student_selections').delete().eq('student_id',s.id).eq('month',selectedMonth).eq('year',selectedYear)
       if(validSel.length){
-        await sb.from('student_selections').insert(validSel.map(d=>({student_id:s.id,date:d,month:selectedMonth})))
+        await sb.from('student_selections').insert(validSel.map(d=>({student_id:s.id,date:d,month:selectedMonth,year:selectedYear})))
       }
       s.selected=validSel
     }
@@ -1656,7 +1657,7 @@ async function addStudentToDB(s){
   if(error){toast('登録に失敗しました',true);console.error(error);return false}
   // 月3回・金・日は全日程を自動登録
   if(s.course===3||s.day==='金'||s.day==='日'){
-    const sel=(lessonDates[s.day]||[]).map(date=>({student_id:data.id,date,month:selectedMonth}))
+    const sel=(lessonDates[s.day]||[]).map(date=>({student_id:data.id,date,month:selectedMonth,year:selectedYear}))
     if(sel.length)await sb.from('student_selections').insert(sel)
     data.selected=lessonDates[s.day]||[]
   } else {
@@ -1675,9 +1676,9 @@ async function deleteStudentFromDB(id){
 
 async function saveStudentSelection(studentId,dates){
   if(!sb)return
-  await sb.from('student_selections').delete().eq('student_id',studentId).eq('month',selectedMonth)
+  await sb.from('student_selections').delete().eq('student_id',studentId).eq('month',selectedMonth).eq('year',selectedYear)
   if(dates.length){
-    await sb.from('student_selections').insert(dates.map(date=>({student_id:studentId,date,month:selectedMonth})))
+    await sb.from('student_selections').insert(dates.map(date=>({student_id:studentId,date,month:selectedMonth,year:selectedYear})))
   }
 }
 
@@ -1693,7 +1694,7 @@ async function submitRequest(studentId,date,type,note){
 
 async function resolveRequest(requestId,action,studentId){
   const newStatus = action==='承認'?'approved':'dismissed'
-  if(sb) await sb.from('requests').update({status:newStatus,month:selectedMonth}).eq('id',requestId)
+  if(sb) await sb.from('requests').update({status:newStatus,month:selectedMonth,year:selectedYear}).eq('id',requestId)
   const s=students.find(x=>x.id===studentId)
   if(s){
     const req=s.requests.find(r=>r.id===requestId)
@@ -1708,7 +1709,7 @@ async function resolveRequest(requestId,action,studentId){
         day:s.day,
         note:req.note||'',
         type:req.type||'欠席',
-        month:selectedMonth
+        month:selectedMonth,year:selectedYear
       }
       // 重複を避けて追加
       approvedAbsences = approvedAbsences.filter(a=>a.id!==requestId)
@@ -1746,13 +1747,21 @@ function buildMonthSelect(id, onChange){
   ).join('')
 }
 
+function buildYearSelect(){
+  const base=new Date().getFullYear()
+  const years=[base-1,base,base+1,base+2]
+  return years.map(y=>
+    `<option value="${y}" ${selectedYear==y?'selected':''}>${y}年</option>`
+  ).join('')
+}
+
 function setTopbar(id){
   document.getElementById('topbar-title').textContent=PAGE_TITLES[id]||''
   const acts=document.getElementById('topbar-actions')
   if(id==='schedule-thu-sat'||id==='schedule-fri'||id==='schedule-sun'){
-    acts.innerHTML=`<select id="month-sel" onchange="changeMonth(this.value)" style="font-size:12px;padding:5px 8px;width:auto">${buildMonthSelect()}</select>`
+    acts.innerHTML=`<select id="year-sel" onchange="changeYear(this.value)" style="font-size:12px;padding:5px 6px;width:auto;margin-right:4px">${buildYearSelect()}</select><select id="month-sel" onchange="changeMonth(this.value)" style="font-size:12px;padding:5px 8px;width:auto">${buildMonthSelect()}</select>`
   } else if(id==='student-portal'){
-    acts.innerHTML=`<select id="sp-month-sel" onchange="changeStudentMonth(this.value)" style="font-size:12px;padding:5px 8px;width:auto">${buildMonthSelect()}</select>`
+    acts.innerHTML=`<select id="sp-year-sel" onchange="changeStudentYear(this.value)" style="font-size:12px;padding:5px 6px;width:auto;margin-right:4px">${buildYearSelect()}</select><select id="sp-month-sel" onchange="changeStudentMonth(this.value)" style="font-size:12px;padding:5px 8px;width:auto">${buildMonthSelect()}</select>`
   } else if(id==='dashboard'||id==='transfer-admin'||id==='notices-admin'||id==='schedule-thu-sat'||id==='schedule-fri'||id==='schedule-sun'){
     acts.innerHTML=`<button class="btn btn-sm" onclick="reloadPage()"><i class="ti ti-refresh"></i> 更新</button>`
   } else {
@@ -1767,12 +1776,30 @@ async function changeMonth(m){
   renderScheduleTable()
 }
 
+async function changeYear(y){
+  selectedYear=parseInt(y)
+  await loadLessonDates()
+  await loadStudents()
+  renderScheduleTable()
+}
+
 async function changeStudentMonth(m){
   selectedMonth=parseInt(m)
   await loadLessonDates()
   await loadStudents()
   if(loggedInStudent){
     // ログイン中の生徒情報を最新に更新
+    const updated = students.find(x=>x.id===loggedInStudent.id)
+    if(updated) loggedInStudent = updated
+    refreshPortal(loggedInStudent.id,'sp')
+  }
+}
+
+async function changeStudentYear(y){
+  selectedYear=parseInt(y)
+  await loadLessonDates()
+  await loadStudents()
+  if(loggedInStudent){
     const updated = students.find(x=>x.id===loggedInStudent.id)
     if(updated) loggedInStudent = updated
     refreshPortal(loggedInStudent.id,'sp')
@@ -2668,7 +2695,7 @@ async function doLogin(){
   if(!s.selected){
     // 選択日程・申請も取得
     const {data:sel} = await sb.from('student_selections')
-      .select('date').eq('student_id',s.id).eq('month',selectedMonth)
+      .select('date').eq('student_id',s.id).eq('month',selectedMonth).eq('year',selectedYear)
     s.selected = sel ? sel.map(x=>x.date) : []
     const {data:req} = await sb.from('requests')
       .select('*').eq('student_id',s.id).eq('status','pending')
@@ -3062,7 +3089,7 @@ async function onDrop(e, toDay, toDate, toSlot){
   if(s){
     s.selected = s.selected.filter(d=>d!==fromDate)
     if(sb) await sb.from('student_selections')
-      .delete().eq('student_id',studentId).eq('date',fromDate).eq('month',selectedMonth)
+      .delete().eq('student_id',studentId).eq('date',fromDate).eq('month',selectedMonth).eq('year',selectedYear)
   }
 
   // 振替として新しいコマに追加
@@ -3071,14 +3098,14 @@ async function onDrop(e, toDay, toDate, toSlot){
     student_name: cleanName,
     from_date: fromDate, from_time: fromSlot, from_day: fromDay,
     to_date: toDate, to_time: toSlot, to_day: toDay,
-    month: selectedMonth
+    month: selectedMonth, year: selectedYear
   }
   const transfer = {
     id: 'tr_'+Date.now(),
     studentName: cleanName,
     fromDate, fromTime: fromSlot, fromDay,
     toDate, toTime: toSlot, toDay,
-    month: selectedMonth
+    month: selectedMonth, year: selectedYear
   }
   if(sb){
     const{data}=await sb.from('manual_transfers').insert([transferRow]).select().single()
@@ -3178,7 +3205,7 @@ async function confirmTransferModal(day, date, slot){
     from_date: fromDate, from_time: fromTime, from_day: fromDay,
     to_date: date, to_time: slot, to_day: day,
     memo: memo,
-    month: selectedMonth
+    month: selectedMonth, year: selectedYear
   }
   if(sb){
     const{data}=await sb.from('manual_transfers').insert([transfer]).select().single()
@@ -3228,7 +3255,7 @@ function openTrialModal(day, date, slot){
 }
 async function confirmTrialModal(day, date, slot){
   const memo = document.getElementById('trial-memo')?.value.trim()||''
-  const trial = { date, time: slot, day, memo, month: selectedMonth }
+  const trial = { date, time: slot, day, memo, month: selectedMonth, year: selectedYear }
   if(sb){
     const{data}=await sb.from('trial_lessons').insert([trial]).select().single()
     if(data) trial.id=data.id

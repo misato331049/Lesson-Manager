@@ -133,6 +133,7 @@ const SUPABASE_ANON_KEY='sb_publishable_1kvfIoWeos6iH0N1N3W15g_gqf-Z8Aj'
 <div class="hdr">
   <div class="hico"><i class="ti ti-shield-check"></i></div>
   <div class="htitle" id="htitle">レッスン管理（講師）</div>
+  <select id="year-sel" class="hmonth" onchange="changeYear(this.value)" style="display:none;margin-right:4px"></select>
   <select id="month-sel" class="hmonth" onchange="changeMonth(this.value)" style="display:none"></select>
   <span id="req-badge" class="hbadge" style="display:none">!</span>
 </div>
@@ -406,6 +407,7 @@ const sb=isConf?window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY):nul
 let students=[],lessonDates={木:[],金:[],土:[],日:[]},tempDates={木:[],金:[],土:[],日:[]}
 let manualTransfers=[],approvedAbsences=[],notices=[],trialLessons=[]
 let selectedMonth=new Date().getMonth()+1
+let selectedYear=new Date().getFullYear()
 let nFiles=[],curDay='木'
 
 const DAY_LIST=['木','金','土','日']
@@ -446,9 +448,21 @@ function initMonthSel(){
   const sel=document.getElementById('month-sel')
   sel.innerHTML=[1,2,3,4,5,6,7,8,9,10,11,12].map(m=>`<option value="${m}" ${selectedMonth==m?'selected':''}>${m}月</option>`).join('')
   sel.style.display='block'
+  const ysel=document.getElementById('year-sel')
+  if(ysel){
+    const base=new Date().getFullYear()
+    ysel.innerHTML=[base-1,base,base+1,base+2].map(y=>`<option value="${y}" ${selectedYear==y?'selected':''}>${y}年</option>`).join('')
+    ysel.style.display='block'
+  }
 }
 async function changeMonth(m){
   selectedMonth=parseInt(m)
+  await tLoadAll()
+  const cur=document.querySelector('.nb.on')?.id?.replace('nb-','')
+  if(cur)tPage(cur,true)
+}
+async function changeYear(y){
+  selectedYear=parseInt(y)
   await tLoadAll()
   const cur=document.querySelector('.nb.on')?.id?.replace('nb-','')
   if(cur)tPage(cur,true)
@@ -478,13 +492,13 @@ async function tLoadAll(){
   await autoCleanupOldData()
   const[s,d,r,apr,tr,n,trl,sel]=await Promise.all([
     sb.from('students').select('*').order('day').order('time'),
-    sb.from('lesson_dates').select('*').eq('month',selectedMonth),
+    sb.from('lesson_dates').select('*').eq('month',selectedMonth).eq('year',selectedYear),
     sb.from('requests').select('*').eq('status','pending'),
-    sb.from('requests').select('*,students(name,day,time)').eq('status','approved').eq('month',selectedMonth),
-    sb.from('manual_transfers').select('*').eq('month',selectedMonth),
+    sb.from('requests').select('*,students(name,day,time)').eq('status','approved').eq('month',selectedMonth).eq('year',selectedYear),
+    sb.from('manual_transfers').select('*').eq('month',selectedMonth).eq('year',selectedYear),
     sb.from('notices').select('*').order('created_at',{ascending:false}),
-    sb.from('trial_lessons').select('*').eq('month',selectedMonth),
-    sb.from('student_selections').select('*').eq('month',selectedMonth)
+    sb.from('trial_lessons').select('*').eq('month',selectedMonth).eq('year',selectedYear),
+    sb.from('student_selections').select('*').eq('month',selectedMonth).eq('year',selectedYear)
   ])
   students=(s.data||[]).map(st=>({...st,
     selected:(sel.data||[]).filter(x=>x.student_id===st.id).map(x=>x.date),
@@ -504,7 +518,7 @@ async function tLoadAll(){
       time:x.students?.time||s?.time||'',
       type:x.type||'欠席',
       note:x.note||'',
-      month:selectedMonth,
+      month:selectedMonth,year:selectedYear,
       transfer_date:x.transfer_date||'',
       transfer_day:x.transfer_day||'',
       transfer_time:x.transfer_time||''
@@ -516,7 +530,7 @@ async function tLoadAll(){
     fromDate:x.from_date, fromTime:x.from_time, fromDay:x.from_day,
     toDate:x.to_date, toTime:x.to_time, toDay:x.to_day,
     memo:x.memo||'',
-    month:x.month
+    month:x.month,year:x.year
   }))
   notices=n.data||[]
   trialLessons=trl.data||[]
@@ -527,8 +541,8 @@ async function tLoadAll(){
       const validSel=s.selected.filter(d=>currentDates.includes(d))
       if(validSel.length!==s.selected.length){
         if(sb){
-          await sb.from('student_selections').delete().eq('student_id',s.id).eq('month',selectedMonth)
-          if(validSel.length)await sb.from('student_selections').insert(validSel.map(d=>({student_id:s.id,date:d,month:selectedMonth})))
+          await sb.from('student_selections').delete().eq('student_id',s.id).eq('month',selectedMonth).eq('year',selectedYear)
+          if(validSel.length)await sb.from('student_selections').insert(validSel.map(d=>({student_id:s.id,date:d,month:selectedMonth,year:selectedYear})))
         }
         s.selected=validSel
       }
@@ -888,13 +902,13 @@ function tAddDate(day){
 function tRemDate(day,i){tempDates[day].splice(i,1);document.getElementById('dtags-'+day).innerHTML=tRenderTags(day);document.getElementById('dcnt-'+day).textContent=tempDates[day].length+'日'}
 async function tSaveDates(){
   if(!sb){toast('Supabaseが未設定です',true);return}
-  await sb.from('lesson_dates').delete().eq('month',selectedMonth)
-  const rows=[];DAY_LIST.forEach(day=>tempDates[day].forEach(date=>rows.push({day,date,month:selectedMonth})))
+  await sb.from('lesson_dates').delete().eq('month',selectedMonth).eq('year',selectedYear)
+  const rows=[];DAY_LIST.forEach(day=>tempDates[day].forEach(date=>rows.push({day,date,month:selectedMonth,year:selectedYear})))
   if(rows.length)await sb.from('lesson_dates').insert(rows)
   for(const s of students){
     if(s.course===3||s.day==='金'||s.day==='日'){
-      await sb.from('student_selections').delete().eq('student_id',s.id).eq('month',selectedMonth)
-      const ns=(tempDates[s.day]||[]).map(date=>({student_id:s.id,date,month:selectedMonth}))
+      await sb.from('student_selections').delete().eq('student_id',s.id).eq('month',selectedMonth).eq('year',selectedYear)
+      const ns=(tempDates[s.day]||[]).map(date=>({student_id:s.id,date,month:selectedMonth,year:selectedYear}))
       if(ns.length)await sb.from('student_selections').insert(ns)
       s.selected=tempDates[s.day]||[]
     }
@@ -970,9 +984,9 @@ function tRequests(){
 }
 async function tApprove(id,sid){
   const s=students.find(x=>x.id===sid),r=s?.requests.find(x=>x.id===id);if(!r)return
-  if(sb)await sb.from('requests').update({status:'approved',month:selectedMonth}).eq('id',id)
+  if(sb)await sb.from('requests').update({status:'approved',month:selectedMonth,year:selectedYear}).eq('id',id)
   s.requests=s.requests.filter(x=>x.id!==id)
-  approvedAbsences.push({id,studentId:sid,studentName:s.name,date:r.date,day:s.day,time:s.time,type:r.type||'欠席',note:r.note||'',month:selectedMonth})
+  approvedAbsences.push({id,studentId:sid,studentName:s.name,date:r.date,day:s.day,time:s.time,type:r.type||'欠席',note:r.note||'',month:selectedMonth,year:selectedYear})
   toast('承認しました');updBadges();tRequests();tDash()
 }
 async function tReject(id,sid){
@@ -1052,7 +1066,7 @@ async function tSendNotice(){
   const cbs=document.querySelectorAll('.ncb:checked');if(!cbs.length){toast('送信先を選択してください',true);return}
   const tids=Array.from(cbs).map(c=>c.value),tnms=Array.from(cbs).map(c=>c.dataset.name)
   const exAt=new Date(Date.now()+14*24*60*60*1000).toISOString()
-  const notice={title,body,month:selectedMonth,target_ids:tids,target_names:tnms,confirmed_by:[],comments:[],files:[],expires_at:exAt}
+  const notice={title,body,month:selectedMonth,year:selectedYear,target_ids:tids,target_names:tnms,confirmed_by:[],comments:[],files:[],expires_at:exAt}
   if(sb){
     const{data,error}=await sb.from('notices').insert([notice]).select().single()
     if(error){toast('送信に失敗しました',true);return}
@@ -1130,7 +1144,7 @@ async function tAddStudent(){
   if(!pw){toast('初期パスワードを入力してください',true);return}
   const{data,error}=await sb.from('students').insert([{name,kana,day,time,course,password:pw}]).select().single()
   if(error){toast('登録に失敗しました',true);return}
-  if(course===3||day==='金'||day==='日'){const sel=(lessonDates[day]||[]).map(date=>({student_id:data.id,date,month:selectedMonth}));if(sel.length)await sb.from('student_selections').insert(sel);data.selected=lessonDates[day]||[]}
+  if(course===3||day==='金'||day==='日'){const sel=(lessonDates[day]||[]).map(date=>({student_id:data.id,date,month:selectedMonth,year:selectedYear}));if(sel.length)await sb.from('student_selections').insert(sel);data.selected=lessonDates[day]||[]}
   else data.selected=[]
   data.requests=[];students.push(data)
   ;['a-name','a-kana','a-pw'].forEach(i=>document.getElementById(i).value='')
@@ -1179,8 +1193,8 @@ async function tAddTransfer(){
   const toTime=document.getElementById('tr-to-time').value
   if(!fromDate||!toDate){toast('元の日付・振替先の日付を入力してください',true);return}
   const memo=document.getElementById('tr-memo')?.value.trim()||''
-  const row={student_name:s.name,from_date:fromDate,from_time:fromTime,from_day:fromDay,to_date:toDate,to_time:toTime,to_day:toDay,memo:memo,month:selectedMonth}
-  if(sb){const{data,error}=await sb.from('manual_transfers').insert([row]).select().single();if(error){toast('保存に失敗しました',true);return};manualTransfers.push({id:data.id,studentName:s.name,fromDate,fromTime,fromDay,toDate,toTime,toDay,memo:memo,month:selectedMonth})}
+  const row={student_name:s.name,from_date:fromDate,from_time:fromTime,from_day:fromDay,to_date:toDate,to_time:toTime,to_day:toDay,memo:memo,month:selectedMonth,year:selectedYear}
+  if(sb){const{data,error}=await sb.from('manual_transfers').insert([row]).select().single();if(error){toast('保存に失敗しました',true);return};manualTransfers.push({id:data.id,studentName:s.name,fromDate,fromTime,fromDay,toDate,toTime,toDay,memo:memo,month:selectedMonth,year:selectedYear})}
   toast('振替を登録しました');tTransferList()
   ;['tr-from-date','tr-to-date'].forEach(i=>document.getElementById(i).value='')
 }
@@ -1203,7 +1217,7 @@ async function tAddTrial(){
   const date=document.getElementById('tl-date').value.trim(),day=document.getElementById('tl-day').value
   const time=document.getElementById('tl-time').value,memo=document.getElementById('tl-memo').value.trim()
   if(!date){toast('日付を入力してください',true);return}
-  const row={date,day,time,memo,month:selectedMonth}
+  const row={date,day,time,memo,month:selectedMonth,year:selectedYear}
   if(sb){const{data,error}=await sb.from('trial_lessons').insert([row]).select().single();if(error){toast('保存に失敗しました',true);return};trialLessons.push({...data})}
   toast('体験レッスンを登録しました');tTrialList();document.getElementById('tl-date').value='';document.getElementById('tl-memo').value=''
 }
